@@ -90,6 +90,18 @@ def api_client() -> Iterator[None]:
     yield None
 
 
+# ---------------------------------------------------------------------------
+# Payload factories
+#
+# These build nested JSON-LD documents mirroring the LRMoo / Polifonia
+# ontologies used by the SHACL shapes under test. Each "positive" factory
+# produces a payload that should conform to its shape; each "invalid" factory
+# starts from a valid payload and removes exactly the triple(s) needed to
+# violate one specific constraint, so the resulting negative test can be
+# traced back to a single expected cause.
+# ---------------------------------------------------------------------------
+
+
 def _make_agent_role(
     person_id: str, person_label: str, role_id: str, role_label: str
 ) -> dict:
@@ -264,6 +276,11 @@ def _make_manifestation_reference_only_payload(suffix: str) -> dict:
 
 
 def _make_invalid_expression_payload(suffix: str) -> dict:
+    """Valid manifestation payload with the nested work's rdfs:label stripped.
+
+    Targets the ExpressionShape/WorkShape min-count-on-label constraint via
+    a cascade insert rooted at ManifestationShape.
+    """
     payload = _make_manifestation_payload(suffix=suffix)
     work = payload[LRMOO_R4_EMBODIES][CORE_IS_PART_OF]
     work.pop(RDFS_LABEL, None)
@@ -271,6 +288,14 @@ def _make_invalid_expression_payload(suffix: str) -> dict:
 
 
 def _make_invalid_agent_role_payload(suffix: str) -> dict:
+    """Valid manifestation payload with both hasAgent and hasRole stripped
+    from the nested agent-role node.
+
+    Note: this removes two properties at once, so a failure here confirms
+    *some* AgentRoleShape constraint fired, not specifically which one. If
+    you need to verify hasAgent and hasRole are independently enforced,
+    split this into two payload factories that each remove only one.
+    """
     payload = _make_manifestation_payload(suffix=suffix)
     agent_role = payload[LRMOO_R4_EMBODIES][CORE_IS_PART_OF][CORE_HAS_AGENT_ROLE][0]
     agent_role.pop(CORE_HAS_AGENT, None)
@@ -291,6 +316,35 @@ def _assert_entity_has_label_and_type(
         t["predicate"] == RDF_TYPE and t["object"] == expected_type for t in triples
     )
     return triples
+
+
+def _collect_all_ids(node) -> set[str]:
+    """Recursively collect every @id in a nested JSON-LD structure.
+
+    Used to verify full-cascade rollback on a rejected insert: rather than
+    hardcoding the suffix -> IRI naming scheme used by each payload factory
+    (which would silently go stale if a factory changed), this walks the
+    actual payload sent to the API and returns every IRI it touches. That
+    set is exactly "everything the backend would have had to persist for
+    this insert to fully succeed" -- and therefore exactly what must NOT
+    exist in the store after the insert is rejected.
+    """
+    ids: set[str] = set()
+    if isinstance(node, dict):
+        node_id = node.get("@id")
+        if isinstance(node_id, str) and node_id.startswith("http"):
+            ids.add(node_id)
+        for value in node.values():
+            ids |= _collect_all_ids(value)
+    elif isinstance(node, list):
+        for item in node:
+            ids |= _collect_all_ids(item)
+    return ids
+
+
+# ---------------------------------------------------------------------------
+# Positive insert tests
+# ---------------------------------------------------------------------------
 
 
 def test_positive_manifestation_insert_persists(api_client):
@@ -474,7 +528,15 @@ def test_full_stack_valid_insert_sequence(api_client):
 
 
 def test_manifestation_reference_only_insert_uses_merged_context(api_client):
-    """Reference-only manifestation insert succeeds via backend merge context fetch."""
+    """Reference-only manifestation insert succeeds via backend merge context fetch.
+
+    The manifestation payload here supplies only an @id for the embodied
+    expression (no inline properties). For this to validate against
+    ExpressionShape, the backend must fetch the expression's already-stored
+    triples (inserted by the two calls above) and merge them with the
+    incoming payload before running SHACL -- a stub reference can't satisfy
+    a shape's constraints on its own.
+    """
     suffix = _make_suffix()
 
     work_payload = {
@@ -513,6 +575,11 @@ def test_manifestation_reference_only_insert_uses_merged_context(api_client):
     assert any(t["predicate"] == LRMOO_R4_EMBODIES for t in triples)
 
 
+# ---------------------------------------------------------------------------
+# Negative insert tests
+# ---------------------------------------------------------------------------
+
+
 @pytest.mark.parametrize(
     "payload_factory",
     [
@@ -521,7 +588,14 @@ def test_manifestation_reference_only_insert_uses_merged_context(api_client):
     ],
 )
 def test_negative_manifestation_insert_is_rejected(api_client, payload_factory):
-    """Invalid manifestation payloads are rejected and not persisted in store."""
+    """Invalid manifestation payloads are rejected and not persisted in store.
+
+    Note: this only checks the top-level manifestation IRI. It does not
+    check whether the nested work/expression/person/role IRIs the same
+    cascade would have touched were left un-persisted -- see
+    test_negative_cascade_insert_rolls_back_every_nested_entity below for
+    that stronger, full-transaction check.
+    """
     suffix = _make_suffix()
     payload = {
         "shapeId": "https://rfdb.it/data/ManifestationShape",
@@ -536,6 +610,65 @@ def test_negative_manifestation_insert_is_rejected(api_client, payload_factory):
 
     stored_status, _ = _request_text("GET", f"/api/data/{payload['data']['@id']}")
     assert stored_status == 404
+
+
+def test_negative_cascade_insert_rolls_back_every_nested_entity(api_client):
+    """A validation failure anywhere in a cascade must leave no trace anywhere
+    in the cascade -- not just at the top-level focus node.
+
+    test_negative_manifestation_insert_is_rejected only checks that the
+    manifestation IRI is absent after rejection. It asserts nothing about
+    the work, expression, person, role, or agent-role nodes the same POST
+    would have created had validation passed. If the backend writes children
+    before validating the full closure, or validates node-by-node instead of
+    as a single transaction, those nodes can survive a "rejected" insert as
+    orphaned triples with no entity properly referencing them -- a
+    transactional-integrity bug this suite would otherwise never catch.
+
+    This also strengthens the violation check itself: instead of asserting
+    `violations` is merely non-empty, it confirms the report actually
+    implicates the node/property that was removed, so a spurious violation
+    caused by an unrelated bug can't masquerade as the expected rejection.
+    """
+    suffix = _make_suffix()
+    payload_data = _make_invalid_expression_payload(suffix)  # nested work is missing rdfs:label
+    all_ids = _collect_all_ids(payload_data)
+    # Sanity check on the test fixture itself: if this cascade doesn't touch
+    # at least manifestation + expression + work + person + role, the payload
+    # factory has changed shape and this test needs to be revisited.
+    assert len(all_ids) >= 5
+
+    status, body = _request_json(
+        "POST",
+        "/api/data",
+        {"shapeId": "https://rfdb.it/data/ManifestationShape", "data": payload_data},
+    )
+    assert status == 200
+    assert body["success"] is False
+    assert body["validationReport"]["conforms"] is False
+    assert body["validationReport"]["violations"]
+
+    # The report must implicate the actual failing node/property, not just
+    # contain *some* violation. The backend exposes violations with explicit
+    # `focusNode` and `path` keys.
+    violations = body["validationReport"]["violations"]
+    work_id = f"https://rfdb.it/data/{suffix}_work"
+    assert any(
+        v.get("focusNode") == work_id and v.get("path") == RDFS_LABEL
+        for v in violations
+    ), (
+        "validation report doesn't reference the expected failing work node "
+        "and rdfs:label path"
+    )
+
+    # Full-graph rollback: nothing in the cascade should have been
+    # persisted, not just the manifestation.
+    for entity_id in all_ids:
+        stored_status, _ = _request_text("GET", f"/api/data/{entity_id}")
+        assert stored_status == 404, (
+            f"orphaned triples found for {entity_id} after a rejected "
+            f"cascade insert -- transaction is not atomic"
+        )
 
 
 def test_negative_work_insert_without_label_is_rejected(api_client):
@@ -564,6 +697,11 @@ def test_negative_work_insert_without_label_is_rejected(api_client):
 
     stored_status, _ = _request_text("GET", f"/api/data/{payload['data']['@id']}")
     assert stored_status == 404
+
+
+# ---------------------------------------------------------------------------
+# Update tests
+# ---------------------------------------------------------------------------
 
 
 def test_failed_update_keeps_existing_entity(api_client):

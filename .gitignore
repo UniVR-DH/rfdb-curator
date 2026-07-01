@@ -5,8 +5,8 @@ validation_reports/
 .tmp/
 .temp/
 
-editor/backend/logs/*
-!editor/backend/logs/.gitkeep
+backend/logs/*
+!backend/logs/.gitkeep
 
 # Node.js
 node_modules/

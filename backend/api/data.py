@@ -300,13 +300,18 @@ def get_entity(entity_id: str, request: Request):
 def create_or_update_entity(payload: EntityData, request: Request):
     """Create or update an entity (RDF resource) from JSON-LD payload.
 
-    SHACL targeting nuance:
-    - Constraints attached to class-targeted shapes (sh:targetClass) are
-      evaluated only for nodes that declare that class.
-    - If a node is missing its expected RDF type, those class-targeted
-      constraints may not be evaluated for that node.
-    - Callers should therefore emit explicit @type values for entities and
-      bridge/helper nodes whenever schema constraints depend on class targeting.
+        SHACL targeting nuance:
+        - Constraints attached to class-targeted shapes (sh:targetClass) are
+            evaluated only for nodes that declare that class.
+        - If a node is missing its expected RDF type, those class-targeted
+            constraints may not be evaluated for that node.
+        - Callers should therefore emit explicit @type values for entities and
+            bridge/helper nodes whenever schema constraints depend on class targeting.
+
+        Validation scope:
+        - The full merged validation graph is validated (incoming payload +
+            referenced entities merged from store), so nested linked-node
+            constraint violations are rejected within the same write request.
     """
     data = payload.data
     provided_id = data.get("@id")
@@ -341,13 +346,7 @@ def create_or_update_entity(payload: EntityData, request: Request):
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Invalid JSON-LD: {exc}") from exc
 
-    # Collect the incoming root node(s) as focus nodes for validation.
-    # These are the only nodes that will be validated against their shapes;
-    # referenced existing-store nodes pulled in by the merge query are used
-    # as read-only witnesses for sh:class / sh:node constraint checking but
-    # are not themselves re-validated.
     entity_uri = URIRef(entity_id) if entity_id.startswith("http") else None
-    focus_nodes: list[URIRef] = [entity_uri] if entity_uri is not None else []
 
     # Collect seed IRIs for shape-driven merge planning.
     # Include the entity IRI itself only on create flows so root-shape chains
@@ -412,10 +411,11 @@ def create_or_update_entity(payload: EntityData, request: Request):
         _log_agent_role_completeness(validation_graph)
 
     # Validate the merged graph against the SHACL schema.
-    # Pass focus_nodes so pyshacl validates only the incoming entity root(s);
-    # existing-store nodes present as witnesses are not re-validated.
+    # Full-graph validation is intentional so nested linked-node violations
+    # (e.g. missing required fields inside referenced structures) are surfaced
+    # and rejected in the same write request.
     validator = request.app.state.shacl_validator
-    report = validator.validate(validation_graph, focus_nodes=focus_nodes or None)
+    report = validator.validate(validation_graph)
 
     if not report["conforms"]:
         assert not delete_executed, "Delete must not execute before validation success"

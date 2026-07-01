@@ -34,7 +34,7 @@ def _import_backend_app(
     monkeypatch.setenv("SEED_VOCAB_ON_STARTUP", "false")
     monkeypatch.setenv("SEED_TEST_DATA_ON_STARTUP", "false")
     monkeypatch.setenv("CORS_ORIGINS", '["http://localhost:5173"]')
-    monkeypatch.setenv("LOG_FILE", "backend/logs/test-app.jsonl")
+    monkeypatch.setenv("LOG_FILE", "logs/test-app.jsonl")
     monkeypatch.setenv("LOG_LEVEL", "INFO")
 
     sys.modules.pop("app", None)
