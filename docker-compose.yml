@@ -7,9 +7,9 @@
 # override or an environment-specific file.
 #
 # Usage:
-#   cd editor && docker compose up --build          # first run or after Dockerfile changes
-#   cd editor && docker compose up                  # subsequent runs
-#   cd editor && docker compose down -v             # tear down including named volumes
+#   docker compose up --build          # first run or after Dockerfile changes
+#   docker compose up                  # subsequent runs
+#   docker compose down -v             # tear down including named volumes
 
 services:
 
@@ -50,8 +50,8 @@ services:
   # --------------------------------------------------------------------------
   backend:
     build:
-      context: ..
-      dockerfile: editor/backend/Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: rfdb-backend
     restart: unless-stopped
     depends_on:
@@ -80,7 +80,7 @@ services:
       SEED_TEST_DATA_ON_STARTUP: "false"
       CORS_ORIGINS: '["http://localhost:5173", "http://localhost:5174"]'
       # Structured JSON-lines log file written inside the container.
-      # Readable on the host at editor/backend/logs/app.jsonl via the bind-mount below.
+      # Readable on the host at backend/logs/app.jsonl via the bind-mount below.
       LOG_FILE: logs/app.jsonl
       LOG_LEVEL: INFO
       # Keep crash/restart history, but truncate once when a fresh container is created.
@@ -98,9 +98,9 @@ services:
       # Read-only mounts for schema and data files.
       # The container runs as appuser (uid 1001); ensure host files are
       # world-readable (chmod o+r) if your umask is restrictive.
-      - ../schema:/app/schema:ro
-      - ../data:/app/data:ro
-      # Persists the JSON-lines log file on the host at editor/backend/logs/.
+      - ./schema:/app/schema:ro
+      - ./data:/app/data:ro
+      # Persists the JSON-lines log file on the host at backend/logs/.
       - ./backend/logs:/app/logs
     ports:
       - "8000:8000"

@@ -2,63 +2,36 @@
 
 ## Commit Pattern
 
-Every commit must include the `[BOT]` flag:
+Every bot-generated commit should include `[BOT]`:
 
 ```bash
 git commit -m "[BOT] <area>: <description>"
 ```
 
-**Commit Categories**
-
-```
-[BOT] schema: Add optional fabio:isPortrayalOf to SourceShape
-[BOT] data: Update L11a example with publication metadata
-[BOT] refactor: Reorganize validator module
-[BOT] test: Add SHACL validation tests
-[BOT] docs: Update README with Core ontology examples
-[BOT] fix: Correct prefix in schema.ttl
-```
-
 ## Grouping Rules
 
-- **Same topic → one commit** (e.g., all schema changes together)
-- **Different topics → separate commits** (e.g., docs commit ≠ schema commit)
-- **Extensive changes → group by area** (all Python code, then all schema, then docs)
+- Same topic -> one commit
+- Different topics -> separate commits
+- Large changes -> group by area (backend, frontend, docs)
 
-## Non-Interactive Mode (REQUIRED)
+## Non-Interactive Mode
 
 ```bash
-# ALWAYS use --no-edit for rebase
 git rebase --continue --no-edit
-
-# NEVER open interactive editor (vim, nano)
-# NEVER use `git commit` without -m flag
 ```
+
+Never rely on interactive editors during automated flows.
 
 ## Before Every Commit
 
 ```bash
-# Verify working directory is the repository root
-pwd
-
-# Check for uncommitted changes in critical files
-git status | grep -E "schema/|.pre-commit-config.yaml"
-
-# Run tests and validation (with venv prefix)
-source .venv/bin/activate && python -m pytest tests/ -v
-source .venv/bin/activate && python -m rfdbtools.run validate --schema schema/schema.ttl --data data/data.ttl
+git status
+cd backend && source .venv/bin/activate && python -m pytest ../tests -v
+cd ../frontend && npm run lint
 ```
 
-## Pre-commit Hook
+Adjust checks to changed areas (for example frontend-only updates).
 
-The `.pre-commit-config.yaml` enforces ruff and prettier on every commit. Check for changes before editing it.
+## Hook Notes
 
-## Tag Discipline
-
-Always check Git tags before choosing an Excel `--tag` and increment consistently:
-
-```bash
-git tag -l --sort=version:refname
-```
-
-Never derive tags from existing filenames alone.
+The repository currently does not track a hook configuration file. Do not assume pre-commit hooks are installed unless the user configured them locally.

@@ -1,9 +1,9 @@
-# editor/frontend/Dockerfile
+# frontend/Dockerfile
 #
 # Development image for the Vite + React frontend.
 #
 # This image is used by docker-compose.yml with a source bind-mount
-# (./editor/frontend:/app) and the Vite dev server (npm run dev).
+# (./frontend:/app) and the Vite dev server (npm run dev).
 # It is NOT a production build image — for production, add a separate
 # multi-stage build that runs `npm run build` and serves the dist/ folder
 # via nginx or a static host.

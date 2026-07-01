@@ -1,4 +1,4 @@
-# editor/backend/.dockerignore
+# backend/.dockerignore
 # (place this file at the repo root if build context is "." in compose)
 #
 # Prevents these paths from being sent to the Docker build context.

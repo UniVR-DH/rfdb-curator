@@ -1,128 +1,62 @@
 # Build Commands
 
-## 🚨 Virtual Environment Activation
-
-NEVER assume venv is active. ALWAYS prefix Python/pip commands from the repository root:
+## Backend Environment Setup
 
 ```bash
-source .venv/bin/activate && python <command>
-```
-
-Terminal context showing prior activation does NOT guarantee current state.
-
-## Environment Setup
-
-```bash
-# Root environment (rfdbtools)
-cd <repo-root>
+cd backend
 uv sync --all-extras --dev
 source .venv/bin/activate
-
-# Editor backend (separate environment)
-cd editor/backend
-uv sync --dev
 ```
 
-The repository uses a single root runtime environment for `rfdbtools`.
+Use this environment for backend tests and Python checks.
 
-## Dependency Updates (Pinned + Current)
+## Frontend Environment Setup
 
 ```bash
-# 1) Check latest published versions before pinning
-uvx --from pip pip index versions <package>
-
-# 2) Pin exact versions in pyproject.toml (no open-ended specifiers)
-# 3) Regenerate lockfile
-uv lock
+cd frontend
+npm ci
 ```
 
-Never use `latest`, `*`, `>=`, `<=`, `~=` or other open-ended version tags.
+## Docker Compose Runtime (Preferred)
 
-## Docker / Docker Compose
-
-If a service has a `Dockerfile` or `docker-compose.yml`, always prefer Docker to run it.
+Run from repository root:
 
 ```bash
-cd editor
-docker compose up          # start
-docker compose up --build  # rebuild and start
-docker compose down        # stop
+docker compose up --build
+docker compose up
+docker compose down
+docker compose down -v
 ```
 
-## Validation Commands
+## Validation and Tests
 
 ```bash
-# SHACL validation (use rfdbtools.run CLI)
-source .venv/bin/activate && python -m rfdbtools.run validate --schema schema/schema.ttl --data data/data.ttl
+# Backend tests
+cd backend
+source .venv/bin/activate
+python -m pytest ../tests -v
 
-# Python syntax check
-source .venv/bin/activate && python -m py_compile rfdbtools/*.py
-
-# Ontology syntax/consistency check
-source .venv/bin/activate && python -m rfdbtools.validate_ontologies --data data/data.ttl --ontologies schema/schema.ttl
+# Frontend checks
+cd ../frontend
+npm run lint
+npm run build
 ```
 
-## Testing Commands
+## Linting and Formatting
 
 ```bash
-# Run tests
-source .venv/bin/activate && python -m pytest tests/ -v
-
-# Targets in Makefile
-make test
-```
-
-## Excel Generation
-
-```bash
-# REQUIRED: check existing Git tags before choosing export tag
-git tag -l --sort=version:refname
-
-# Generate workbook from SHACL schema
-source .venv/bin/activate && python -m rfdbtools.run get_excel --schema schema/schema.ttl --output-dir excel_out --name workbook --tag v1
-
-# Convert filled Excel back to RDF
-source .venv/bin/activate && python -m rfdbtools.run get_rdf --excel excel_out/<file>.xlsx --mapping excel_out/<file>_mapping.json --output data.ttl
-```
-
-**Tag rule:** derive `--tag` from Git tags via `git tag -l --sort=version:refname`. Increment consistently (e.g. `v0.3` -> `v0.4`).
-
-## Ontology Pipeline
-
-```bash
-make all
-```
-
-Downloads and converts all referenced ontologies to `.ontologies/` (gitignored).
-
-## Documentation
-
-```bash
-source .venv/bin/activate && python -m pdoc --output-dir docs rfdbtools
-
-# Or via Makefile
-make docs
-```
-
-## Linting / Formatting
-
-```bash
-# Python
+# Backend (if ruff is installed in backend env)
+cd backend
+source .venv/bin/activate
 ruff check .
 ruff format .
 
-# JavaScript
-prettier --write .
-
-# Or via pre-commit
-pre-commit run --all-files
+# Frontend
+cd ../frontend
+npm run lint
 ```
 
-## Make Targets
+## Notes
 
-```bash
-make all          # full ontology pipeline
-make docs         # generate API docs
-make test         # run pytest
-make validate     # run SHACL validation
-```
+- Do not rely on a root Python package named `rfdbtools`; this repository is a standalone editor stack.
+- Treat commands referencing Excel generation, explorer apps, or ontology download pipelines as legacy unless explicitly reintroduced.

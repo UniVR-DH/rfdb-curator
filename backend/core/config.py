@@ -9,7 +9,7 @@ No default values are hardcoded here.  Every setting MUST be supplied through:
 This ensures a single source of truth per deployment: the ``.env`` file for local
 development, the ``environment:`` block in ``docker-compose.yml`` for Docker.
 
-See ``editor/README.md`` for a full reference of every variable.
+See ``README.md`` for a full reference of every variable.
 """
 
 from __future__ import annotations

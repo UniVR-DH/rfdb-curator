@@ -1,8 +1,10 @@
-# RFDB Editor
+# RFDB Curator
 
-SHACL-driven data-entry application for RossijskijFeatrDB. Provides shape-aware CRUD, validation, autocomplete, and record inspection for RDF instance data.
+Standalone SHACL-driven curation application for RossijskijFeatrDB. Provides shape-aware CRUD, validation, autocomplete, and record inspection for RDF instance data.
 
 Forms are generated dynamically from the active SHACL schema, so the schema is the source of truth for record types, fields, constraints, datatypes, and relations.
+
+This repository is self-contained: backend, frontend, schema, data, and Docker Compose runtime are all maintained at the repository root.
 
 ---
 
@@ -34,7 +36,7 @@ Forms are generated dynamically from the active SHACL schema, so the schema is t
 ## Repository Structure
 
 ```text
-rfdb-editor/
+rfdb-curator/
 ├── backend/
 │   ├── api/                      # Route handlers (data, entities, shapes, validate)
 │   ├── core/                     # Core services
@@ -139,6 +141,12 @@ In both modes, the controlled vocabulary from `data/vocab.ttl` is loaded on ever
 ## Configuration
 
 All backend settings are loaded from environment variables. No defaults are hardcoded in the Python source. The backend fails fast with a clear validation error if a required variable is missing or has the wrong type.
+
+Configuration source of truth:
+
+- Runtime wiring: `docker-compose.yml`
+- Backend settings model: `backend/core/config.py`
+- Backend dependency set: `backend/pyproject.toml`
 
 ### Docker Compose (recommended)
 

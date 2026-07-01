@@ -18,7 +18,7 @@ from rdflib import Graph
 from rdflib.plugins.parsers.notation3 import BadSyntax
 
 
-BACKEND_DIR = Path(__file__).resolve().parents[1] / "editor" / "backend"
+BACKEND_DIR = Path(__file__).resolve().parents[1] / "backend"
 
 
 def _import_backend_app(
@@ -34,7 +34,7 @@ def _import_backend_app(
     monkeypatch.setenv("SEED_VOCAB_ON_STARTUP", "false")
     monkeypatch.setenv("SEED_TEST_DATA_ON_STARTUP", "false")
     monkeypatch.setenv("CORS_ORIGINS", '["http://localhost:5173"]')
-    monkeypatch.setenv("LOG_FILE", "editor/backend/logs/test-app.jsonl")
+    monkeypatch.setenv("LOG_FILE", "backend/logs/test-app.jsonl")
     monkeypatch.setenv("LOG_LEVEL", "INFO")
 
     sys.modules.pop("app", None)

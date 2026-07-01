@@ -1,4 +1,4 @@
-# editor/frontend/.dockerignore
+# frontend/.dockerignore
 #
 # Prevents these paths from being sent to the Docker build context.
 # Keep this in sync with .gitignore.

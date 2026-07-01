@@ -15,11 +15,11 @@ from types import SimpleNamespace
 import pytest
 
 
-BACKEND_DIR = Path(__file__).resolve().parents[1] / "editor" / "backend"
+BACKEND_DIR = Path(__file__).resolve().parents[1] / "backend"
 
 
 def _load_backend_symbols() -> SimpleNamespace:
-    """Load backend symbols directly from editor/backend for unit-level tests."""
+    """Load backend symbols directly from backend/ for unit-level tests."""
     if str(BACKEND_DIR) not in sys.path:
         sys.path.insert(0, str(BACKEND_DIR))
 

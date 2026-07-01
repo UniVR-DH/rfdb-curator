@@ -1,9 +1,9 @@
-# editor/backend/Dockerfile
+# backend/Dockerfile
 #
 # Development image for the FastAPI + uvicorn backend.
 #
 # This image is used by docker-compose.yml with a source bind-mount
-# (./editor/backend:/app) and uvicorn --reload for hot-reloading.
+# (./backend:/app) and uvicorn --reload for hot-reloading.
 # It is NOT a hardened production image — for production, remove --reload,
 # add a non-writable filesystem, and consider a multi-stage build to
 # exclude build tools from the final image.
@@ -18,7 +18,7 @@ FROM python:3.12-slim
 #
 # PYTHONDONTWRITEBYTECODE: stops Python from writing .pyc bytecode cache
 #   files to disk.  Correct for this dev image because:
-#     - The compose bind-mount (./editor/backend:/app) means any .pyc files
+#     - The compose bind-mount (./backend:/app) means any .pyc files
 #       written inside the container land on the HOST filesystem, owned by
 #       uid 1001 (appuser).  Your host user cannot easily delete them.
 #     - uvicorn --reload restarts the process on every file change anyway,
@@ -42,13 +42,13 @@ WORKDIR /app
 # requirements.txt with `pip-compile --generate-hashes` and add
 # `--require-hashes` here so the build fails if any package has been
 # tampered with since the lockfile was created.
-COPY editor/backend/requirements.txt ./
+COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend source.  In development the compose bind-mount overlays
 # this at runtime; this layer makes the image self-contained if run
 # without a mount (e.g. in CI or production).
-COPY editor/backend/ .
+COPY backend/ .
 
 # Drop to a non-root user for defence-in-depth.
 # python:slim does not ship a pre-created app user, so we create one
