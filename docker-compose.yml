@@ -1,0 +1,186 @@
+# docker-compose.yml
+#
+# Development stack for RossijskijFeatrDB.
+#
+# Dev-only flags (--reload, source bind-mounts) live here.  Any settings
+# that must also apply in staging/production belong in a dedicated compose
+# override or an environment-specific file.
+#
+# Usage:
+#   cd editor && docker compose up --build          # first run or after Dockerfile changes
+#   cd editor && docker compose up                  # subsequent runs
+#   cd editor && docker compose down -v             # tear down including named volumes
+
+services:
+
+  # --------------------------------------------------------------------------
+  # Oxigraph — RDF triple store
+  # --------------------------------------------------------------------------
+  oxigraph:
+    # Pinned to a specific release so `docker compose pull` never silently
+    # breaks the SPARQL / Graph Store Protocol API contract.
+    # Update deliberately and re-run `docker compose up --build`.
+    image: oxigraph/oxigraph:0.5.7
+    container_name: rfdb-oxigraph
+    restart: unless-stopped
+    ports:
+      - "7878:7878"
+    volumes:
+      - oxigraph_data:/data
+    # No `command:` override — the Dockerfile already sets
+    # CMD ["serve", "--location", "/data", "--bind", "0.0.0.0:7878"]
+    # via ENTRYPOINT + CMD.  Repeating it here would be redundant.
+    healthcheck:
+      # The final image is gcr.io/distroless/cc-debian12 — no shell,
+      # no wget, no curl.  The only executable available is the oxigraph
+      # binary itself (ENTRYPOINT /usr/local/bin/oxigraph).
+      # `CMD oxigraph --help` resolves to ENTRYPOINT + ["--help"], exits
+      # 0 immediately, and proves the process is alive.
+      # This is a LIVENESS check only — it does not verify the HTTP port.
+      # HTTP readiness is handled by _oxigraph_wait() in app.py, which
+      # retries OxigraphClient.health() before seeding.
+      test: ["CMD", "/usr/local/bin/oxigraph", "--help"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # --------------------------------------------------------------------------
+  # Backend — FastAPI + uvicorn
+  # --------------------------------------------------------------------------
+  backend:
+    build:
+      context: ..
+      dockerfile: editor/backend/Dockerfile
+    container_name: rfdb-backend
+    restart: unless-stopped
+    depends_on:
+      oxigraph:
+        # service_healthy waits for the oxigraph liveness check (process
+        # alive) before starting the backend.  The backend's own startup
+        # retry loop (see lifespan in app.py) then waits for the HTTP
+        # port to be ready before seeding, giving a two-layer readiness
+        # guarantee without needing tools inside the Oxigraph image.
+        condition: service_healthy
+    environment:
+      # Docker-internal hostname — only used inside the container network.
+      OXIGRAPH_URL: http://oxigraph:7878
+      DATA_GRAPH_URI: "https://rfdb.it/graph/data"
+      # Paths inside the container, mapped by the volumes block below.
+      SCHEMA_PATH: /app/schema/schema.ttl
+      VOCAB_PATH: /app/data/vocab.ttl
+      DATA_PATH: /app/data/data.ttl
+      # Set true only when you want a full store wipe on restart (dev/test).
+      # Must be false in production — data loss is irreversible.
+      RESET_DATA_ON_STARTUP: "${RESET_DATA_ON_STARTUP:-false}"
+      # Vocab must always be seeded so the store is never empty.
+      # Set false only if you are managing vocabulary loading manually.
+      SEED_VOCAB_ON_STARTUP: "true"
+      # Test fixture data — dev/test only, must be false in production.
+      SEED_TEST_DATA_ON_STARTUP: "false"
+      CORS_ORIGINS: '["http://localhost:5173", "http://localhost:5174"]'
+      # Structured JSON-lines log file written inside the container.
+      # Readable on the host at editor/backend/logs/app.jsonl via the bind-mount below.
+      LOG_FILE: logs/app.jsonl
+      LOG_LEVEL: INFO
+      # Keep crash/restart history, but truncate once when a fresh container is created.
+      TRUNCATE_LOG_ON_STARTUP: "false"
+      TRUNCATE_LOG_ON_FRESH_CONTAINER_START: "true"
+    volumes:
+      # Source bind-mount for hot-reload in development.
+      # Safe with this Dockerfile: pip installs packages into the system
+      # Python's site-packages (/usr/local/lib/python3.12/site-packages),
+      # NOT into /app, so the bind-mount does not shadow any installed
+      # dependencies.  If you switch to a virtualenv inside /app (e.g.
+      # /app/.venv), move it outside /app or protect it with an anonymous
+      # volume, otherwise the bind-mount will shadow it.
+      - ./backend:/app
+      # Read-only mounts for schema and data files.
+      # The container runs as appuser (uid 1001); ensure host files are
+      # world-readable (chmod o+r) if your umask is restrictive.
+      - ../schema:/app/schema:ro
+      - ../data:/app/data:ro
+      # Persists the JSON-lines log file on the host at editor/backend/logs/.
+      - ./backend/logs:/app/logs
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    # --reload is a dev-only flag enabling uvicorn's file-watcher.
+    # Remove it (or move to docker-compose.override.yml) for
+    # staging/production — it adds overhead and is not safe in production.
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # --------------------------------------------------------------------------
+  # Frontend — Vite dev server
+  # --------------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: rfdb-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        # Frontend starts only after backend /health is reachable so the
+        # app does not appear "up" while API startup failed.
+        condition: service_healthy
+    environment:
+      # ----------------------------------------------------------------------
+      # Browser-facing API base URL
+      # ----------------------------------------------------------------------
+      # This value is embedded in the frontend runtime (via Vite) and used by
+      # code executing in the user's browser.
+      #
+      # IMPORTANT:
+      # - Must be reachable from the host machine (i.e. the browser)
+      # - Must NOT use Docker service names like "backend"
+      # - Typically points to a published port on localhost
+      #
+      # Example:
+      #   Browser → http://localhost:5173 → http://localhost:8000/api
+      #
+      VITE_API_BASE: http://localhost:8000
+
+      # ----------------------------------------------------------------------
+      # Internal proxy target (Vite dev server → backend container)
+      # ----------------------------------------------------------------------
+      # Used ONLY by the Vite development server running inside this container.
+      #
+      # IMPORTANT:
+      # - Runs inside Docker → must use Docker DNS (service name)
+      # - "backend" resolves to the backend container on the internal network
+      # - Never use localhost here (would point to this container itself)
+      #
+      # Example:
+      #   Vite proxy → http://backend:8000/api
+      #
+      VITE_PROXY_TARGET: http://backend:8000
+    volumes:
+      - ./frontend:/app
+      # The anonymous volume re-surfaces the node_modules layer built by
+      # `npm ci` during `docker build` on top of the bind-mount.  Docker
+      # applies anonymous volumes after bind-mounts, so the image's
+      # node_modules (correct OS/arch binaries) always win over any
+      # node_modules that may exist on the host.
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+
+# ------------------------------------------------------------------------------
+# Named volumes
+# ------------------------------------------------------------------------------
+volumes:
+  oxigraph_data:
+    # Persists RDF data across container restarts.
+    # Run `docker compose down -v` to destroy it along with all containers.

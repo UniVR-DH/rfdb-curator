@@ -1,0 +1,184 @@
+.shape-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  max-width: 680px;
+}
+
+.form-loading {
+  color: var(--color-ambient-2);
+  font-size: 13px;
+}
+
+.form-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.form-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-surface-top);
+}
+
+.form-description {
+  font-size: 13px;
+  color: var(--color-ambient-2);
+  line-height: 1.6;
+}
+
+.form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.form-error {
+  background-color: rgba(139, 30, 45, 0.15);
+  border: 1px solid var(--color-invalid);
+  border-radius: var(--radius-input);
+  color: #e07080;
+  font-size: 13px;
+  padding: var(--space-3) var(--space-4);
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+/* ─── Field primitives (shared) ──────────────────────────────────── */
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field-label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ambient-1);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.field-required {
+  color: var(--color-focus);
+}
+
+.field-description {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-ambient-2);
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.7;
+}
+
+.field-input {
+  background-color: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-input);
+  color: var(--color-surface-top);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  padding: var(--space-2) var(--space-3);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+  /* width: 100% is intentionally omitted here — grid cells size the input.
+     Full width is only needed for standalone inputs outside a grid context. */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.field-input:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.field-input:focus {
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 3px var(--color-focus-glow);
+  outline: none;
+}
+
+.field-input::placeholder {
+  color: var(--color-ambient-2);
+  opacity: 0.5;
+}
+
+/* ─── lang-string composite (single value) ───────────────────────── */
+
+.lang-field {
+  display: grid;
+  grid-template-columns: 1fr 72px;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.field-lang {
+  background-color: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-input);
+  color: var(--color-surface-top);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: var(--space-2) var(--space-2);
+  cursor: pointer;
+  /* Prevent the select from overflowing its grid cell */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ─── lang-string-list rows (multi-value, adds remove button column) */
+
+/* Combined selector for higher specificity over .lang-field alone */
+.lang-field.lang-field-row {
+  grid-template-columns: 1fr 72px 28px;
+}
+
+.btn-remove-lang {
+  background: none;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-input);
+  color: var(--color-ambient-2);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+  /* Fixed dimensions — must not stretch to fill grid cell */
+  height: 32px;
+  width: 28px;
+  min-width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.btn-remove-lang:hover {
+  color: var(--color-invalid);
+  border-color: var(--color-invalid);
+}
+
+/* ─── lang-string-list add button ────────────────────────────────── */
+
+.btn-add-lang {
+  /* Override any width: 100% inherited from .btn or flex-column parent */
+  width: auto;
+  align-self: flex-start;
+  font-size: 12px;
+  padding: var(--space-1) var(--space-3);
+  margin-top: var(--space-1);
+}

@@ -1,0 +1,502 @@
+@prefix cidoc:   <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix core:    <https://w3id.org/polifonia/ontology/core/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix lrmoo:   <http://iflastandards.info/ns/lrm/lrmoo/> .
+@prefix mm:      <https://w3id.org/polifonia/ontology/music-meta/> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
+@prefix prism:   <http://prismstandard.org/namespaces/basic/2.0/> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rfdb:    <https://rfdb.it/data/> .
+@prefix sh:      <http://www.w3.org/ns/shacl#> .
+@prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
+@prefix source:  <https://w3id.org/polifonia/ontology/source/> .
+@prefix wdt:     <http://www.wikidata.org/prop/direct/> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+
+# ================================
+# Shape for Place
+# ================================
+rfdb:PlaceShape
+  a sh:NodeShape ;
+  sh:targetClass core:Place ;
+  rdfs:label "Place"@en, "Luogo"@it ;
+  sh:description "A geographic location or place, which may be associated with various resources such as publication locations or organization locations."@en ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:or (
+      [ sh:datatype rdf:langString ]
+      [ sh:datatype xsd:string ]
+    ) ;
+    sh:description "A place must have exactly one label" ;
+  ] ;
+  sh:property [
+    sh:path skos:altLabel ;
+    sh:datatype rdf:langString ;
+    sh:description "Alternate names for the place (e.g., translations, historical names)" ;
+  ] ;
+  sh:property [
+    sh:path owl:sameAs ;
+    sh:minCount 0 ;
+    sh:nodeKind sh:IRI ;
+    sh:description "External identifier for the place (use to link to Wikidata)" ;
+  ] .
+
+# ================================
+# Shape for Subject
+# ================================
+rfdb:SubjectShape
+  a sh:NodeShape ;
+  sh:targetClass cidoc:E89_Propositional_Object ;
+  rdfs:label "Subject"@en, "Soggetto"@it ;
+  sh:description "A subject, theme, concept, or topic that can be associated with musical works or other resources. Subjects include stories, plots, characters, and narrative elements."@en ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:or (
+      [ sh:datatype rdf:langString ]
+      [ sh:datatype xsd:string ]
+    ) ;
+    sh:description "A subject must have exactly one label" ;
+  ] ;
+  sh:property [
+    sh:path skos:altLabel ;
+    sh:datatype rdf:langString ;
+    sh:description "Alternate names for the subject" ;
+  ] .
+
+# ================================
+# Shape for Type (Document/Source Type)
+# ================================
+rfdb:SourceTypeShape
+  a sh:NodeShape ;
+  sh:targetClass core:Type ;
+  rdfs:label "Source Type"@en, "Tipo di fonte"@it ;
+  sh:description "A categorization of source documents, such as 'Libretto a stampa' (printed libretto) or 'Score' (musical score)."@en ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:or (
+      [ sh:datatype rdf:langString ]
+      [ sh:datatype xsd:string ]
+    ) ;
+    sh:description "A type must have exactly one canonical label" ;
+  ] ;
+  sh:property [
+    sh:path skos:altLabel ;
+    sh:datatype rdf:langString ;
+    sh:description "Alternate names for the type" ;
+  ] ;
+  sh:property [
+    sh:path rdfs:comment ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string ;
+    sh:description "Optional description of the type" ;
+  ] .
+
+# ================================
+# Shape for Musical Work (Opera/Composition)
+# ================================
+rfdb:MusicalWorkShape
+  a sh:NodeShape ;
+  sh:targetClass mm:MusicEntity ;
+  sh:class lrmoo:F1_Work ;
+  rdfs:label "Musical Work"@en, "Opera musicale"@it ;
+  sh:description "A musical work such as an opera or composition. A work is the intellectual creation itself, distinct from its various expressions and manifestations."@en ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:or (
+      [ sh:datatype rdf:langString ]
+      [ sh:datatype xsd:string ]
+    ) ;
+    sh:description "A musical work must have exactly one label" ;
+  ] ;
+  sh:property [
+    sh:path skos:altLabel ;
+    sh:datatype rdf:langString ;
+    sh:description "Alternate names for the work (e.g., translations, alternate titles)" ;
+  ] ;
+  sh:property [
+    sh:path dcterms:date ;
+    sh:maxCount 1 ;
+    sh:or (
+      [ sh:datatype xsd:date ]
+      [ sh:datatype xsd:gYear ]
+      [ sh:datatype xsd:gYearMonth ]
+    ) ;
+    sh:description "Year or date associated with the work, e.g., '1736'^^xsd:gYear" ;
+  ] ;
+  sh:property [
+    sh:path owl:sameAs ;
+    sh:nodeKind sh:IRI ;
+    sh:description "External identifiers (e.g., Wikidata, VIAF)" ;
+  ] ;
+  sh:property [
+    sh:path cidoc:P129_is_about ;
+    sh:nodeKind sh:IRI ;
+    sh:class cidoc:E89_Propositional_Object ;
+    sh:node rfdb:SubjectShape ;
+    sh:description "Subject(s) of the work (themes, concepts, events, stories, characters, etc.)" ;
+  ] ;
+  sh:property [
+    sh:path core:hasAgentRole ;
+    sh:nodeKind sh:IRI ;
+    sh:class core:AgentRole ;
+    sh:node rfdb:AgentRoleShape ;
+    sh:description "Agent roles for the work: composer, etc." ;
+  ] .
+
+# ================================
+# Shape for Expression (LRMoo F2)
+# ================================
+rfdb:ExpressionShape
+  a sh:NodeShape ;
+  sh:targetClass lrmoo:F2_Expression ;
+  rdfs:label "Expression"@en, "Espressione"@it ;
+  sh:description "An Expression is a specific intellectual realization of a MusicalWork. For example, a Libretto is an Expression of an Opera (MusicalWork)."@en ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:or (
+      [ sh:datatype rdf:langString ]
+      [ sh:datatype xsd:string ]
+    ) ;
+    sh:description "An expression must have exactly one label" ;
+  ] ;
+  sh:property [
+    sh:path skos:altLabel ;
+    sh:datatype rdf:langString ;
+    sh:description "Alternate names for the expression" ;
+  ] ;
+  sh:property [
+    sh:path core:isPartOf ;
+    sh:nodeKind sh:IRI ;
+    sh:class mm:MusicEntity ;
+    sh:node rfdb:MusicalWorkShape ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:description "An expression must be part of a larger work" ;
+  ] ;
+  sh:property [
+    sh:path core:hasAgentRole ;
+    sh:nodeKind sh:IRI ;
+    sh:class core:AgentRole ;
+    sh:node rfdb:AgentRoleShape ;
+    sh:description "Agent roles for the expression: librettist (original/translator), arranger, etc." ;
+  ] ;
+
+  sh:property [
+    sh:path rdfs:comment ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string ;
+    sh:description "Optional free-text note for the expression" ;
+  ] .
+
+# ================================
+# Shape for Manifestation (LRMoo F3)
+# ================================
+rfdb:ManifestationShape
+  a sh:NodeShape ;
+  sh:targetClass lrmoo:F3_Manifestation ;
+  rdfs:label "Manifestation"@en, "Manifestazione"@it ;
+  sh:description "A Manifestation is the product type that embodies an Expression, this accomunates all phisical copies that are distinct Items."@en ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:or (
+      [ sh:datatype rdf:langString ]
+      [ sh:datatype xsd:string ]
+    ) ;
+    sh:description "A manifestation must have exactly one label" ;
+  ] ;
+
+  sh:property [
+    sh:path lrmoo:R4_embodies ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:class lrmoo:F2_Expression ;
+    sh:node rfdb:ExpressionShape ;
+    sh:description "A manifestation must embody exactly one expression" ;
+  ] ;
+
+  sh:property [
+    sh:path prism:publicationDate ;
+    sh:maxCount 1 ;
+    sh:or (
+      [ sh:datatype xsd:date ]
+      [ sh:datatype xsd:gYear ]
+      [ sh:datatype xsd:gYearMonth ]
+    ) ;
+    sh:description "Publication year or date of the manifestation, e.g., '1736'^^xsd:gYear" ;
+  ] ;
+
+  sh:property [
+    sh:path rdfs:comment ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string ;
+    sh:description "Optional description of the manifestation" ;
+  ] .
+
+
+# ================================
+# Shape for Source/Item (LRMoo F5)
+# ================================
+rfdb:SourceShape
+  a sh:NodeShape ;
+  sh:targetClass source:Source, lrmoo:F5_Item ;
+  rdfs:label "Source"@en, "Fonte"@it ;
+  sh:description "A particular physical copy of a document, such as a specific printed edition of a libretto, held by a library or archive. Items exemplify Manifestations."@en ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:or (
+      [ sh:datatype rdf:langString ]
+      [ sh:datatype xsd:string ]
+    ) ;
+    sh:uniqueLang true ;
+    sh:description "An item must have exactly one label (Titolo)" ;
+  ] ;
+  sh:property [
+    sh:path skos:altLabel ;
+    sh:datatype rdf:langString ;
+    sh:description "Alternate names for the item" ;
+  ] ;
+
+  sh:property [
+    sh:path prism:publicationDate ;
+    sh:maxCount 1 ;
+    sh:or (
+      [ sh:datatype xsd:date ]
+      [ sh:datatype xsd:gYear ]
+      [ sh:datatype xsd:gYearMonth ]
+    ) ;
+    sh:description "Publication year or date (Anno), e.g., '1736'^^xsd:gYear" ;
+  ] ;
+
+  sh:property [
+    sh:path dcterms:language ;
+    sh:nodeKind sh:IRI ;
+    # sh:class dcterms:LinguisticSystem ;
+    sh:description "Language(s) of the item (Lingua), e.g., from glottolog.org as 'https://glottolog.org/resource/languoid/id/russ1263" ;
+  ] ;
+
+  sh:property [
+    sh:path core:hasPlace ;
+    sh:minCount 0 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:class core:Place ;
+    sh:node rfdb:PlaceShape ;
+    sh:description "Place of publication (Luogo), e.g., rfdb:SanPietroburgo" ;
+  ] ;
+
+  sh:property [
+    sh:path core:hasType ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:class core:Type ;
+    sh:node rfdb:SourceTypeShape ;
+    sh:description "Document type (Tipo documento), e.g., rfdb:PrintedLibretto for 'Libretto a stampa'" ;
+  ] ;
+
+  sh:property [
+    sh:path cidoc:P51_has_former_or_current_owner ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:class core:Organization ;
+    sh:node rfdb:HoldingOrganizationShape ;
+    sh:description "Owning institution (library/archive) for this copy" ;
+  ] ;
+
+  sh:property [
+    sh:path dcterms:identifier ;
+    sh:minCount 0 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string ;
+    sh:description "Shelfmark / call number for this copy" ;
+  ] ;
+
+  sh:property [
+    sh:path core:text ;
+    sh:minCount 0 ;
+    sh:maxCount 1 ;
+    sh:datatype rdf:langString ;
+    sh:description "Fontespizio transcription (title-page text)" ;
+  ] ;
+
+  sh:property [
+    sh:path rdfs:seeAlso ;
+    sh:nodeKind sh:IRI ;
+    sh:description "External references (Link): catalog links, etc." ;
+  ] ;
+
+  sh:property [
+    sh:path rdfs:comment ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string ;
+    sh:description "Additional free-text notes" ;
+  ] ;
+
+  sh:property [
+    sh:path lrmoo:R7_exemplifies ;
+    sh:minCount 0 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:class lrmoo:F3_Manifestation ;
+    sh:node rfdb:ManifestationShape ;
+    sh:description "A source (item) may exemplify a Manifestation (which embodies an Expression)" ;
+  ] .
+
+
+# ================================
+# Shape for Person
+# ================================
+rfdb:PersonShape
+  a sh:NodeShape ;
+  sh:targetClass core:Person ;
+  rdfs:label "Person"@en, "Persona"@it ;
+  sh:description "A person who may have various roles in cultural works, such as composer, librettist, arranger, or translator."@en ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:or (
+      [ sh:datatype rdf:langString ]
+      [ sh:datatype xsd:string ]
+    ) ;
+    sh:description "A person must have exactly one label" ;
+  ] ;
+  sh:property [
+    sh:path skos:altLabel ;
+    sh:datatype rdf:langString ;
+    sh:description "Alternate names for the person (e.g., pseudonyms, translated names)" ;
+  ] ;
+  sh:property [
+    sh:path owl:sameAs ;
+    sh:nodeKind sh:IRI ;
+    sh:description "External identifier for the person (use to link to Wikidata)" ;
+  ] ;
+  sh:property [
+    sh:path wdt:P214 ;
+    sh:minCount 0 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:description "VIAF link (Wikidata P214)" ;
+  ] .
+
+# ================================
+# Shape for Role
+# ================================
+rfdb:RoleShape
+  a sh:NodeShape ;
+  sh:targetClass core:Role ;
+  rdfs:label "Role"@en, "Ruolo"@it ;
+  sh:description "A role or function that a person may play in relation to a work, such as composer, librettist, translator, arranger, etc."@en ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:or (
+      [ sh:datatype rdf:langString ]
+      [ sh:datatype xsd:string ]
+    ) ;
+    sh:description "A role must have exactly one label" ;
+  ] ;
+  sh:property [
+    sh:path skos:altLabel ;
+    sh:datatype rdf:langString ;
+    sh:description "Alternate names for the role (e.g., translations)" ;
+  ] .
+
+# ================================
+# Shape for AgentRole
+# ================================
+rfdb:AgentRoleShape
+  a sh:NodeShape ;
+  sh:targetClass core:AgentRole ;
+  sh:closed true ;
+  rdfs:label "Agent Role"@en, "Ruolo agente"@it ;
+  sh:description "A specific assignment of a role to a person, representing the participation of an agent in a creative or related activity."@en ;
+  sh:property [
+    sh:path rdf:type ;
+    sh:minCount 1 ;
+    sh:hasValue core:AgentRole ;
+    sh:description "An agent role must include core:AgentRole among its rdf:type values" ;
+  ] ;
+  sh:property [
+    sh:path core:hasAgent ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:class core:Person ;
+    sh:node rfdb:PersonShape ;
+    sh:description "An agent role must reference exactly one person" ;
+  ] ;
+  sh:property [
+    sh:path core:hasRole ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:class core:Role ;
+    sh:node rfdb:RoleShape ;
+    sh:description "An agent role must reference exactly one role" ;
+  ] .
+
+
+# ================================
+# Shape for Holding Organization
+# ================================
+rfdb:HoldingOrganizationShape
+  a sh:NodeShape ;
+  sh:targetClass core:Organization ;
+  rdfs:label "Holding Organization"@en, "Ente conservatore"@it ;
+  sh:description "An institution such as a library, archive, or museum that holds and preserves source documents and other materials."@en ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:or (
+      [ sh:datatype rdf:langString ]
+      [ sh:datatype xsd:string ]
+    ) ;
+    sh:description "Organization name" ;
+  ] ;
+  sh:property [
+    sh:path skos:altLabel ;
+    sh:datatype rdf:langString ;
+    sh:description "Alternate names for the organization (e.g., acronyms, translations)" ;
+  ] ;
+  sh:property [
+    sh:path owl:sameAs ;
+    sh:minCount 0 ;
+    sh:nodeKind sh:IRI ;
+    sh:description "External identifier for the organization (use to link to Wikidata)" ;
+  ] ;
+  sh:property [
+    sh:path wdt:P214 ;
+    sh:minCount 0 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:description "VIAF link (Wikidata P214)" ;
+  ] ;
+  sh:property [
+    sh:path core:hasPlace ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:class core:Place ;
+    sh:node rfdb:PlaceShape ;
+    sh:description "Location of the organization" ;
+  ] .

@@ -1,0 +1,221 @@
+/**
+ * Single form field renderer: maps a SHACL property descriptor to an input widget.
+ *
+ * Field type -> widget:
+ *   enum          - native <select> populated from sh:in values
+ *   entity-search - async autocomplete (<EntitySearch>) via /api/entities/search
+ *   nested        - inline blank-node editor (<AnonymousEntityEditor>)
+ *   year          - number input clamped to [800, 2100]
+ *   number        - unbounded number input
+ *   uri           - URL input for external identifiers (owl:sameAs, wdt:P214, etc.)
+ *   lang-string   - text + language dropdown; stored as {__value, __lang}
+ *   default       - plain text input
+ *
+ * Props:
+ *   field      {object}    - Property descriptor from /api/forms
+ *   allShapes  {array}     - All shapes, forwarded to AnonymousEntityEditor
+ *   register   {function}  - react-hook-form register
+ *   control    {object}    - react-hook-form control (needed by Controller-based widgets)
+ *
+ * --- AUDIT: FormField ---
+ * - Renders individual fields by type.
+ * - Does not manage @id or create/update logic directly.
+ * - For multi-valued fields (e.g., skos:altLabel), relies on jsonld.js to map values correctly.
+ */
+
+// eslint-disable-next-line no-unused-vars
+import AnonymousEntityEditor from './AnonymousEntityEditor.jsx'
+// eslint-disable-next-line no-unused-vars
+import EntitySearch from './EntitySearch.jsx'
+// eslint-disable-next-line no-unused-vars
+import { Controller } from 'react-hook-form'
+// eslint-disable-next-line no-unused-vars
+import LangStringList from './LangStringList.jsx'
+import '../components/ShapeForm.css'
+
+const LANG_OPTIONS = ['en', 'it', 'de', 'ru', 'fr', 'la']
+
+export default function FormField({ field, allShapes, register, control }) {
+  const { path, name, type, description, minCount, in: options = [] } = field
+  const isRequired = minCount > 0
+  const hasNoLanguageOption = path === 'rdfs:label' || path === 'rdfs:comment'
+
+  const label = (
+    <label className="field-label" htmlFor={path}>
+      {name}
+      {isRequired && <span className="field-required">*</span>}
+      {description && <span className="field-description">{description}</span>}
+    </label>
+  )
+
+  // ── LangStringList ─────────────────────────────────────────────
+  if (type === 'lang-string-list') {
+    return (
+      <div className="field-group">
+        {label}
+        <LangStringList path={path} label={null} control={control} isRequired={isRequired} />
+      </div>
+    )
+  }
+
+  // ── Enum / sh:in ───────────────────────────────────────────────
+  if (type === 'enum') {
+    return (
+      <div className="field-group">
+        {label}
+        <select id={path} className="field-input" {...register(path, { required: isRequired })}>
+          <option value="">— select —</option>
+          {options.map((v) => (
+            <option key={v} value={v}>
+              {v.includes(':') ? v.split(':').pop() : v}
+            </option>
+          ))}
+        </select>
+      </div>
+    )
+  }
+
+  // ── Entity search / autocomplete ──────────────────────────────────
+  if (type === 'entity-search') {
+    return (
+      <div className="field-group">
+        {label}
+        <EntitySearch field={field} control={control} />
+      </div>
+    )
+  }
+
+  // ── Nested blank node form ─────────────────────────────────────────
+  if (type === 'nested') {
+    return (
+      <div className="field-group">
+        {label}
+        <AnonymousEntityEditor field={field} allShapes={allShapes} control={control} />
+      </div>
+    )
+  }
+
+  // ── Year ──────────────────────────────────────────────────────────
+  if (type === 'year') {
+    return (
+      <div className="field-group">
+        {label}
+        <input
+          id={path}
+          className="field-input"
+          type="number"
+          min="800"
+          max="2100"
+          placeholder="e.g. 1736"
+          {...register(path, { required: isRequired, min: 800, max: 2100 })}
+        />
+      </div>
+    )
+  }
+
+  // ── Temporal (gYear / gYearMonth / date) ────────────────────────
+  if (type === 'temporal') {
+    return (
+      <div className="field-group">
+        {label}
+        <input
+          id={path}
+          className="field-input"
+          type="text"
+          placeholder="YYYY or YYYY-MM or YYYY-MM-DD"
+          {...register(path, { required: isRequired })}
+        />
+      </div>
+    )
+  }
+
+  // ── Number ────────────────────────────────────────────────────────
+  if (type === 'number') {
+    return (
+      <div className="field-group">
+        {label}
+        <input
+          id={path}
+          className="field-input"
+          type="number"
+          step="any"
+          {...register(path, { required: isRequired })}
+        />
+      </div>
+    )
+  }
+
+  // ── URI input ─────────────────────────────────────────────────────
+  if (type === 'uri') {
+    return (
+      <div className="field-group">
+        {label}
+        <input
+          id={path}
+          className="field-input mono"
+          type="url"
+          placeholder="https://…"
+          {...register(path, { required: isRequired })}
+        />
+      </div>
+    )
+  }
+
+  // ── Multi-language text ───────────────────────────────────────────
+  if (type === 'lang-string') {
+    return (
+      <div className="field-group">
+        {label}
+        <div className="lang-field">
+          <Controller
+            name={`${path}.__value`}
+            control={control}
+            defaultValue={''}
+            rules={{ required: isRequired }}
+            render={({ field }) => (
+              <input
+                id={path}
+                className="field-input"
+                type="text"
+                placeholder="Value…"
+                {...field}
+              />
+            )}
+          />
+          <Controller
+            name={`${path}.__lang`}
+            control={control}
+            defaultValue={'en'}
+            render={({ field }) => (
+              <select className="field-lang" {...field}>
+                {hasNoLanguageOption && <option value="">No language</option>}
+                {LANG_OPTIONS.map((l) => (
+                  <option key={l} value={l}>
+                    {l.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            )}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // ── Default: plain text (Controller ensures reset() works) ────────
+  return (
+    <div className="field-group">
+      {label}
+      <Controller
+        name={path}
+        control={control}
+        defaultValue={''}
+        rules={{
+          required: isRequired,
+          pattern: field.pattern ? new RegExp(field.pattern) : undefined,
+        }}
+        render={({ field }) => <input id={path} className="field-input" type="text" {...field} />}
+      />
+    </div>
+  )
+}

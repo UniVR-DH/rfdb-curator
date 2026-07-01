@@ -1,0 +1,100 @@
+@prefix cidoc: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix core: <https://w3id.org/polifonia/ontology/core/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix lrmoo: <http://iflastandards.info/ns/lrm/lrmoo/> .
+@prefix mm: <https://w3id.org/polifonia/ontology/music-meta/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix prism: <http://prismstandard.org/namespaces/basic/2.0/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rfdb: <https://rfdb.it/data/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix source: <https://w3id.org/polifonia/ontology/source/> .
+@prefix wd: <http://www.wikidata.org/entity/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# TEST FIXTURE DATA ONLY.
+# Canonical runtime vocabulary seeding is sourced from data/vocab.ttl.
+
+rfdb:LibrettoManoscritto a core:Type ;
+    rdfs:label "Libretto Manoscritto"@en .
+
+rfdb:LibrettoStampa a core:Type ;
+    rdfs:label "Libretto a Stampa"@en .
+
+rfdb:Libretto_11 a lrmoo:F2_Expression ;
+    rdfs:label "La *forza dell'amore e dell'odio"@en ;
+    core:hasAgentRole rfdb:AR_3 ;
+    core:isPartOf rfdb:T11 .
+
+rfdb:Libretto_11_manifestation a lrmoo:F3_Manifestation ;
+    rdfs:label "La *forza dell'amore e dell'odio printed manifestation"@en ;
+    lrmoo:R4_embodies rfdb:Libretto_11 .
+
+rfdb:Libretto_11a a source:Source, lrmoo:F5_Item ;
+    rdfs:label "La *forza dell'amore e dell'odio"@en ;
+    prism:publicationDate "1736"^^xsd:gYear ;
+    dcterms:identifier "Rossica 13.8.5.44"^^xsd:string ;
+    lrmoo:R7_exemplifies rfdb:Libretto_11_manifestation ;
+    cidoc:P51_has_former_or_current_owner rfdb:HO_1 ;
+    core:hasPlace rfdb:Place_P1 ;
+    core:hasType rfdb:Libretto .
+
+rfdb:Person_1 a core:Person ;
+    rdfs:label "Pallavicino, Stefano Benedetto"@en ;
+    owl:sameAs wd:Q321084 .
+
+rfdb:Person_3 a core:Person ;
+    rdfs:label "Metastasio, Pietro"@en ;
+    owl:sameAs wd:Q29473 .
+
+rfdb:Place_P2 a core:Place ;
+    rdfs:label "Milano"@en ;
+    owl:sameAs wd:Q490 .
+
+rfdb:Traduttore a core:Role ;
+    rdfs:label "Traduttore"@en .
+
+rfdb:Compositore a core:Role ;
+    rdfs:label "Compositore"@en .
+
+rfdb:HO_1 a core:Organization ;
+    rdfs:label "Rus-SPsc"@en ;
+    owl:sameAs wd:Q267566 ;
+    core:hasPlace rfdb:Place_P1 ;
+    skos:altLabel "Russian National Library"@en .
+
+rfdb:Librettista a core:Role ;
+    rdfs:label "Librettista"@en .
+
+rfdb:Libretto a core:Type ;
+    rdfs:label "Libretto"@en .
+
+rfdb:Person_2 a core:Person ;
+    rdfs:label "Prata, Franceso"@en .
+
+rfdb:Person_4 a core:Person ;
+    rdfs:label "Araja,Francesco"@en .
+
+rfdb:Place_P1 a core:Place ;
+    rdfs:label "San Pietroburgo"@en ;
+    owl:sameAs wd:Q656 .
+
+rfdb:T11 a mm:MusicEntity, lrmoo:F1_Work ;
+    rdfs:label "La *forza dell'amore e dell'odio"@en ;
+    owl:sameAs wd:Q55064333 ;
+    core:hasAgentRole rfdb:AR_1,
+        rfdb:AR_2 .
+
+rfdb:AR_1 a core:AgentRole ;
+    core:hasAgent rfdb:Person_2 ;
+    core:hasRole rfdb:Librettista .
+
+rfdb:AR_2 a core:AgentRole ;
+    core:hasAgent rfdb:Person_4 ;
+    core:hasRole rfdb:Compositore .
+
+rfdb:AR_3 a core:AgentRole ;
+    core:hasAgent rfdb:Person_2 ;
+    core:hasRole rfdb:Librettista .
+
+

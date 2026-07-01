@@ -1,0 +1,107 @@
+/* ─── Design System Tokens ────────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --color-bg-main: #0e0e10;
+  --color-bg-panel: #2a2a2e;
+  --color-surface-top: #e8e1d6;
+
+  /* Primary / Action */
+  --color-primary: #8b1e2d;
+  --color-primary-2: #4a0f1f;
+  --color-critical: #5c1a1b;
+
+  /* Accents */
+  --color-focus: #c6a15b;
+  --color-focus-glow: rgba(198, 161, 91, 0.25);
+
+  /* Info / Cold */
+  --color-info: #3e5165;
+  --color-ambient-1: #a9c4d9;
+  --color-ambient-2: #c9d2d8;
+
+  /* Borders */
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+
+  /* Status */
+  --color-valid: #4a7c59;
+  --color-warning: #8c6a3d;
+  --color-invalid: #8b1e2d;
+
+  /* Typography */
+  --font-ui: 'Manrope', sans-serif;
+  --font-display: 'Fraunces', serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* Border radius */
+  --radius-input: 6px;
+  --radius-panel: 12px;
+  --radius-modal: 16px;
+  --radius-badge: 4px;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Transitions */
+  --transition-fast: 0.12s ease;
+  --transition-base: 0.2s ease;
+}
+
+/* ─── Reset ──────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ─── Base ───────────────────────────────────────────────────────── */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--color-bg-main);
+  color: var(--color-surface-top);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Scrollbars ─────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+/* ─── Focus ring ─────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--color-focus-glow);
+}
+
+/* ─── Utility: .mono ─────────────────────────────────────────────── */
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
