@@ -23,7 +23,7 @@
 import { useEffect, useState } from 'react'
 import { apiClient } from '../api/client.js'
 import { compactIri } from '../utils/prefixes.js'
-// eslint-disable-next-line no-unused-vars
+ 
 import Icon from './Icon.jsx'
 import './ShapeRecordList.css'
 

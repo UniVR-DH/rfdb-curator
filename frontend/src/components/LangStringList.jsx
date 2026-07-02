@@ -19,7 +19,7 @@
  *   control    {object}       - react-hook-form control object
  *   isRequired {boolean}      - Whether the first entry is required
  */
-// eslint-disable-next-line no-unused-vars
+ 
 import { useFieldArray, Controller } from 'react-hook-form'
 
 const LANG_OPTIONS = ['en', 'it', 'de', 'ru', 'fr', 'la']

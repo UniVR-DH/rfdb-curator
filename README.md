@@ -74,7 +74,16 @@ rfdb-curator/
 │   ├── vocab.ttl                 # Controlled-vocabulary seed data
 │   └── data.ttl                  # Optional test fixture data
 │
+├── package.json                  # Root npm scripts/metadata
+├── pyproject.toml                # Root Python project metadata
+├── requirements.txt
 ├── docker-compose.yml
+├── AGENTS.md                    # Root agent instructions
+├── .agent-defs/                 # Project-specific agent instructions
+├── tests/                       # Backend/API validation and integration tests
+├── DEV.md
+├── PROJECT_NOTES.md
+├── TODO.md
 └── README.md
 ```
 
@@ -151,11 +160,6 @@ Configuration source of truth:
 - Runtime wiring: `docker-compose.yml`
 - Backend settings model: `backend/core/config.py`
 - Backend dependency set: `backend/pyproject.toml`
-
-### Docker Compose (recommended)
-
-Edit the `environment:` block in `docker-compose.yml`.
-Here's the gist:
 
 ### Docker Compose (recommended)
 

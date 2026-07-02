@@ -23,13 +23,13 @@
  * - For multi-valued fields (e.g., skos:altLabel), relies on jsonld.js to map values correctly.
  */
 
-// eslint-disable-next-line no-unused-vars
+ 
 import AnonymousEntityEditor from './AnonymousEntityEditor.jsx'
-// eslint-disable-next-line no-unused-vars
+ 
 import EntitySearch from './EntitySearch.jsx'
-// eslint-disable-next-line no-unused-vars
+ 
 import { Controller } from 'react-hook-form'
-// eslint-disable-next-line no-unused-vars
+ 
 import LangStringList from './LangStringList.jsx'
 import UriList from './UriList.jsx'
 import '../components/ShapeForm.css'

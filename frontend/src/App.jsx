@@ -41,11 +41,11 @@
 import { useEffect, useState } from 'react'
 import './App.css'
 import { apiClient } from './api/client.js'
-// eslint-disable-next-line no-unused-vars
+ 
 import ShapeForm from './components/ShapeForm.jsx'
-// eslint-disable-next-line no-unused-vars
+ 
 import ShapeRecordList from './components/ShapeRecordList.jsx'
-// eslint-disable-next-line no-unused-vars
+ 
 import ValidationPanel from './components/ValidationPanel.jsx'
 
 export default function App() {

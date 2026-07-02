@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { apiClient } from '../api/client.js'
 import { buildJsonLdEntity } from '../utils/jsonld.js'
 import { compactIri } from '../utils/prefixes.js'
-// eslint-disable-next-line no-unused-vars
+ 
 import FormField from './FormField.jsx'
 import './ShapeForm.css'
 

@@ -50,7 +50,7 @@ The initial version does not aim to:
 - [x] `RESET_DATA_ON_STARTUP=true` does not actually reset data when starting via Docker Compose
 - [x] the `owl:sameAs` field allows multiple values (e.g. linking to multiple external authority records)
 - [x] Allow `rdfs:label` / `rdfs:comment` without language tags for generic untranslated values
-- [ ] Expression form comment field renders as `[object Object]` instead of the actual string value
+- [x] Expression form comment field renders as `[object Object]` instead of the actual string value
 - [ ] Language field in Source form should be a dropdown of available languages, not free text
 - [ ] Auto-refresh entity lists (e.g. "has place" relations) when backend data changes behind the scenes
 - [ ] Preserve current form/page state on browser reload (survive refresh)
@@ -74,9 +74,9 @@ The initial version does not aim to:
 
 ### c. Development and Deployment
 
-- [ ] fix  warning  Unused eslint-disable directive 
+- [x] fix  warning  Unused eslint-disable directive 
 - [ ] setup auto release to GitHub releases and github package registry
 - [ ] verify versioning and commit tagging works correctly with GitHub Actions and automatic release based on tagged commits
 - [ ] configure Docker Compose to run in production mode with Nginx reverse proxy and SSL termination
-- [ ] check closely in README.md the Repository Structure
+- [x] check closely in README.md the Repository Structure
 - [ ] consider a pre-commit hook configuration (.pre-commit-config.yaml)

@@ -23,7 +23,7 @@
  *   control    {object}  - react-hook-form control (drives useFieldArray)
  */
 import { useFieldArray } from 'react-hook-form'
-// eslint-disable-next-line no-unused-vars
+ 
 import EntitySearch from './EntitySearch.jsx'
 import './AnonymousEntityEditor.css'
 
