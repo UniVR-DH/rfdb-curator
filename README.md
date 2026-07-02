@@ -1,8 +1,10 @@
 # RFDB Curator
 
-Standalone SHACL-driven curation application for RossijskijFeatrDB. Provides shape-aware CRUD, validation, autocomplete, and record inspection for RDF instance data.
+Standalone SHACL-driven curation application for RossijskijFeatrDB. 
+SHACL shapes are aligned with the Polifonia Core Ontology and LRMoo, and the application is designed to support the FRBR-based work-expression-manifestation-item hierarchy.
+The web application provides shape-aware CRUD, validation, autocomplete, and record inspection for RDF instance data.
 
-Forms are generated dynamically from the active SHACL schema, so the schema is the source of truth for record types, fields, constraints, datatypes, and relations.
+Forms are generated dynamically and automatically from the active SHACL schema, so the schema is the source of truth for record types, fields, constraints, datatypes, and relations.
 
 This repository is self-contained: backend, frontend, schema, data, and Docker Compose runtime are all maintained at the repository root.
 
@@ -14,11 +16,10 @@ This repository is self-contained: backend, frontend, schema, data, and Docker C
 - Shape-aware create, read, update, and delete operations
 - RDF instance data stored in Oxigraph
 - SHACL validation with pySHACL
-- Autocomplete for linked RDF resources
+- Autocomplete for linked RDF resources (TODO)
 - Record inspection through RDF triples
 - Controlled-vocabulary seeding from Turtle files
-- Optional test-data seeding for development
-- Docker Compose development runtime
+- Docker Compose deployment
 
 ---
 
@@ -29,7 +30,7 @@ This repository is self-contained: backend, frontend, schema, data, and Docker C
 - **RDF Store:** Oxigraph, using SPARQL and Graph Store Protocol
 - **Validation:** pySHACL
 - **RDF/Data Model:** rdflib, Turtle, JSON-LD
-- **Runtime:** Docker Compose (development)
+- **Runtime:** Docker Compose
 
 ---
 
@@ -49,6 +50,8 @@ rfdb-curator/
 │   │   ├── blank_node_handler.py # Blank-node skolemization (stable IRIs)
 │   │   └── seeder.py             # Startup data seeder (vocab + optional test data)
 │   ├── models/                   # Pydantic request/response schemas
+│   │   ├── shapes.py             # Shape and field descriptors
+│   │   └── data.py               # Entity list, counts, and single-entity payloads
 │   ├── app.py                    # FastAPI app + lifespan (startup seeding + settings init)
 │   ├── Dockerfile
 │   ├── .env.example
@@ -124,7 +127,8 @@ RESET_DATA_ON_STARTUP=true docker compose up --build
 docker compose up --build
 ```
 
-In both modes, the controlled vocabulary from `data/vocab.ttl` is loaded on every startup (idempotent) when `SEED_VOCAB_ON_STARTUP=true`. Test fixture data from `data/data.ttl` is loaded only when `SEED_TEST_DATA_ON_STARTUP=true` (off by default outside test environments).
+In both modes, the controlled vocabulary from `data/vocab.ttl` is loaded on every startup (idempotent) when `SEED_VOCAB_ON_STARTUP=true`. 
+Test fixture data from `data/data.ttl` is loaded only when `SEED_TEST_DATA_ON_STARTUP=true` (off by default outside test environments).
 
 ---
 
@@ -151,15 +155,17 @@ Configuration source of truth:
 ### Docker Compose (recommended)
 
 Edit the `environment:` block in `docker-compose.yml`.
+Here's the gist:
 
-### Local development (without Docker)
+### Docker Compose (recommended)
 
-```bash
-cp backend/.env.example backend/.env
-# then edit backend/.env
-```
+Edit the `environment:` block in `docker-compose.yml`. 
+`OXIGRAPH_URL` uses the Docker-internal hostname since backend and store are separate Compose services. 
+`SCHEMA_PATH`/`VOCAB_PATH`/`DATA_PATH` are container paths backed by the `volumes:` mounts — change both together. 
+`RESET_DATA_ON_STARTUP` wipes the store irreversibly; must stay `false` outside dev/test. `SEED_VOCAB_ON_STARTUP` should stay `true` or the store has no schema. 
+`SEED_TEST_DATA_ON_STARTUP` is dev/test only. 
+`TRUNCATE_LOG_ON_STARTUP` clears logs on every restart (off by default, preserves crash history); `TRUNCATE_LOG_ON_FRESH_CONTAINER_START` clears logs only when a new container is created (on by default, avoids inheriting a stale log via the bind mount).
 
-The backend reads `.env` automatically on startup via pydantic-settings. `.env` is gitignored — never commit it.
 
 ### Environment Variables
 
@@ -366,87 +372,5 @@ The editor supports:
 - validation of IRI syntax
 - Turtle export
 
----
 
-## Development
 
-### Backend
-
-```bash
-cd backend
-uv sync --all-extras --dev
-source .venv/bin/activate
-python -m pytest
-```
-
-Docker Compose is the preferred way to run the full application during development.
-
-### Frontend
-
-```bash
-cd frontend
-npm ci
-npm run dev
-```
-
-The Vite dev server runs on `http://localhost:5173`.
-
-### Hot Reload
-
-Both backend and frontend use bind-mounts in Docker Compose, so source changes trigger automatic reloads without rebuilding images.
-
-- Backend: uvicorn `--reload` watches `/app`
-- Frontend: Vite dev server watches `/app`
-
-### Lint
-
-```bash
-cd frontend
-npm run lint
-```
-
----
-
-## Troubleshooting
-
-### Oxigraph not ready
-
-```bash
-docker compose logs oxigraph
-docker compose ps
-```
-
-Ensure port `7878` is available and the container is in `healthy` state.
-
-### Backend refuses to start
-
-```bash
-docker compose logs backend
-```
-
-Check that all required environment variables listed in the Configuration section are present and valid.
-
-### CORS errors
-
-Ensure `CORS_ORIGINS` includes the frontend origin:
-
-```json
-["http://localhost:5173"]
-```
-
-Do not use `*` when credentials are enabled — the app rejects `CORS_ORIGINS=["*"]` when `allow_credentials=True`.
-
-### Seed failures
-
-- Confirm `SCHEMA_PATH`, `VOCAB_PATH`, and `DATA_PATH` resolve correctly inside the container.
-- Confirm the bind-mounts for `schema/` and `data/` are present in `docker-compose.yml`.
-- Host files must be world-readable if your umask is restrictive.
-
-### Log locations
-
-Runtime logs are written to `backend/logs/app.jsonl` on the host. Container stdout/stderr is also available via:
-
-```bash
-docker compose logs backend
-docker compose logs frontend
-```

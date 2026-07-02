@@ -230,6 +230,18 @@ class SchemaExtractor:
         ):
             field_type = "lang-string-list"
 
+        datatype_uris = [str(datatype)] if datatype else []
+        datatype_uris.extend(str(dt) for dt in datatype_options)
+        has_lang_string = str(RDF.langString) in datatype_uris
+        has_plain_string = str(XSD.string) in datatype_uris
+
+        language_tag_policy = "not-applicable"
+        if field_type in {"lang-string", "lang-string-list"}:
+            if has_lang_string and has_plain_string:
+                language_tag_policy = "optional"
+            elif has_lang_string:
+                language_tag_policy = "required"
+
         return {
             "path": path_curie,  # compact CURIE used as form field key
             "pathUri": str(
@@ -240,6 +252,7 @@ class SchemaExtractor:
             "type": field_type,
             "datatype": datatype_curie,
             "datatypeOptions": [_curie(dt, g) for dt in datatype_options],
+            "languageTagPolicy": language_tag_policy,
             "nodeKind": _curie(node_kind, g),
             "nodeClass": _curie(klass, g),
             "nestedShape": str(node) if node else None,

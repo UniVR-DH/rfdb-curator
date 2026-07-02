@@ -13,6 +13,7 @@ class PropertySchema(BaseModel):
     type: str  # text | lang-string | lang-string-list | temporal | year | number | enum | entity-search | uri | nested
     datatype: Optional[str] = None
     datatypeOptions: list[str] = Field(default_factory=list)
+    languageTagPolicy: str = "not-applicable"
     nodeKind: Optional[str] = None
     nodeClass: Optional[str] = None
     nestedShape: Optional[str] = None

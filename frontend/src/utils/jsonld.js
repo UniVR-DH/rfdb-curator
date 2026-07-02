@@ -122,9 +122,9 @@ function toEntityReference(entry) {
 function toTypedLiteral(field, value) {
   if (isBlank(value)) return undefined
 
-  if (field.type === 'lang-string') {
-    const literalValue = value?.__value
-    const language = value?.__lang
+  if (field.type === 'lang-string' || field.datatype === 'rdf:langString') {
+    const literalValue = typeof value === 'object' ? value?.__value : value
+    const language = typeof value === 'object' ? value?.__lang : undefined
     if (isBlank(literalValue)) return undefined
     const literal = { '@value': literalValue }
     if (language) literal['@language'] = language

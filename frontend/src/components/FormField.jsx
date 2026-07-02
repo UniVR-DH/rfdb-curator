@@ -38,7 +38,9 @@ const LANG_OPTIONS = ['en', 'it', 'de', 'ru', 'fr', 'la']
 export default function FormField({ field, allShapes, register, control }) {
   const { path, name, type, description, minCount, in: options = [] } = field
   const isRequired = minCount > 0
-  const hasNoLanguageOption = path === 'rdfs:label' || path === 'rdfs:comment'
+  const languageTagPolicy = field.languageTagPolicy ?? 'not-applicable'
+  const hasNoLanguageOption = languageTagPolicy === 'optional'
+  const requiresLanguageTag = languageTagPolicy === 'required'
 
   const label = (
     <label className="field-label" htmlFor={path}>
@@ -185,10 +187,18 @@ export default function FormField({ field, allShapes, register, control }) {
           <Controller
             name={`${path}.__lang`}
             control={control}
-            defaultValue={'en'}
+            defaultValue={requiresLanguageTag ? 'en' : ''}
+            rules={{
+              validate: (lang, formValues) => {
+                if (!requiresLanguageTag) return true
+                const textValue = formValues?.[path]?.__value
+                if (!textValue || String(textValue).trim() === '') return true
+                return !!lang || 'Language is required'
+              },
+            }}
             render={({ field }) => (
               <select className="field-lang" {...field}>
-                {hasNoLanguageOption && <option value="">No language</option>}
+                {hasNoLanguageOption && <option value="">--</option>}
                 {LANG_OPTIONS.map((l) => (
                   <option key={l} value={l}>
                     {l.toUpperCase()}

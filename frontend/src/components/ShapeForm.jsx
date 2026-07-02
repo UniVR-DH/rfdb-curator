@@ -1,45 +1,4 @@
-/**
- * SHACL-driven data entry form.
- *
- * On mount (or when `shape` changes) the component fetches the field schema
- * from GET /api/forms?shapeId=... and wires up a react-hook-form instance.
- * Each field is rendered by <FormField> which dispatches to the correct input
- * widget based on field.type (lang-string, entity-search, nested, etc.).
- *
- * On submit the form data is normalised into a JSON-LD object by
- * buildJsonLdEntity() and POSTed to POST /api/data. The SHACL report from
- * the response is forwarded to the parent via onValidation, and a successful
- * save triggers onSaved.
- *
- * --- IMPORTANT: CREATE vs UPDATE ---
- * - When creating a new record, the form is rendered with no record prop and no @id is present in the form state or payload.
- * - When editing, the form receives a record prop (with .id) and must ensure that @id is included in the form state and in the JSON-LD payload.
- * - If @id is missing from the payload, the backend will always create a new entity instead of updating.
- * - The mapping and submit logic must guarantee @id is preserved for updates.
- *
- * --- NESTED BRIDGE ENTITIES ---
- * - Bridge entities (e.g. AgentRole) are stored as separate RDF nodes linked from the parent.
- * - The parent's triples only contain the link IRI; the bridge's own property triples are stored separately.
- * - On edit, bridge entity IRIs are extracted from the parent's triples, then each bridge node is
- *   fetched individually via GET /api/data/{iri} and mapped into the useFieldArray structure.
- *
- * --- ENTITY-SEARCH LABEL RESOLUTION ---
- * - Entity-search fields store an IRI as value. On edit, the IRI is resolved to a human-readable
- *   label by searching the API so the async-select dropdown shows the correct selected option.
- *
- * --- RESET BEHAVIOUR ---
- * - The Reset button calls onReset() on the parent, which clears the selected record.
- * - When record becomes null the useEffect seeds a blank new-record form.
- * - This ensures Reset always produces a clean insert form, never re-populates the edited record.
- *
- * Props:
- *   shape        {object}       - Active shape descriptor from /api/shapes
- *   allShapes    {array}        - All shapes, forwarded to nested editors
- *   record       {object|null}  - Pre-selected record; resets the form when changed
- *   onValidation {function}     - Called with the SHACL ValidationResult
- *   onSaved      {function}     - Called after a successful write
- *   onReset      {function}     - Called when the user clicks Reset; parent should set record to null
- */
+/** SHACL-driven form: loads schema metadata, maps records to form state, and submits JSON-LD. */
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { apiClient } from '../api/client.js'
@@ -49,6 +8,66 @@ import { compactIri } from '../utils/prefixes.js'
 import FormField from './FormField.jsx'
 import './ShapeForm.css'
 
+/**
+ * Convert backend triples for one predicate into the value shape expected by a field widget.
+ */
+function tripleToFieldValue(val, fieldType, languageTagPolicy) {
+  const triple = Array.isArray(val) ? val[0] : val
+
+  if (fieldType === 'lang-string-list') {
+    const values = Array.isArray(val) ? val : val ? [val] : []
+    const mapped = values.map((t) => ({
+      __value: t.object ?? '',
+      __lang: t.language ?? 'en',
+    }))
+    // Never show a fully blank list widget on edit.
+    return mapped.length > 0 ? mapped : [{ __value: '', __lang: 'en' }]
+  }
+
+  if (fieldType === 'lang-string') {
+    // react-hook-form controllers for lang strings bind to path.__value and path.__lang.
+    // The form state must therefore store a nested object at formData[path].
+    const defaultLang = languageTagPolicy === 'required' ? 'en' : ''
+    if (
+      triple &&
+      typeof triple === 'object' &&
+      'objectType' in triple &&
+      triple.objectType === 'literal'
+    ) {
+      return { __value: triple.object, __lang: triple.language ?? defaultLang }
+    }
+    return { __value: triple ? triple.object || String(triple) : '', __lang: defaultLang }
+  }
+
+  if (fieldType === 'uri') {
+    if (triple && typeof triple === 'object') {
+      if (triple.objectType === 'iri') return triple.object
+      if (triple['@id']) return triple['@id']
+      if (typeof triple.object === 'string') return triple.object
+      return ''
+    }
+    return typeof triple === 'string' ? triple : ''
+  }
+
+  if (fieldType === 'temporal' || fieldType === 'year' || fieldType === 'number') {
+    if (triple && typeof triple === 'object' && triple['@value']) return triple['@value']
+    if (triple && typeof triple === 'object' && triple.object) return triple.object
+    if (typeof triple === 'string') return triple
+    return ''
+  }
+
+  // Generic fallback for plain text-like scalar fields. Backend triples
+  // commonly arrive as objects with `.object` for literal values; map those
+  // to scalar strings so inputs never render "[object Object]".
+  if (triple && typeof triple === 'object') {
+    if (triple['@value']) return triple['@value']
+    if (typeof triple.object === 'string') return triple.object
+    if (typeof triple['@id'] === 'string') return triple['@id']
+    return ''
+  }
+  return triple ?? ''
+}
+
 export default function ShapeForm({ shape, allShapes, record, onValidation, onSaved, onReset }) {
   const [formSchema, setFormSchema] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -56,21 +75,65 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
 
   const { register, handleSubmit, reset, control, formState } = useForm()
 
+  function formatApiError(err) {
+    const detail = err?.response?.data?.detail
+    if (typeof detail === 'string' && detail.trim()) return detail
+    if (Array.isArray(detail)) {
+      const parts = detail
+        .map((item) => {
+          if (typeof item === 'string') return item
+          if (item?.msg) return item.msg
+          return null
+        })
+        .filter(Boolean)
+      if (parts.length > 0) return parts.join('; ')
+    }
+    if (detail && typeof detail === 'object') {
+      try {
+        return JSON.stringify(detail)
+      } catch {
+        // fallback handled below
+      }
+    }
+    return err?.message || 'Save failed'
+  }
+
+  function collectErrorPaths(node, prefix = '') {
+    if (!node || typeof node !== 'object') return []
+    if (node.type) return [prefix]
+
+    const paths = []
+    for (const [key, value] of Object.entries(node)) {
+      const nextPrefix = prefix ? `${prefix}.${key}` : key
+      paths.push(...collectErrorPaths(value, nextPrefix))
+    }
+    return paths
+  }
+
   useEffect(() => {
     if (!shape) return
     setFormSchema(null)
+
+    // Ignore stale in-flight responses when the selected shape changes quickly.
+    let ignore = false
+
     apiClient
       .getFormSchema(shape.id)
-      .then((res) => setFormSchema(res))
-      .catch(console.error)
+      .then((res) => {
+        if (ignore) return
+        setFormSchema(res)
+      })
+      .catch((err) => {
+        if (ignore) return
+        console.error(err)
+      })
+
+    return () => {
+      ignore = true
+    }
   }, [shape])
 
-  // NOTE: triplesToFlatObject is defined inside the component because it is only
-  // used within the component's effects and handlers. It is a pure function and
-  // safe to hoist to module level if performance profiling shows re-creation cost.
-  // Transform triples array to a flat { predicate: tripleObj } object
-  // (first value per predicate, or array if multiple).
-  // For literals, store the full triple object so language/datatype info is preserved.
+  // Flatten triples into a predicate-keyed map while preserving full triple metadata.
   function triplesToFlatObject(triples) {
     if (!Array.isArray(triples)) return {}
     const out = {}
@@ -111,19 +174,7 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
     return { value: iri, label: iri }
   }
 
-  /**
-   * Map a loaded record (triples from the backend) to form field values for react-hook-form.
-   *
-   * Handles all scalar field types synchronously. Two field types are handled
-   * asynchronously in the useEffect instead:
-   *   - 'nested'        — requires fetching each bridge entity's own triples
-   *   - 'entity-search' — requires resolving IRIs to human-readable labels
-   *
-   * --- IMPORTANT: CREATE vs UPDATE ---
-   * - When editing, this function must set formData['@id'] = record.id so the form state
-   *   includes the identifier. This ensures that on submit, the payload will include @id
-   *   and the backend will update the entity rather than creating a new one.
-   */
+  /** Map a loaded record into react-hook-form state for the active schema fields. */
   function mapRecordToFormData(record, fields) {
     if (!record || !fields) return {}
     const flat = record.triples ? triplesToFlatObject(record.triples) : record
@@ -139,40 +190,20 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
 
       // --- Multi-value language-tagged list (e.g. skos:altLabel) ---
       if (field.type === 'lang-string-list') {
-        const values = Array.isArray(val) ? val : val ? [val] : []
-        formData[field.path] = values.map((triple) => ({
-          __value: triple.object ?? '',
-          __lang: triple.language ?? 'en',
-        }))
-        // Always show at least one empty row so the list is never blank on edit
-        if (formData[field.path].length === 0) {
-          formData[field.path] = [{ __value: '', __lang: 'en' }]
-        }
+        formData[field.path] = tripleToFieldValue(val, field.type, field.languageTagPolicy)
         continue
       }
 
       // --- Single language-tagged string (e.g. rdfs:label) ---
-      // Stored as {field.path}.__value and {field.path}.__lang in form state,
-      // matching the Controller names used by the lang-string widget in FormField.jsx.
       if (field.type === 'lang-string') {
-        const triple = Array.isArray(val) ? val[0] : val
-        if (
-          triple &&
-          typeof triple === 'object' &&
-          'objectType' in triple &&
-          triple.objectType === 'literal'
-        ) {
-          formData[`${field.path}.__value`] = triple.object
-          formData[`${field.path}.__lang`] = triple.language ?? ''
-        } else {
-          formData[`${field.path}.__value`] = triple ? triple.object || String(triple) : ''
-          formData[`${field.path}.__lang`] = 'en'
-        }
+        formData[field.path] = tripleToFieldValue(val, field.type, field.languageTagPolicy)
+        continue
       }
 
       // --- Language field (dcterms:language) ---
       // Stores the literal string value of the language code triple.
       // Falls back to empty string so the input is never left as undefined.
+      // (Path-based special case, not type-based — left as-is.)
       else if (field.path === 'dcterms:language') {
         const triple = Array.isArray(val) ? val[0] : val
         if (triple && typeof triple === 'object' && triple['@value']) {
@@ -194,24 +225,8 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
       }
 
       // --- URI input ---
-      // Falls back to empty string so the URL input is never left as undefined.
       else if (field.type === 'uri') {
-        const triple = Array.isArray(val) ? val[0] : val
-        if (triple && typeof triple === 'object') {
-          if (triple.objectType === 'iri') {
-            formData[field.path] = triple.object
-          } else if (triple['@id']) {
-            formData[field.path] = triple['@id']
-          } else if (typeof triple.object === 'string') {
-            formData[field.path] = triple.object
-          } else {
-            formData[field.path] = ''
-          }
-        } else if (typeof triple === 'string') {
-          formData[field.path] = triple
-        } else {
-          formData[field.path] = ''
-        }
+        formData[field.path] = tripleToFieldValue(val, field.type, field.languageTagPolicy)
       }
 
       // --- Nested bridge entity ---
@@ -224,40 +239,18 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
       }
 
       // --- Temporal (xsd:date / xsd:gYear / xsd:gYearMonth) ---
-      // Falls back to empty string so the input is never left as undefined.
       else if (field.type === 'temporal') {
-        const triple = Array.isArray(val) ? val[0] : val
-        if (triple && typeof triple === 'object' && triple['@value']) {
-          formData[field.path] = triple['@value']
-        } else if (triple && typeof triple === 'object' && triple.object) {
-          formData[field.path] = triple.object
-        } else if (typeof triple === 'string') {
-          formData[field.path] = triple
-        } else {
-          formData[field.path] = ''
-        }
+        formData[field.path] = tripleToFieldValue(val, field.type, field.languageTagPolicy)
       }
 
       // --- Year and Number ---
-      // Falls back to empty string so the input is never left as undefined.
       else if (field.type === 'year' || field.type === 'number') {
-        const triple = Array.isArray(val) ? val[0] : val
-        if (triple && typeof triple === 'object' && triple['@value']) {
-          formData[field.path] = triple['@value']
-        } else if (triple && typeof triple === 'object' && triple.object) {
-          formData[field.path] = triple.object
-        } else if (typeof triple === 'string') {
-          formData[field.path] = triple
-        } else {
-          formData[field.path] = ''
-        }
+        formData[field.path] = tripleToFieldValue(val, field.type, field.languageTagPolicy)
       }
 
-      // --- Generic fallback for objects with @value ---
-      else if (val && typeof val === 'object' && val['@value']) {
-        formData[field.path] = val['@value']
-      } else {
-        formData[field.path] = val
+      // --- Generic fallback for text-like fields ---
+      else {
+        formData[field.path] = tripleToFieldValue(val, field.type, field.languageTagPolicy)
       }
     }
 
@@ -269,6 +262,9 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
 
     setSubmitError(null)
 
+    // Ignore stale async mapping results if record/shape changes mid-flight.
+    let ignore = false
+
     if (!record || !record.id) {
       // New record: seed lang-string-list fields with one empty row so the
       // list widget is never blank on a fresh form.
@@ -276,10 +272,17 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
       for (const field of formSchema.fields) {
         if (field.type === 'lang-string-list') {
           defaults[field.path] = [{ __value: '', __lang: 'en' }]
+        } else if (field.type === 'lang-string') {
+          defaults[field.path] = {
+            __value: '',
+            __lang: field.languageTagPolicy === 'required' ? 'en' : '',
+          }
         }
       }
-      reset(defaults)
-      return
+      if (!ignore) reset(defaults)
+      return () => {
+        ignore = true
+      }
     }
 
     // Editing existing record:
@@ -293,8 +296,10 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
 
     if (nestedFields.length === 0 && entitySearchFields.length === 0) {
       // Nothing async needed — reset straight away
-      reset(mapped)
-      return
+      if (!ignore) reset(mapped)
+      return () => {
+        ignore = true
+      }
     }
 
     // Step 2 — resolve nested bridge entities and entity-search labels in parallel.
@@ -339,7 +344,8 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
                   const iriVal = t?.objectType === 'iri' ? t.object : String(t)
                   entry[prop.path] = await resolveEntityLabel(iriVal, prop)
                 } else {
-                  entry[prop.path] = propVal
+                  // Reuse the same triple-to-widget mapping as top-level fields.
+                  entry[prop.path] = tripleToFieldValue(propVal, prop.type, prop.languageTagPolicy)
                 }
               }
             }
@@ -387,8 +393,14 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
     })
 
     Promise.all([...nestedPromises, ...entitySearchPromises]).then(() => {
+      if (ignore) return
       reset(mapped)
     })
+
+    // Mark this run as stale when a newer run starts or component unmounts.
+    return () => {
+      ignore = true
+    }
     // NOTE: `allShapes` and `resolveEntityLabel` are intentionally omitted from the
     // dependency array. `allShapes` rarely changes after initial load and re-running
     // the effect when it does would reset unsaved form edits. `resolveEntityLabel` is
@@ -396,11 +408,7 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
     // either causes stale-closure bugs in a future refactor, add them here.
   }, [record, shape, reset, formSchema])
 
-  // --- Dirty field tracking ---
-  // Used in onSubmit to build originalTriples: only predicates the user actually
-  // changed are sent to the backend for deletion before the new values are inserted.
-  // Nested/bridge fields are always excluded — their saves are handled by load_turtle
-  // carrying the full graph including bridge triples.
+  // Track dirty predicates to build a minimal originalTriples delete set on update.
   const { dirtyFields } = formState
 
   function isFieldDirty(field) {
@@ -459,10 +467,27 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
       onValidation?.(result.validationReport)
       if (result.success) onSaved?.()
     } catch (err) {
-      setSubmitError(err.response?.data?.detail ?? 'Save failed')
+      setSubmitError(formatApiError(err))
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function onInvalidSubmit(errors) {
+    const rawPaths = collectErrorPaths(errors)
+    const normalizedPaths = Array.from(
+      new Set(rawPaths.map((p) => p.replace(/\.\d+\./g, '.').replace(/\.(__value|__lang)$/, '')))
+    )
+
+    const labelByPath = new Map((formSchema?.fields ?? []).map((f) => [f.path, f.name]))
+    const labels = normalizedPaths.map((p) => labelByPath.get(p) ?? p)
+
+    const message =
+      labels.length > 0
+        ? `Please fill required fields: ${labels.join(', ')}`
+        : 'Form is invalid. Please check required fields.'
+
+    setSubmitError(message)
   }
 
   if (!formSchema) {
@@ -489,7 +514,7 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
   }
 
   return (
-    <form className="shape-form" onSubmit={handleSubmit(onSubmit)} noValidate>
+    <form className="shape-form" onSubmit={handleSubmit(onSubmit, onInvalidSubmit)} noValidate>
       <header className="form-header">
         <h2 className="form-title">{shape.label}</h2>
         {shape.description && <p className="form-description">{shape.description}</p>}
@@ -527,9 +552,7 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
               ? 'Update record'
               : 'Insert record'}
         </button>
-        {/* Reset clears the form back to a blank new-record state.
-            onReset() tells the parent to deselect the current record,
-            which causes record to become null and the useEffect to seed defaults. */}
+        {/* Reset returns to a blank create form by clearing selected record in the parent. */}
         <button type="button" className="btn btn-ghost" onClick={() => onReset?.()}>
           Reset
         </button>

@@ -59,6 +59,7 @@ The initial version does not aim to:
 - [ ] READ_ONLY FLAG: add a flag to make the editor read-only and refuse with a message if the user tries to edit (for demo or presentation mode)
 - [ ] File upload  of digital copy for Source entities (need to define which properties to use for this, and how to store the files, e.g. in a local `uploads/` folder with unique filenames and a mapping in the RDF data)
 
+
 ### b. Advanced Features (from roadmap)
 
 - [ ] Real-time validation (debounced SHACL checking on blur/change)
@@ -69,3 +70,13 @@ The initial version does not aim to:
 - [ ] Cascade delete for orphaned bridge entities (AgentRole, etc.)
 - [ ] SPARQL-level pagination cursor
 - [ ] valdity check on dates between MusicalWork, Expression, and Manifestation (e.g. creation date of Expression should be after creation date of Work)
+
+
+### c. Development and Deployment
+
+- [ ] fix  warning  Unused eslint-disable directive 
+- [ ] setup auto release to GitHub releases and github package registry
+- [ ] verify versioning and commit tagging works correctly with GitHub Actions and automatic release based on tagged commits
+- [ ] configure Docker Compose to run in production mode with Nginx reverse proxy and SSL termination
+- [ ] check closely in README.md the Repository Structure
+- [ ] consider a pre-commit hook configuration (.pre-commit-config.yaml)

@@ -1,16 +1,14 @@
-# RFDB EDITOR DEVELOPMENT WORKFLOW
+# RFDB Editor — Development Workflow
 
-This document contains development-workflow material relevant to the standalone `rfdb-editor` project.
-
-It intentionally excludes legacy parent-repository workflows that are not part of this standalone codebase.
+This document covers development workflow for the standalone `rfdb-editor` project. 
 
 ---
 
-## 1. Backend Dependency Management
+## 1. Environment Setup
 
-Backend dependencies are managed with `uv`.
+### Backend
 
-From the repository root:
+Dependencies are managed with `uv`.
 
 ```bash
 cd backend
@@ -18,21 +16,11 @@ uv sync --all-extras --dev
 source .venv/bin/activate
 ```
 
-Use this backend virtual environment for backend development, tests, linting, and local scripts.
+Use this virtual environment for backend development, tests, linting, and local scripts.
 
-The full application runtime should normally be started with Docker Compose from the repository root:
+### Frontend
 
-```bash
-docker compose up --build
-```
-
----
-
-## 2. Frontend Dependency Management
-
-Frontend dependencies are managed with `npm`.
-
-From the repository root:
+Dependencies are managed with `npm`.
 
 ```bash
 cd frontend
@@ -40,110 +28,89 @@ npm ci
 npm run dev
 ```
 
-The Vite development server runs on:
+Vite dev server runs on `http://localhost:5173`.
 
-```text
-http://localhost:5173
+### Running the full application
+
+Docker Compose is the preferred way to run backend + frontend + Oxigraph together during development:
+
+```bash
+docker compose up --build
 ```
+
+### Hot reload
+
+Both services use bind-mounts in Docker Compose, so source changes reload automatically without rebuilding images:
+
+- Backend: uvicorn `--reload` watches `/app`
+- Frontend: Vite dev server watches `/app`
 
 ---
 
-## 3. Recommended Code Quality Tools
+## 2. Code Quality
 
-The project should use a lightweight, multi-tool quality setup.
+### Tools
 
-Recommended tools:
+- **Ruff** — Python linting and formatting
+- **ESLint** — React/JS linting
+- **Prettier** — frontend formatting
+- **pre-commit** — file hygiene and pre-commit checks
 
-- Ruff for Python linting and formatting
-- ESLint for React and JavaScript linting
-- Prettier for frontend formatting
-- pre-commit for basic file hygiene and automated checks before commits
+Recommended pre-commit checks: detect unresolved merge-conflict markers, validate TOML/YAML/JSON, normalize final newlines, strip trailing whitespace, run Ruff on backend code, run frontend lint/format checks.
 
-Recommended pre-commit checks:
+### Local commands
 
-- detect unresolved merge-conflict markers
-- validate TOML files
-- validate YAML files
-- validate JSON files
-- normalize final newlines
-- remove trailing whitespace
-- run Ruff on backend Python code
-- run frontend linting or formatting checks where practical
 
----
-
-## 4. Suggested Local Quality Commands
-
-If the repository provides a `Makefile`, recommended targets are:
+Run directly:
 
 ```bash
-make check       # Run all available checks
-make lint        # Run linting
-make lint-fix    # Auto-fix linting issues where possible
-make format      # Format code
-```
-
-If no `Makefile` is available, run backend and frontend checks directly.
-
-Backend:
-
-```bash
+# Backend
 cd backend
 ruff check .
 ruff format .
 python -m pytest
-```
 
-Frontend:
-
-```bash
+# Frontend
 cd frontend
 npm run lint
 npm run build
 ```
 
----
+### pre-commit setup
 
-## 5. Pre-Commit Setup
-
-If the repository includes `.pre-commit-config.yaml`, install and enable pre-commit hooks with:
+If `.pre-commit-config.yaml` is present:
 
 ```bash
 uv tool install pre-commit
 pre-commit install
 ```
 
-To run all hooks manually:
+Run all hooks manually:
 
 ```bash
 pre-commit run --all-files
 ```
 
-Pre-commit should be used to catch formatting and hygiene issues before code reaches CI.
+pre-commit is meant to catch formatting/hygiene issues before CI does.
 
 ---
 
-## 6. CI/CD Expectations
+## 3. CI/CD Expectations
 
-A CI workflow for `rfdb-editor` should check both backend and frontend quality.
+**Backend checks:**
+- install deps with `uv`
+- Ruff lint
+- Ruff format check
+- run tests
+- verify SHACL schema parses
+- (optional) validate seed data against the active SHACL schema
 
-Recommended backend checks:
+**Frontend checks:**
+- `npm ci`
+- ESLint
+- production build
 
-- install backend dependencies with `uv`
-- run Ruff linting
-- run Ruff formatting check
-- run backend tests
-- verify the SHACL schema can be parsed
-- optionally validate seed data against the active SHACL schema
-
-Recommended frontend checks:
-
-- install dependencies with `npm ci`
-- run ESLint
-- run the production build
-
-Recommended integration checks, if practical:
-
+**Integration checks (if practical):**
 - start Oxigraph
 - start backend
 - check `/health`
@@ -152,69 +119,69 @@ Recommended integration checks, if practical:
 
 ---
 
-## 7. Schema Change Workflow
+## 4. Schema Change Workflow
 
-To add or change a form in the editor, update the active SHACL schema:
+To add or change a form in the editor, update the active SHACL schema at `schema/schema.ttl`. 
+Each new record type is a `sh:NodeShape`.
 
-```text
-schema/schema.ttl
+When adding/changing shapes, verify:
+
+`sh:targetClass`, `rdfs:label`, `sh:description`, `sh:property`, `sh:path`, `sh:minCount`, `sh:maxCount`, `sh:datatype`, `sh:nodeKind`, `sh:class`, `sh:node`, `sh:or`, `sh:hasValue`, `sh:closed`, `sh:uniqueLang`
+
+The editor discovers updated shapes through the backend schema extractor, exposed via:
+
 ```
-
-Each new record type should be represented as a `sh:NodeShape`.
-
-When adding or changing shapes, verify:
-
-- `sh:targetClass`
-- `rdfs:label`
-- `sh:description`
-- `sh:property`
-- `sh:path`
-- `sh:minCount`
-- `sh:maxCount`
-- `sh:datatype`
-- `sh:nodeKind`
-- `sh:class`
-- `sh:node`
-- `sh:or`
-- `sh:hasValue`
-- `sh:closed`
-- `sh:uniqueLang`
-
-The editor should discover updated shapes through the backend schema extractor and expose them through:
-
-```text
 GET /api/shapes
 GET /api/forms?shapeId=...
 ```
 
 ---
 
-## 8. Data Change Workflow
+## 5. Data Change Workflow
 
-Controlled vocabulary should be added to:
-
-```text
-data/vocab.ttl
-```
-
-Test fixture data should be added to:
-
-```text
-data/data.ttl
-```
-
-Current policy:
-
-- `data/vocab.ttl` is canonical seed data for controlled vocabulary.
-- `data/data.ttl` is test-only fixture data.
-- Vocabulary seeding should normally be enabled.
-- Test data seeding should normally be disabled outside development or test environments.
+- `data/vocab.ttl` — canonical seed data for controlled vocabulary. Seeding should normally be **enabled**.
+- `data/data.ttl` — test-only fixture data. Seeding should normally be **disabled** outside dev/test.
 
 ---
 
-## 9. Validation Troubleshooting
+## 6. Troubleshooting
 
-If SHACL validation fails, check the following first:
+### Oxigraph not ready
+
+```bash
+docker compose logs oxigraph
+docker compose ps
+```
+
+Confirm port `7878` is free and the container is `healthy`.
+
+### Backend refuses to start
+
+```bash
+docker compose logs backend
+```
+
+Check that all required environment variables are present and valid.
+
+### CORS errors
+
+`CORS_ORIGINS` must include the frontend origin, e.g.:
+
+```json
+["http://localhost:5173"]
+```
+
+Do not use `*` when credentials are enabled — the app rejects `CORS_ORIGINS=["*"]` when `allow_credentials=True`.
+
+### Seed failures
+
+- Confirm `SCHEMA_PATH`, `VOCAB_PATH`, `DATA_PATH` resolve correctly inside the container.
+- Confirm the `schema/` and `data/` bind-mounts are present in `docker-compose.yml`.
+- Host files must be world-readable if your umask is restrictive.
+
+### SHACL validation failures
+
+Check, in order:
 
 - missing required fields
 - wrong literal datatypes
@@ -222,65 +189,78 @@ If SHACL validation fails, check the following first:
 - missing `@type` values
 - broken links to referenced entities
 - cardinality violations
-- language-tag issues
-- duplicate language tags where `sh:uniqueLang true` is used
-- missing linked records required by `sh:class` or `sh:node`
-- closed-shape violations when `sh:closed true` is used
+- language-tag issues, incl. duplicate tags where `sh:uniqueLang true`
+- missing linked records required by `sh:class`/`sh:node`
+- closed-shape violations where `sh:closed true`
 
-Important validation nuance:
+**Nuance:** shapes using `sh:targetClass` only apply to nodes that explicitly declare the matching RDF class. For JSON-LD payloads, this means required `@type` values must be preserved — especially on helper/bridge nodes such as `core:AgentRole`.
 
-Shapes using `sh:targetClass` apply only to nodes that explicitly declare the corresponding RDF class. For JSON-LD payloads, this means required `@type` values must be preserved, especially for helper or bridge nodes such as `core:AgentRole`.
+### Log locations
+
+Runtime logs: `backend/logs/app.jsonl` on the host. Container stdout/stderr:
+
+```bash
+docker compose logs backend
+docker compose logs frontend
+```
 
 ---
 
-## 10. Recommended Commit Workflow
+## 7. Commit Workflow
 
 Before committing:
 
 ```bash
-# Backend checks
-cd backend
-ruff check .
-ruff format .
-python -m pytest
-cd ..
-
-# Frontend checks
-cd frontend
-npm run lint
-npm run build
-cd ..
-
-# Optional, if pre-commit is configured
-pre-commit run --all-files
+cd backend && ruff check . && ruff format . && python -m pytest && cd ..
+cd frontend && npm run lint && npm run build && cd ..
+pre-commit run --all-files   # if configured
 ```
 
-Then commit:
+Then:
 
 ```bash
-git add .
+ # Never use `git add .` — always review changes first
+git add [ ...files... ]  
 git commit -m "Describe the change"
 ```
 
-A good pull request should describe:
-
-- what changed
-- whether the SHACL schema changed
-- whether seed data changed
-- whether validation behavior changed
-- whether frontend form behavior changed
-- any migration or compatibility implications
+A good PR description covers: what changed, whether the SHACL schema changed, whether seed data changed, whether validation behavior changed, whether frontend form behavior changed, and any migration/compatibility implications.
 
 ---
 
-## 11. What Was Intentionally Excluded
+## 8. Quick Regex Log Checks (when UI submit appears to do nothing)
 
-This file intentionally excludes older parent-repository workflows, including:
+Backend structured logs are written to `backend/logs/app.jsonl`.
 
-- legacy CLI commands that are no longer shipped here
-- spreadsheet generation or conversion pipelines
-- legacy API-doc generation flows
-- ontology download/conversion pipelines from the previous repository layout
-- instructions that depend on a root Python virtual environment
+Start with broad error scan:
 
-Those workflows are not part of the standalone `rfdb-editor` project unless reintroduced explicitly.
+```bash
+rg -n -i 'error|exception|traceback|validation|shacl|httpexception' backend/logs/app.jsonl
+```
+
+Check whether POST `/api/data` was hit at all:
+
+```bash
+rg -n 'POST|/api/data|create_or_update_entity|validationReport' backend/logs/app.jsonl
+```
+
+Target your example payload text (`Expression 1`, `en`):
+
+```bash
+rg -n -i 'Expression 1|"en"|rdfs:label|core:text|langString' backend/logs/app.jsonl
+```
+
+Live-tail only relevant lines while retrying submit in UI:
+
+```bash
+tail -f backend/logs/app.jsonl | rg --line-buffered -i 'POST|/api/data|Expression 1|validation|error|exception|shacl'
+```
+
+If using Docker and file logs look empty, check container logs too:
+
+```bash
+docker compose logs -f backend | rg --line-buffered -i 'POST|/api/data|validation|error|exception|shacl|Expression 1'
+```
+
+Tip: if no `POST /api/data` pattern appears when clicking save, the request likely never left the browser (frontend-side issue). If POST appears with SHACL or validation errors, it is a backend/schema rejection.
+
