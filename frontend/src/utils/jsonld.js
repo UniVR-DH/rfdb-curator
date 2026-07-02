@@ -250,6 +250,11 @@ function normalizeNestedValue(value) {
 function normalizeFieldValue(field, value) {
   if (isBlank(value)) return undefined
 
+  if (field.type === 'uri' && Array.isArray(value)) {
+    const items = value.map((entry) => toTypedLiteral(field, entry)).filter((entry) => !isBlank(entry))
+    return items.length ? items : undefined
+  }
+
   if (field.type === 'entity-search') {
     if (Array.isArray(value)) {
       const items = value.map((entry) => toEntityReference(entry)).filter(Boolean)

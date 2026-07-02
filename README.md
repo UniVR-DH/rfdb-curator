@@ -163,7 +163,7 @@ Edit the `environment:` block in `docker-compose.yml`.
 `OXIGRAPH_URL` uses the Docker-internal hostname since backend and store are separate Compose services. 
 `SCHEMA_PATH`/`VOCAB_PATH`/`DATA_PATH` are container paths backed by the `volumes:` mounts — change both together. 
 `RESET_DATA_ON_STARTUP` wipes the store irreversibly; must stay `false` outside dev/test. `SEED_VOCAB_ON_STARTUP` should stay `true` or the store has no schema. 
-`SEED_TEST_DATA_ON_STARTUP` is dev/test only. 
+`SEED_TEST_DATA_ON_STARTUP` is dev/test only. `READ_ONLY` turns the API into demo mode by rejecting create/update/delete requests with HTTP 403. 
 `TRUNCATE_LOG_ON_STARTUP` clears logs on every restart (off by default, preserves crash history); `TRUNCATE_LOG_ON_FRESH_CONTAINER_START` clears logs only when a new container is created (on by default, avoids inheriting a stale log via the bind mount).
 
 
@@ -179,6 +179,7 @@ Edit the `environment:` block in `docker-compose.yml`.
 | `RESET_DATA_ON_STARTUP` | Yes | `true`/`false`. Destructive: clears the named graph before seeding on every startup. Must be `false` in production. |
 | `SEED_VOCAB_ON_STARTUP` | Yes | `true`/`false`. Load `VOCAB_PATH` on every startup. Should be `true` in all environments. |
 | `SEED_TEST_DATA_ON_STARTUP` | Yes | `true`/`false`. Load `DATA_PATH` on startup. `true` in dev/test only. |
+| `READ_ONLY` | No | `true`/`false`. When `true`, rejects `POST /api/data` and `DELETE /api/data/{entityId}` with HTTP 403 while keeping read endpoints available. Default: `false`. |
 | `CORS_ORIGINS` | Yes | JSON array string of allowed CORS origins, e.g. `["http://localhost:5173"]`. |
 | `LOG_FILE` | No | Path to the JSON-lines log file. Default: `logs/app.jsonl`. Parent directory created automatically. |
 | `LOG_LEVEL` | No | Minimum log level for file and console handlers. Default: `INFO`. One of `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. |

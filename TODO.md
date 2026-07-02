@@ -48,15 +48,15 @@ The initial version does not aim to:
 
 ### a. Core features and bug fixes (from current development)
 - [x] `RESET_DATA_ON_STARTUP=true` does not actually reset data when starting via Docker Compose
-- [ ] the owls:sameAs should allow multiple values (e.g. for linking to multiple external authority records), but currently only supports one value in the form
-- [ ] Allow `rdfs:label` / `rdfs:comment` without language tags for generic untranslated values
+- [x] the `owl:sameAs` field allows multiple values (e.g. linking to multiple external authority records)
+- [x] Allow `rdfs:label` / `rdfs:comment` without language tags for generic untranslated values
 - [ ] Expression form comment field renders as `[object Object]` instead of the actual string value
 - [ ] Language field in Source form should be a dropdown of available languages, not free text
 - [ ] Auto-refresh entity lists (e.g. "has place" relations) when backend data changes behind the scenes
 - [ ] Preserve current form/page state on browser reload (survive refresh)
 - [ ] Comment / description fields should use a larger textarea instead of single-line input (need to brainstorm how to derive that from SHACL shapes, maybe some predicates are treated as "long text" fields by default)
 - [ ] Dropdown selections should display both label and comment (not just label)
-- [ ] READ_ONLY FLAG: add a flag to make the editor read-only and refuse with a message if the user tries to edit (for demo or presentation mode)
+- [x] READ_ONLY FLAG: add a flag to make the editor read-only and refuse with a message if the user tries to edit (for demo or presentation mode)
 - [ ] File upload  of digital copy for Source entities (need to define which properties to use for this, and how to store the files, e.g. in a local `uploads/` folder with unique filenames and a mapping in the RDF data)
 
 

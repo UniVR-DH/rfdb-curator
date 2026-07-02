@@ -31,6 +31,7 @@ import EntitySearch from './EntitySearch.jsx'
 import { Controller } from 'react-hook-form'
 // eslint-disable-next-line no-unused-vars
 import LangStringList from './LangStringList.jsx'
+import UriList from './UriList.jsx'
 import '../components/ShapeForm.css'
 
 const LANG_OPTIONS = ['en', 'it', 'de', 'ru', 'fr', 'la']
@@ -149,6 +150,16 @@ export default function FormField({ field, allShapes, register, control }) {
 
   // ── URI input ─────────────────────────────────────────────────────
   if (type === 'uri') {
+    const isMulti = field.maxCount !== 1
+    if (isMulti) {
+      return (
+        <div className="field-group">
+          {label}
+          <UriList path={path} label={null} control={control} isRequired={isRequired} />
+        </div>
+      )
+    }
+
     return (
       <div className="field-group">
         {label}

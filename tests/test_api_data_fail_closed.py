@@ -263,3 +263,43 @@ def test_create_or_update_seed_iri_composition(
     assert response.success is False
     assert set(captured["seed_iris"]) == expected_seed_iris
     assert captured["root_shape_id"] == "https://rfdb.it/data/TestShape"
+
+
+def test_create_or_update_rejects_in_read_only_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """POST /api/data returns 403 when READ_ONLY mode is enabled."""
+    symbols = _load_backend_symbols()
+    oxigraph = _NoopOxigraph()
+    request = _fake_request_with_validator(oxigraph=oxigraph, validator=_NoopValidator())
+
+    monkeypatch.setattr(symbols.data_module.settings, "read_only", True)
+
+    payload = symbols.EntityData(
+        shapeId="https://rfdb.it/data/TestShape",
+        data={"@context": {}, "@id": "https://rfdb.it/data/read_only_test"},
+        originalTriples=None,
+    )
+
+    with pytest.raises(symbols.HTTPException) as exc:
+        symbols.create_or_update_entity(payload, request)
+
+    assert exc.value.status_code == 403
+    assert "READ_ONLY=true" in str(exc.value.detail)
+    assert oxigraph.calls == []
+
+
+def test_delete_rejects_in_read_only_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    """DELETE /api/data/{id} returns 403 when READ_ONLY mode is enabled."""
+    symbols = _load_backend_symbols()
+    oxigraph = _NoopOxigraph()
+    request = _fake_request_with_validator(oxigraph=oxigraph, validator=_NoopValidator())
+
+    monkeypatch.setattr(symbols.data_module.settings, "read_only", True)
+
+    with pytest.raises(symbols.HTTPException) as exc:
+        symbols.data_module.delete_entity("https://rfdb.it/data/read_only_test", request)
+
+    assert exc.value.status_code == 403
+    assert "READ_ONLY=true" in str(exc.value.detail)
+    assert oxigraph.calls == []

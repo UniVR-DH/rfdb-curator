@@ -11,7 +11,7 @@ import './ShapeForm.css'
 /**
  * Convert backend triples for one predicate into the value shape expected by a field widget.
  */
-function tripleToFieldValue(val, fieldType, languageTagPolicy) {
+function tripleToFieldValue(val, fieldType, languageTagPolicy, maxCount = 1) {
   const triple = Array.isArray(val) ? val[0] : val
 
   if (fieldType === 'lang-string-list') {
@@ -40,13 +40,20 @@ function tripleToFieldValue(val, fieldType, languageTagPolicy) {
   }
 
   if (fieldType === 'uri') {
-    if (triple && typeof triple === 'object') {
-      if (triple.objectType === 'iri') return triple.object
-      if (triple['@id']) return triple['@id']
-      if (typeof triple.object === 'string') return triple.object
-      return ''
-    }
-    return typeof triple === 'string' ? triple : ''
+    const isMulti = maxCount !== 1
+    const values = Array.isArray(val) ? val : val ? [val] : []
+    const mapped = values
+      .map((entry) => {
+        if (entry && typeof entry === 'object') {
+          if (entry.objectType === 'iri') return entry.object
+          if (entry['@id']) return entry['@id']
+          if (typeof entry.object === 'string') return entry.object
+          return ''
+        }
+        return typeof entry === 'string' ? entry : ''
+      })
+      .filter((entry) => entry && String(entry).trim() !== '')
+    return isMulti ? mapped : (mapped[0] ?? '')
   }
 
   if (fieldType === 'temporal' || fieldType === 'year' || fieldType === 'number') {
@@ -66,6 +73,10 @@ function tripleToFieldValue(val, fieldType, languageTagPolicy) {
     return ''
   }
   return triple ?? ''
+}
+
+function tripleToFieldScalarValue(val, fieldType, languageTagPolicy) {
+  return tripleToFieldValue(val, fieldType, languageTagPolicy, 1)
 }
 
 export default function ShapeForm({ shape, allShapes, record, onValidation, onSaved, onReset }) {
@@ -190,13 +201,13 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
 
       // --- Multi-value language-tagged list (e.g. skos:altLabel) ---
       if (field.type === 'lang-string-list') {
-        formData[field.path] = tripleToFieldValue(val, field.type, field.languageTagPolicy)
+        formData[field.path] = tripleToFieldScalarValue(val, field.type, field.languageTagPolicy)
         continue
       }
 
       // --- Single language-tagged string (e.g. rdfs:label) ---
       if (field.type === 'lang-string') {
-        formData[field.path] = tripleToFieldValue(val, field.type, field.languageTagPolicy)
+        formData[field.path] = tripleToFieldScalarValue(val, field.type, field.languageTagPolicy)
         continue
       }
 
@@ -226,7 +237,12 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
 
       // --- URI input ---
       else if (field.type === 'uri') {
-        formData[field.path] = tripleToFieldValue(val, field.type, field.languageTagPolicy)
+        formData[field.path] = tripleToFieldValue(
+          val,
+          field.type,
+          field.languageTagPolicy,
+          field.maxCount
+        )
       }
 
       // --- Nested bridge entity ---
@@ -240,17 +256,17 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
 
       // --- Temporal (xsd:date / xsd:gYear / xsd:gYearMonth) ---
       else if (field.type === 'temporal') {
-        formData[field.path] = tripleToFieldValue(val, field.type, field.languageTagPolicy)
+        formData[field.path] = tripleToFieldScalarValue(val, field.type, field.languageTagPolicy)
       }
 
       // --- Year and Number ---
       else if (field.type === 'year' || field.type === 'number') {
-        formData[field.path] = tripleToFieldValue(val, field.type, field.languageTagPolicy)
+        formData[field.path] = tripleToFieldScalarValue(val, field.type, field.languageTagPolicy)
       }
 
       // --- Generic fallback for text-like fields ---
       else {
-        formData[field.path] = tripleToFieldValue(val, field.type, field.languageTagPolicy)
+        formData[field.path] = tripleToFieldScalarValue(val, field.type, field.languageTagPolicy)
       }
     }
 
@@ -277,6 +293,8 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
             __value: '',
             __lang: field.languageTagPolicy === 'required' ? 'en' : '',
           }
+        } else if (field.type === 'uri' && field.maxCount !== 1) {
+          defaults[field.path] = ['']
         }
       }
       if (!ignore) reset(defaults)

@@ -63,6 +63,10 @@ class Settings(BaseSettings):
             ``true`` only in development/test environments; must be ``false``
             in production.
 
+        read_only: Disable all mutating API operations when ``true``.
+            Write and delete routes return HTTP 403 with a clear message.
+            Useful for demo or presentation mode.
+
         cors_origins: List of allowed CORS origins.  Supplied as a JSON array
             string in the ``.env`` file or Docker Compose ``environment:`` block
             and automatically parsed by the ``parse_cors`` validator.
@@ -115,6 +119,10 @@ class Settings(BaseSettings):
     seed_test_data_on_startup: bool
     """When ``true``, loads ``data_path`` at startup.  Should only be
     ``true`` in development or test environments."""
+
+    read_only: bool = False
+    """When ``true``, disable write/delete API routes and allow only reads.
+    Intended for demo/presentation environments."""
 
     # ------------------------------------------------------------------ #
     # HTTP / CORS                                                          #

@@ -17,6 +17,7 @@ from models.data import (
     ValidationResult,
 )
 from core.blank_node_handler import assign_entity_id, skolemize
+from core.config import settings
 from core.validation_merge import _build_validation_construct
 
 router = APIRouter()
@@ -69,6 +70,15 @@ def _log_agent_role_completeness(validation_graph: Graph) -> None:
         has_type = (role_node, _RDF_TYPE, _CORE_AGENT_ROLE) in validation_graph
         has_agent = any(
             validation_graph.objects(subject=role_node, predicate=_CORE_HAS_AGENT)
+        )
+
+
+def _assert_writable_mode() -> None:
+    """Refuse mutating operations when READ_ONLY mode is enabled."""
+    if settings.read_only:
+        raise HTTPException(
+            status_code=403,
+            detail="Editor is in read-only mode (READ_ONLY=true). Write operations are disabled.",
         )
         has_role = any(
             validation_graph.objects(subject=role_node, predicate=_CORE_HAS_ROLE)
@@ -313,6 +323,8 @@ def create_or_update_entity(payload: EntityData, request: Request):
             referenced entities merged from store), so nested linked-node
             constraint violations are rejected within the same write request.
     """
+    _assert_writable_mode()
+
     data = payload.data
     provided_id = data.get("@id")
     if isinstance(provided_id, str):
@@ -479,6 +491,7 @@ def create_or_update_entity(payload: EntityData, request: Request):
 @router.delete("/data/{entity_id:path}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_entity(entity_id: str, request: Request):
     """Delete all triples for a given entity IRI."""
+    _assert_writable_mode()
     _validate_iri(entity_id)
     oxigraph = request.app.state.oxigraph
 
