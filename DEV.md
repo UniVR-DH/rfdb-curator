@@ -197,7 +197,8 @@ Check, in order:
 
 ### Log locations
 
-Runtime logs: `backend/logs/app.jsonl` on the host. Container stdout/stderr:
+Runtime logs: `/app/logs/app.jsonl` inside the backend container
+(persisted in the `backend_logs` named volume). Container stdout/stderr:
 
 ```bash
 docker compose logs backend
@@ -230,30 +231,39 @@ A good PR description covers: what changed, whether the SHACL schema changed, wh
 
 ## 8. Quick Regex Log Checks (when UI submit appears to do nothing)
 
-Backend structured logs are written to `backend/logs/app.jsonl`.
+Backend structured logs are written to `/app/logs/app.jsonl` inside the
+`backend_logs` volume. You can query them without entering a container:
+
+```bash
+docker run --rm -v rfdb_backend_logs:/logs alpine ls -l /logs
+```
 
 Start with broad error scan:
 
 ```bash
-rg -n -i 'error|exception|traceback|validation|shacl|httpexception' backend/logs/app.jsonl
+docker run --rm -v rfdb_backend_logs:/logs alpine sh -lc \
+	"rg -n -i 'error|exception|traceback|validation|shacl|httpexception' /logs/app.jsonl"
 ```
 
 Check whether POST `/api/data` was hit at all:
 
 ```bash
-rg -n 'POST|/api/data|create_or_update_entity|validationReport' backend/logs/app.jsonl
+docker run --rm -v rfdb_backend_logs:/logs alpine sh -lc \
+	"rg -n 'POST|/api/data|create_or_update_entity|validationReport' /logs/app.jsonl"
 ```
 
 Target your example payload text (`Expression 1`, `en`):
 
 ```bash
-rg -n -i 'Expression 1|"en"|rdfs:label|core:text|langString' backend/logs/app.jsonl
+docker run --rm -v rfdb_backend_logs:/logs alpine sh -lc \
+	"rg -n -i 'Expression 1|\"en\"|rdfs:label|core:text|langString' /logs/app.jsonl"
 ```
 
 Live-tail only relevant lines while retrying submit in UI:
 
 ```bash
-tail -f backend/logs/app.jsonl | rg --line-buffered -i 'POST|/api/data|Expression 1|validation|error|exception|shacl'
+docker run --rm -v rfdb_backend_logs:/logs alpine sh -lc \
+	"tail -f /logs/app.jsonl" | rg --line-buffered -i 'POST|/api/data|Expression 1|validation|error|exception|shacl'
 ```
 
 If using Docker and file logs look empty, check container logs too:

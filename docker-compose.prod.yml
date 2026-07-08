@@ -1,15 +1,39 @@
-# docker-compose.yml
+# docker-compose.prod.yml
 #
-# Development stack for RossijskijFeatrDB.
+# Production deployment for RossijskijFeatrDB.
 #
-# Dev-only flags (--reload, source bind-mounts) live here.  Any settings
-# that must also apply in staging/production belong in a dedicated compose
-# override or an environment-specific file.
+# Changes from the dev compose file, and why:
+#   - No source bind-mounts, no --reload: containers run only what was
+#     COPYed into the image at build time, nothing from the host fs.
+#   - Oxigraph publishes no port at all. It has no auth of its own, so
+#     anyone who can reach 7878 has full SPARQL read/write access —
+#     it must only be reachable from the backend, over the `internal`
+#     network.
+#   - Backend and frontend also publish no ports. The only host-facing
+#     service is `proxy`, which terminates TLS and reverse-proxies to
+#     both, over the `edge` network. This also lets frontend and
+#     backend share one origin, so CORS becomes a non-issue if you
+#     route /api through the same domain.
+#   - Frontend is built as static assets (`npm run build` / `vite
+#     build`) and served by whatever the Dockerfile's prod stage runs
+#     (e.g. nginx) — not the Vite dev server, which isn't meant to
+#     serve production traffic.
+#   - Config with no safe default uses `${VAR:?message}` so `docker
+#     compose up` fails immediately instead of silently deploying with
+#     a dev value or an empty one.
+#
+# Requires (not included in this file):
+#   - frontend/Dockerfile needs a build stage that runs the production
+#     build and serves ./dist with a real web server.
+#   - proxy/Caddyfile (or nginx.conf + certbot) with your actual domain
+#     and TLS config.
+#   - .env.prod populated from .env.prod.example.
 #
 # Usage:
-#   docker compose up --build          # first run or after Dockerfile changes
-#   docker compose up                  # subsequent runs
-#   docker compose down -v             # tear down including named volumes
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#   docker compose -f docker-compose.prod.yml logs -f
+#   docker compose -f docker-compose.prod.yml down        # keeps volumes
+#   docker compose -f docker-compose.prod.yml down -v     # destroys data too
 
 services:
 
@@ -17,33 +41,42 @@ services:
   # Oxigraph — RDF triple store
   # --------------------------------------------------------------------------
   oxigraph:
-    # Pinned to a specific release so `docker compose pull` never silently
-    # breaks the SPARQL / Graph Store Protocol API contract.
-    # Update deliberately and re-run `docker compose up --build`.
     image: oxigraph/oxigraph:0.5.7
     container_name: rfdb-oxigraph
     restart: unless-stopped
-    ports:
-      - "7878:7878"
+    # No `ports:` — unauthenticated triple store, must stay
+    # unreachable from outside the Docker network.
+    networks:
+      - internal
     volumes:
       - oxigraph_data:/data
-    # No `command:` override — the Dockerfile already sets
-    # CMD ["serve", "--location", "/data", "--bind", "0.0.0.0:7878"]
-    # via ENTRYPOINT + CMD.  Repeating it here would be redundant.
+    security_opt:
+      - no-new-privileges:true
+    # Root filesystem read-only; the only writes the process needs are
+    # under /data (named volume, mounted read-write) and /tmp. Remove
+    # this if you hit permission errors and can't find where else it
+    # writes.
+    read_only: true
+    tmpfs:
+      - /tmp
     healthcheck:
-      # The final image is gcr.io/distroless/cc-debian12 — no shell,
-      # no wget, no curl.  The only executable available is the oxigraph
-      # binary itself (ENTRYPOINT /usr/local/bin/oxigraph).
-      # `CMD oxigraph --help` resolves to ENTRYPOINT + ["--help"], exits
-      # 0 immediately, and proves the process is alive.
-      # This is a LIVENESS check only — it does not verify the HTTP port.
-      # HTTP readiness is handled by _oxigraph_wait() in app.py, which
-      # retries OxigraphClient.health() before seeding.
+      # Liveness only, same rationale as dev: distroless image has no
+      # shell/curl/wget. HTTP readiness is checked separately by the
+      # backend's own startup retry loop before it seeds data.
       test: ["CMD", "/usr/local/bin/oxigraph", "--help"]
-      interval: 5s
+      interval: 10s
       timeout: 3s
       retries: 10
       start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
+      # Note: `docker compose` (the Go-based v2 CLI) applies
+      # deploy.resources.limits directly even outside Swarm. If you're
+      # still on the legacy python docker-compose v1 binary, this block
+      # is silently ignored — use top-level `mem_limit`/`cpus` instead.
 
   # --------------------------------------------------------------------------
   # Backend — FastAPI + uvicorn
@@ -56,56 +89,50 @@ services:
     restart: unless-stopped
     depends_on:
       oxigraph:
-        # service_healthy waits for the oxigraph liveness check (process
-        # alive) before starting the backend.  The backend's own startup
-        # retry loop (see lifespan in app.py) then waits for the HTTP
-        # port to be ready before seeding, giving a two-layer readiness
-        # guarantee without needing tools inside the Oxigraph image.
         condition: service_healthy
+    networks:
+      - internal   # to reach oxigraph
+      - edge       # to be reached by proxy
     environment:
-      # Docker-internal hostname — only used inside the container network.
       OXIGRAPH_URL: http://oxigraph:7878
       DATA_GRAPH_URI: "https://rfdb.it/graph/data"
-      # Paths inside the container, mapped by the volumes block below.
       SCHEMA_PATH: /app/schema/schema.ttl
       VOCAB_PATH: /app/data/vocab.ttl
       DATA_PATH: /app/data/data.ttl
-      # Set true only when you want a full store wipe on restart (dev/test).
-      # Must be false in production — data loss is irreversible.
-      RESET_DATA_ON_STARTUP: "${RESET_DATA_ON_STARTUP:-false}"
-      # Vocab must always be seeded so the store is never empty.
-      # Set false only if you are managing vocabulary loading manually.
+
+      # Hardcoded rather than env-overridable: a stray
+      # RESET_DATA_ON_STARTUP=true in a misconfigured .env.prod would
+      # wipe the store on every restart. If you ever need a genuine
+      # prod reset, change this literal for one deploy, don't add an
+      # override knob for it.
+      RESET_DATA_ON_STARTUP: "false"
       SEED_VOCAB_ON_STARTUP: "true"
-      # Test fixture data — dev/test only, must be false in production.
       SEED_TEST_DATA_ON_STARTUP: "false"
-      # Demo mode: block all write/delete API routes when true.
+
       READ_ONLY: "${READ_ONLY:-false}"
-      CORS_ORIGINS: '["http://localhost:5173", "http://localhost:5174"]'
-      # Structured JSON-lines log file written inside the container.
-      # Readable on the host at backend/logs/app.jsonl via the bind-mount below.
+
+      # No default on purpose: failing to start is safer than silently
+      # falling back to a dev localhost origin, or to an empty/broken
+      # CORS policy. Set in .env.prod, e.g.
+      # CORS_ORIGINS=["https://rfdb.example.com"]
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS in .env.prod}
+
       LOG_FILE: logs/app.jsonl
-      LOG_LEVEL: INFO
-      # Keep crash/restart history, but truncate once when a fresh container is created.
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
       TRUNCATE_LOG_ON_STARTUP: "false"
       TRUNCATE_LOG_ON_FRESH_CONTAINER_START: "true"
     volumes:
-      # Source bind-mount for hot-reload in development.
-      # Safe with this Dockerfile: pip installs packages into the system
-      # Python's site-packages (/usr/local/lib/python3.12/site-packages),
-      # NOT into /app, so the bind-mount does not shadow any installed
-      # dependencies.  If you switch to a virtualenv inside /app (e.g.
-      # /app/.venv), move it outside /app or protect it with an anonymous
-      # volume, otherwise the bind-mount will shadow it.
-      - ./backend:/app
-      # Read-only mounts for schema and data files.
-      # The container runs as appuser (uid 1001); ensure host files are
-      # world-readable (chmod o+r) if your umask is restrictive.
+      # No ./backend:/app — the running code is whatever the image
+      # contains, not the host checkout.
       - ./schema:/app/schema:ro
       - ./data:/app/data:ro
-      # Persists the JSON-lines log file on the host at backend/logs/.
-      - ./backend/logs:/app/logs
-    ports:
-      - "8000:8000"
+      # Persist JSON-lines logs in a Docker-managed volume to avoid
+      # host uid/gid permission issues on first deploy.
+      - backend_logs:/app/logs
+    # No `ports:` — only `proxy` reaches this, over `edge`.
+    # No --reload. --workers is a placeholder: size it to roughly
+    # (2 x CPU cores) + 1 for your actual VM, not this default.
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
     healthcheck:
       test:
         [
@@ -114,75 +141,102 @@ services:
           "-c",
           "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)",
         ]
-      interval: 5s
+      interval: 10s
       timeout: 3s
       retries: 12
       start_period: 10s
-    # --reload is a dev-only flag enabling uvicorn's file-watcher.
-    # Remove it (or move to docker-compose.override.yml) for
-    # staging/production — it adds overhead and is not safe in production.
-    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      # Bounds Docker's own captured stdout/stderr. Does NOT bound
+      # /app/logs/app.jsonl — that's app-level file logging in the
+      # backend_logs Docker volume, and needs in-volume cleanup/rotation,
+      # or switch the app
+      # to log to stdout only and drop LOG_FILE so Docker's driver
+      # handles rotation for you.
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
 
   # --------------------------------------------------------------------------
-  # Frontend — Vite dev server
+  # Frontend — static build, served by the prod stage's web server
+  # (e.g. nginx inside the image). Not the Vite dev server: `vite
+  # preview` and the dev server aren't built to sit behind a reverse
+  # proxy and take production traffic.
   # --------------------------------------------------------------------------
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      # Vite inlines VITE_* values into the JS bundle at build time.
+      # Unlike the backend, setting these under `environment:` below
+      # would have NO effect on a static build — there's no server
+      # reading env vars per-request once it's just prebuilt HTML/JS.
+      # Must be a build arg, read via ARG/ENV in the Dockerfile before
+      # `npm run build` runs.
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:?Set VITE_API_BASE in .env.prod, e.g. https://rfdb.example.com/api}
     container_name: rfdb-frontend
     restart: unless-stopped
     depends_on:
       backend:
-        # Frontend starts only after backend /health is reachable so the
-        # app does not appear "up" while API startup failed.
         condition: service_healthy
-    environment:
-      # ----------------------------------------------------------------------
-      # Browser-facing API base URL
-      # ----------------------------------------------------------------------
-      # This value is embedded in the frontend runtime (via Vite) and used by
-      # code executing in the user's browser.
-      #
-      # IMPORTANT:
-      # - Must be reachable from the host machine (i.e. the browser)
-      # - Must NOT use Docker service names like "backend"
-      # - Typically points to a published port on localhost
-      #
-      # Example:
-      #   Browser → http://localhost:5173 → http://localhost:8000/api
-      #
-      VITE_API_BASE: http://localhost:8000
+    networks:
+      - edge
+    # No `ports:` — only `proxy` reaches this.
+    # No bind-mounts, no anonymous node_modules volume: nothing here
+    # watches the filesystem, so neither would do anything useful.
 
-      # ----------------------------------------------------------------------
-      # Internal proxy target (Vite dev server → backend container)
-      # ----------------------------------------------------------------------
-      # Used ONLY by the Vite development server running inside this container.
-      #
-      # IMPORTANT:
-      # - Runs inside Docker → must use Docker DNS (service name)
-      # - "backend" resolves to the backend container on the internal network
-      # - Never use localhost here (would point to this container itself)
-      #
-      # Example:
-      #   Vite proxy → http://backend:8000/api
-      #
-      VITE_PROXY_TARGET: http://backend:8000
-    volumes:
-      - ./frontend:/app
-      # The anonymous volume re-surfaces the node_modules layer built by
-      # `npm ci` during `docker build` on top of the bind-mount.  Docker
-      # applies anonymous volumes after bind-mounts, so the image's
-      # node_modules (correct OS/arch binaries) always win over any
-      # node_modules that may exist on the host.
-      - /app/node_modules
+  # --------------------------------------------------------------------------
+  # Proxy — the only service exposed to the host. Terminates TLS and
+  # reverse-proxies to frontend (static assets) and backend (API), so
+  # the browser sees one origin and CORS_ORIGINS above can just be
+  # that domain instead of a second port.
+  #
+  # Caddyfile/nginx.conf not included here — needs your real domain
+  # and cert config before this will work.
+  # --------------------------------------------------------------------------
+  proxy:
+    image: caddy:2-alpine
+    container_name: rfdb-proxy
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - edge
     ports:
-      - "5173:5173"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+# ------------------------------------------------------------------------------
+# Networks
+# ------------------------------------------------------------------------------
+networks:
+  # oxigraph <-> backend only. Nothing else, and nothing on the host,
+  # can reach oxigraph directly.
+  internal:
+    driver: bridge
+  # proxy <-> backend/frontend. Has no route to the host except
+  # through proxy's own published ports.
+  edge:
+    driver: bridge
 
 # ------------------------------------------------------------------------------
 # Named volumes
 # ------------------------------------------------------------------------------
 volumes:
   oxigraph_data:
-    # Persists RDF data across container restarts.
-    # Run `docker compose down -v` to destroy it along with all containers.
+  backend_logs:
+  caddy_data:
+  caddy_config:

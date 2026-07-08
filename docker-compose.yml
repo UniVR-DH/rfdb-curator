@@ -82,7 +82,7 @@ services:
       READ_ONLY: "${READ_ONLY:-false}"
       CORS_ORIGINS: '["http://localhost:5173", "http://localhost:5174"]'
       # Structured JSON-lines log file written inside the container.
-      # Readable on the host at backend/logs/app.jsonl via the bind-mount below.
+      # Persisted in the backend_logs named volume mounted at /app/logs.
       LOG_FILE: logs/app.jsonl
       LOG_LEVEL: INFO
       # Keep crash/restart history, but truncate once when a fresh container is created.
@@ -102,8 +102,9 @@ services:
       # world-readable (chmod o+r) if your umask is restrictive.
       - ./schema:/app/schema:ro
       - ./data:/app/data:ro
-      # Persists the JSON-lines log file on the host at backend/logs/.
-      - ./backend/logs:/app/logs
+      # Persist JSON-lines logs in a Docker-managed volume to avoid
+      # host uid/gid permission issues on first deploy.
+      - backend_logs:/app/logs
     ports:
       - "8000:8000"
     healthcheck:
@@ -186,3 +187,5 @@ volumes:
   oxigraph_data:
     # Persists RDF data across container restarts.
     # Run `docker compose down -v` to destroy it along with all containers.
+  backend_logs:
+    # Persists backend JSON-lines logs across container restarts.
