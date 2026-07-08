@@ -68,7 +68,7 @@ services:
       DATA_GRAPH_URI: "https://rfdb.it/graph/data"
       # Paths inside the container, mapped by the volumes block below.
       SCHEMA_PATH: /app/schema/schema.ttl
-      VOCAB_PATH: /app/data/vocab.ttl
+      VOCAB_PATH: '["/app/data/vocab.ttl", "/app/data/glottolog_language.ttl"]'
       DATA_PATH: /app/data/data.ttl
       # Set true only when you want a full store wipe on restart (dev/test).
       # Must be false in production — data loss is irreversible.
@@ -80,6 +80,9 @@ services:
       SEED_TEST_DATA_ON_STARTUP: "false"
       # Demo mode: block all write/delete API routes when true.
       READ_ONLY: "${READ_ONLY:-false}"
+      # Per-shape read-only: JSON array of shape URIs whose records cannot be edited.
+      # Language data is reference vocabulary managed externally; curators browse only.
+      READ_ONLY_SHAPES: '["https://rfdb.it/data/LanguageShape"]'
       CORS_ORIGINS: '["http://localhost:5173", "http://localhost:5174"]'
       # Structured JSON-lines log file written inside the container.
       # Persisted in the backend_logs named volume mounted at /app/logs.

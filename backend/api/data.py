@@ -92,6 +92,15 @@ def _assert_writable_mode() -> None:
         )
 
 
+def _assert_shape_writable(shape_id: str) -> None:
+    """Refuse mutating operations on shapes listed in READ_ONLY_SHAPES."""
+    if shape_id in settings.read_only_shapes:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Shape '{shape_id}' is read-only (READ_ONLY_SHAPES). Write operations are disabled for this shape.",
+        )
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -324,6 +333,7 @@ def create_or_update_entity(payload: EntityData, request: Request):
             constraint violations are rejected within the same write request.
     """
     _assert_writable_mode()
+    _assert_shape_writable(payload.shapeId)
 
     data = payload.data
     provided_id = data.get("@id")
@@ -489,9 +499,16 @@ def create_or_update_entity(payload: EntityData, request: Request):
 
 
 @router.delete("/data/{entity_id:path}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_entity(entity_id: str, request: Request):
-    """Delete all triples for a given entity IRI."""
+def delete_entity(entity_id: str, request: Request, shapeId: str = Query("", description="Shape URI of the entity being deleted (used to enforce READ_ONLY_SHAPES)")):
+    """Delete all triples for a given entity IRI.
+
+    An optional ``shapeId`` query parameter may be supplied by the frontend to
+    enable per-shape write protection via ``READ_ONLY_SHAPES``.  When absent,
+    only the global ``READ_ONLY`` flag is checked.
+    """
     _assert_writable_mode()
+    if shapeId:
+        _assert_shape_writable(shapeId)
     _validate_iri(entity_id)
     oxigraph = request.app.state.oxigraph
 

@@ -303,3 +303,112 @@ def test_delete_rejects_in_read_only_mode(monkeypatch: pytest.MonkeyPatch) -> No
     assert exc.value.status_code == 403
     assert "READ_ONLY=true" in str(exc.value.detail)
     assert oxigraph.calls == []
+
+
+def test_create_or_update_rejects_read_only_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """POST /api/data returns 403 when the target shape is in READ_ONLY_SHAPES."""
+    symbols = _load_backend_symbols()
+    oxigraph = _NoopOxigraph()
+    request = _fake_request_with_validator(oxigraph=oxigraph, validator=_NoopValidator())
+
+    monkeypatch.setattr(
+        symbols.data_module.settings,
+        "read_only_shapes",
+        ["https://rfdb.it/data/LanguageShape"],
+    )
+
+    payload = symbols.EntityData(
+        shapeId="https://rfdb.it/data/LanguageShape",
+        data={"@id": "https://rfdb.it/data/russ1263"},
+        originalTriples=None,
+    )
+
+    with pytest.raises(symbols.HTTPException) as exc:
+        symbols.create_or_update_entity(payload, request)
+
+    assert exc.value.status_code == 403
+    assert "read-only" in str(exc.value.detail).lower()
+    assert oxigraph.calls == []
+
+
+def test_create_or_update_allows_non_read_only_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """POST /api/data is not blocked by the shape guard for non-read-only shapes."""
+    symbols = _load_backend_symbols()
+    oxigraph = _NoopOxigraph()
+    request = _fake_request_with_validator(
+        oxigraph=oxigraph, validator=_RejectingValidator()
+    )
+
+    monkeypatch.setattr(
+        symbols.data_module.settings,
+        "read_only_shapes",
+        ["https://rfdb.it/data/LanguageShape"],
+    )
+
+    payload = symbols.EntityData(
+        shapeId="https://rfdb.it/data/SourceShape",
+        data={"@id": "https://rfdb.it/data/TestSource"},
+        originalTriples=None,
+    )
+
+    # Should not raise 403 — shape guard passes. May raise 503 due to stub
+    # limitations (NoneType graph merge), which is fine: it proves execution
+    # proceeded past the read-only check.
+    with pytest.raises(symbols.HTTPException) as exc:
+        symbols.create_or_update_entity(payload, request)
+
+    assert exc.value.status_code != 403, "Shape guard must not block non-read-only shapes"
+
+
+def test_delete_rejects_read_only_shape(monkeypatch: pytest.MonkeyPatch) -> None:
+    """DELETE /api/data/{id}?shapeId=... returns 403 for a read-only shape."""
+    symbols = _load_backend_symbols()
+    oxigraph = _NoopOxigraph()
+    request = _fake_request_with_validator(oxigraph=oxigraph, validator=_NoopValidator())
+
+    monkeypatch.setattr(
+        symbols.data_module.settings,
+        "read_only_shapes",
+        ["https://rfdb.it/data/LanguageShape"],
+    )
+
+    with pytest.raises(symbols.HTTPException) as exc:
+        symbols.data_module.delete_entity(
+            "https://rfdb.it/data/russ1263",
+            request,
+            shapeId="https://rfdb.it/data/LanguageShape",
+        )
+
+    assert exc.value.status_code == 403
+    assert "read-only" in str(exc.value.detail).lower()
+    assert oxigraph.calls == []
+
+
+def test_shapes_endpoint_stamps_read_only_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """GET /api/shapes returns readOnly:true for shapes in READ_ONLY_SHAPES."""
+    if str(BACKEND_DIR) not in sys.path:
+        sys.path.insert(0, str(BACKEND_DIR))
+
+    import importlib
+
+    shapes_module = importlib.import_module("api.shapes")
+
+    language_shape_uri = "https://rfdb.it/data/LanguageShape"
+    other_shape_uri = "https://rfdb.it/data/SourceShape"
+
+    monkeypatch.setattr(
+        shapes_module.settings,
+        "read_only_shapes",
+        [language_shape_uri],
+    )
+
+    # _stamp_read_only is a pure function — test it directly.
+    locked = shapes_module._stamp_read_only({"id": language_shape_uri, "label": "Language"})
+    unlocked = shapes_module._stamp_read_only({"id": other_shape_uri, "label": "Source"})
+
+    assert locked["readOnly"] is True
+    assert unlocked["readOnly"] is False

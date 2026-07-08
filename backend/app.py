@@ -148,7 +148,7 @@ async def lifespan(app: FastAPI):
     # -- 4. Seed store -----------------------------------------------------
     seed_report = seed_store(
         oxigraph=app.state.oxigraph,
-        vocab_path=settings.vocab_path,
+        vocab_paths=settings.vocab_paths,
         test_data_path=settings.data_path,
         seed_vocab=settings.seed_vocab_on_startup,
         seed_test_data=settings.seed_test_data_on_startup,

@@ -41,11 +41,9 @@
 import { useEffect, useState } from 'react'
 import './App.css'
 import { apiClient } from './api/client.js'
- 
+import Icon from './components/Icon.jsx'
 import ShapeForm from './components/ShapeForm.jsx'
- 
 import ShapeRecordList from './components/ShapeRecordList.jsx'
- 
 import ValidationPanel from './components/ValidationPanel.jsx'
 
 export default function App() {
@@ -175,11 +173,16 @@ export default function App() {
             {shapes.map((shape) => (
               <li key={shape.id}>
                 <button
-                  className={`nav-item ${activeShape?.id === shape.id ? 'active' : ''}`}
+                  className={`nav-item ${activeShape?.id === shape.id ? 'active' : ''} ${shape.readOnly ? 'nav-item--readonly' : ''}`}
                   onClick={() => handleShapeSelect(shape)}
                 >
                   <span className="nav-item-label">{shape.label}</span>
-                  <span className="nav-count-pill">{formatCount(shapeCounts[shape.id])}</span>
+                  <span className="nav-item-right">
+                    {shape.readOnly && (
+                      <Icon name="Lock" size={11} className="nav-lock-icon" aria-label="Read-only" />
+                    )}
+                    <span className="nav-count-pill">{formatCount(shapeCounts[shape.id])}</span>
+                  </span>
                 </button>
               </li>
             ))}

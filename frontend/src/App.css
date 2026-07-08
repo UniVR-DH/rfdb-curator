@@ -97,6 +97,23 @@
   background-color: rgba(0, 0, 0, 0.26);
 }
 
+/* Read-only shapes: dimmed label, lock icon */
+.nav-item--readonly .nav-item-label {
+  opacity: 0.6;
+}
+
+.nav-item-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.nav-lock-icon {
+  opacity: 0.5;
+  color: var(--color-ambient-2);
+}
+
 .nav-loading {
   color: var(--color-ambient-2);
   font-size: 12px;

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 
-from pydantic import AnyHttpUrl, field_validator
+from pydantic import AnyHttpUrl, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -77,6 +77,7 @@ class Settings(BaseSettings):
         env_file=".env",
         extra="ignore",
         case_sensitive=False,
+        populate_by_name=True,
     )
 
     # ------------------------------------------------------------------ #
@@ -98,8 +99,14 @@ class Settings(BaseSettings):
     schema_path: str
     """Path to the SHACL schema Turtle file (e.g. ``schema/schema.ttl``)."""
 
-    vocab_path: str
-    """Path to the vocabulary Turtle file (e.g. ``data/vocab.ttl``)."""
+    vocab_paths: list[str] = Field(validation_alias="VOCAB_PATH")
+    """Paths to vocabulary Turtle files seeded on startup.
+
+    Supplied as a JSON array string via the ``VOCAB_PATH`` environment variable,
+    e.g. ``'["data/vocab.ttl","data/glottolog_language.ttl"]'``.
+    The ``parse_vocab_paths`` validator parses the JSON array string; a list value
+    passed directly (in tests) is returned unchanged.
+    """
 
     data_path: str
     """Path to the test-fixture Turtle file (e.g. ``data/data.ttl``)."""
@@ -156,9 +163,62 @@ class Settings(BaseSettings):
     freshly created container (for example after ``docker compose up --build``).
     Subsequent restarts of the same container keep appending to the file."""
 
+    read_only_shapes: list[str] = []
+    """Shape URIs whose records are read-only in the editor.
+
+    Supplied as a JSON array string via the ``READ_ONLY_SHAPES`` environment variable,
+    e.g. ``'["https://rfdb.it/data/LanguageShape"]'``.  Shapes listed here get
+    ``"readOnly": true`` injected into ``/api/shapes`` responses, and ``POST /api/data``
+    and ``DELETE /api/data/{id}`` return HTTP 403 when the target shape is in this list.
+    Optional; defaults to ``[]`` (no shapes are read-only) so existing deployments
+    require no change.
+    """
+
     # ------------------------------------------------------------------ #
     # Validators                                                           #
     # ------------------------------------------------------------------ #
+
+    @field_validator("vocab_paths", mode="before")
+    @classmethod
+    def parse_vocab_paths(cls, v: str | list[str]) -> list[str]:
+        """Accept ``VOCAB_PATH`` as a JSON array string or a plain Python list.
+
+        Args:
+            v: Raw value from the environment or a direct constructor call.
+
+        Returns:
+            A ``list[str]`` of file paths.
+
+        Raises:
+            ValueError: If ``v`` is a string that cannot be parsed as JSON.
+        """
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
+
+    @field_validator("read_only_shapes", mode="before")
+    @classmethod
+    def parse_read_only_shapes(cls, v: str | list[str]) -> list[str]:
+        """Accept ``READ_ONLY_SHAPES`` as a JSON array string, empty string, or list.
+
+        - Empty string or absent → ``[]``.
+        - JSON array string → parsed via :func:`json.loads`.
+        - List → passed through unchanged.
+
+        Args:
+            v: Raw value from the environment or a direct constructor call.
+
+        Returns:
+            A ``list[str]`` of shape URIs.
+        """
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            stripped = v.strip()
+            if not stripped:
+                return []
+            return json.loads(stripped)
+        return v
 
     @field_validator("cors_origins", mode="before")
     @classmethod

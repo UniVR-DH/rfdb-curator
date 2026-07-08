@@ -34,7 +34,7 @@ def _seed_turtle_file(oxigraph, file_path: str) -> dict:
 
 def seed_store(
     oxigraph,
-    vocab_path: str,
+    vocab_paths: list[str],
     test_data_path: str,
     seed_vocab: bool,
     seed_test_data: bool,
@@ -42,8 +42,8 @@ def seed_store(
     """Seed Oxigraph on startup.
 
     Policy:
-    - vocab.ttl is canonical and should be seeded by default.
-    - data.ttl is test fixture and is optional/off by default.
+    - vocab_paths are canonical and should be seeded by default (idempotent).
+    - test_data_path is test fixture and is optional/off by default.
     """
     report = {
         "seedVocab": bool(seed_vocab),
@@ -52,7 +52,8 @@ def seed_store(
     }
 
     if seed_vocab:
-        report["results"].append(_seed_turtle_file(oxigraph, vocab_path))
+        for path in vocab_paths:
+            report["results"].append(_seed_turtle_file(oxigraph, path))
 
     if seed_test_data:
         report["results"].append(_seed_turtle_file(oxigraph, test_data_path))

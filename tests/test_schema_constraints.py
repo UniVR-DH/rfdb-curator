@@ -120,3 +120,30 @@ def test_label_field_is_language_capable_with_string_option() -> None:
 
     assert field["type"] == "lang-string"
     assert field["datatypeOptions"] == ["rdf:langString", "xsd:string"]
+
+
+def test_language_shape_exists_with_correct_target_class() -> None:
+    """rfdb:LanguageShape exists and targets dcterms:LinguisticSystem."""
+    from rdflib import URIRef
+    from rdflib.namespace import SH
+
+    schema = Graph().parse(str(SCHEMA_PATH), format="turtle")
+    shape_uri = URIRef("https://rfdb.it/data/LanguageShape")
+    target = schema.value(shape_uri, SH.targetClass)
+    assert target == URIRef("http://purl.org/dc/terms/LinguisticSystem"), (
+        f"Expected dcterms:LinguisticSystem, got {target}"
+    )
+
+
+def test_source_shape_language_field_is_entity_search() -> None:
+    """dcterms:language in SourceShape resolves to entity-search with correct class."""
+    field = _schema_field(
+        "https://rfdb.it/data/SourceShape", "dcterms:language"
+    )
+    assert field["type"] == "entity-search", f"Expected entity-search, got {field['type']}"
+    assert field["nodeClass"] == "dcterms:LinguisticSystem", (
+        f"Expected dcterms:LinguisticSystem, got {field['nodeClass']}"
+    )
+    assert field["nestedShape"] == "https://rfdb.it/data/LanguageShape", (
+        f"Expected rfdb:LanguageShape, got {field['nestedShape']}"
+    )

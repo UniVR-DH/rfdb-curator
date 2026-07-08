@@ -252,7 +252,8 @@ rfdb:ManifestationShape
 # ================================
 rfdb:SourceShape
   a sh:NodeShape ;
-  sh:targetClass source:Source, lrmoo:F5_Item ;
+  sh:targetClass source:Source ;
+  sh:class lrmoo:F5_Item ;
   rdfs:label "Source"@en, "Fonte"@it ;
   sh:description "A particular physical copy of a document, such as a specific printed edition of a libretto, held by a library or archive. Items exemplify Manifestations."@en ;
   sh:property [
@@ -286,7 +287,8 @@ rfdb:SourceShape
   sh:property [
     sh:path dcterms:language ;
     sh:nodeKind sh:IRI ;
-    # sh:class dcterms:LinguisticSystem ;
+    sh:class dcterms:LinguisticSystem ;
+    sh:node rfdb:LanguageShape ;
     sh:description "Language(s) of the item (Lingua), e.g., from glottolog.org as 'https://glottolog.org/resource/languoid/id/russ1263" ;
   ] ;
 
@@ -499,4 +501,25 @@ rfdb:HoldingOrganizationShape
     sh:class core:Place ;
     sh:node rfdb:PlaceShape ;
     sh:description "Location of the organization" ;
+  ] .
+
+# ================================
+# Shape for Language (Glottolog / dcterms:LinguisticSystem)
+# ================================
+# This shape targets dcterms:LinguisticSystem, the class used in glottolog_language.ttl.
+rfdb:LanguageShape
+  a sh:NodeShape ;
+  sh:targetClass dcterms:LinguisticSystem ;
+  rdfs:label "Language"@en, "Lingua"@it ;
+  sh:description "A language resource from a controlled vocabulary (e.g. Glottolog). Reference data: browse and select only."@en ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:datatype rdf:langString ;
+    sh:description "Primary label for the language (e.g. 'Russian'@en)" ;
+  ] ;
+  sh:property [
+    sh:path skos:prefLabel ;
+    sh:datatype rdf:langString ;
+    sh:description "Preferred label (skos:prefLabel), present in Glottolog data" ;
   ] .

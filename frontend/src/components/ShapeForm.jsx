@@ -531,6 +531,24 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
     )
   }
 
+  // Block editing of read-only shapes (reference vocabulary managed externally).
+  if (shape.readOnly) {
+    return (
+      <div className="shape-form shape-form-blocked">
+        <header className="form-header">
+          <h2 className="form-title">{shape.label}</h2>
+          {shape.description && <p className="form-description">{shape.description}</p>}
+        </header>
+        <div className="form-blocked-message">
+          <p>
+            This vocabulary is managed externally and cannot be edited here. Use the Records tab to
+            browse available entries and select them from relation fields.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <form className="shape-form" onSubmit={handleSubmit(onSubmit, onInvalidSubmit)} noValidate>
       <header className="form-header">

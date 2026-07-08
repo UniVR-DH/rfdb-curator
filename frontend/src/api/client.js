@@ -44,12 +44,15 @@ export const apiClient = {
    * Autocomplete search for entities of a given shape (relation field dropdown).
    * `query` may be empty to pre-populate the dropdown on field focus.
    */
-  searchEntities: (shape, query, limit = 10) =>
+  searchEntities: (shape, query, limit = 50) =>
     http.get('/api/entities/search', { params: { shape, query, limit } }).then((r) => r.data),
 
   /** Dry-run SHACL validation without persisting (used by ValidationPanel). */
   validateEntity: (payload) => http.post('/api/validate', payload).then((r) => r.data),
 
-  /** Delete an entity by IRI. */
-  deleteEntity: (entityId) => http.delete(`/api/data/${encodeURIComponent(entityId)}`),
+  /** Delete an entity by IRI. Pass shapeId to enable per-shape write protection on the backend. */
+  deleteEntity: (entityId, shapeId = '') =>
+    http.delete(`/api/data/${encodeURIComponent(entityId)}`, {
+      params: shapeId ? { shapeId } : undefined,
+    }),
 }

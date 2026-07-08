@@ -66,7 +66,7 @@ export default function ShapeRecordList({
     if (!window.confirm('Delete this record? This cannot be undone.')) return
     setDeletingId(rec.id)
     try {
-      await apiClient.deleteEntity(rec.id)
+      await apiClient.deleteEntity(rec.id, shape?.id)
       setRecords((prev) => prev.filter((r) => r.id !== rec.id))
       setTotal((t) => t - 1)
       onDelete?.() // notify parent to refresh counts
@@ -76,6 +76,8 @@ export default function ShapeRecordList({
       setDeletingId(null)
     }
   }
+
+  const isReadOnly = shape?.readOnly === true
 
   return (
     <div className="record-list">
@@ -107,16 +109,18 @@ export default function ShapeRecordList({
                 )}
               </div>
               <span className="record-actions">
-                <button
-                  className="record-action-btn"
-                  title="Edit"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onEdit?.(rec)
-                  }}
-                >
-                  <Icon name="Pencil" aria-label="Edit" />
-                </button>
+                {!isReadOnly && (
+                  <button
+                    className="record-action-btn"
+                    title="Edit"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEdit?.(rec)
+                    }}
+                  >
+                    <Icon name="Pencil" aria-label="Edit" />
+                  </button>
+                )}
                 <button
                   className="record-action-btn"
                   title="See details"
@@ -127,17 +131,19 @@ export default function ShapeRecordList({
                 >
                   <Icon name="Eye" aria-label="See details" />
                 </button>
-                <button
-                  className="record-action-btn"
-                  title="Delete"
-                  disabled={deletingId === rec.id}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleDelete(rec)
-                  }}
-                >
-                  <Icon name="Trash" aria-label="Delete" />
-                </button>
+                {!isReadOnly && (
+                  <button
+                    className="record-action-btn"
+                    title="Delete"
+                    disabled={deletingId === rec.id}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDelete(rec)
+                    }}
+                  >
+                    <Icon name="Trash" aria-label="Delete" />
+                  </button>
+                )}
               </span>
             </div>
           </li>

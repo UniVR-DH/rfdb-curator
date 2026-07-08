@@ -28,7 +28,7 @@ def _import_backend_app(
     monkeypatch.setenv("OXIGRAPH_URL", "http://localhost:7878")
     monkeypatch.setenv("DATA_GRAPH_URI", "https://rfdb.it/graph/data")
     monkeypatch.setenv("SCHEMA_PATH", "schema/schema.ttl")
-    monkeypatch.setenv("VOCAB_PATH", "data/vocab.ttl")
+    monkeypatch.setenv("VOCAB_PATH", '["data/vocab.ttl"]')
     monkeypatch.setenv("DATA_PATH", "data/data.ttl")
     monkeypatch.setenv("RESET_DATA_ON_STARTUP", str(reset_data_on_startup).lower())
     monkeypatch.setenv("SEED_VOCAB_ON_STARTUP", "false")
