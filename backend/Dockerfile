@@ -54,7 +54,9 @@ COPY backend/ .
 # python:slim does not ship a pre-created app user, so we create one
 # explicitly with a fixed uid/gid for auditability.
 RUN addgroup --system --gid 1001 appgroup && \
-    adduser  --system --uid 1001 --ingroup appgroup --no-create-home appuser
+    adduser  --system --uid 1001 --ingroup appgroup --no-create-home appuser && \
+    mkdir -p /app/logs && \
+    chown -R appuser:appgroup /app/logs
 
 USER appuser
 
