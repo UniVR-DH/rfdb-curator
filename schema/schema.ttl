@@ -150,6 +150,13 @@ rfdb:MusicalWorkShape
     sh:class core:AgentRole ;
     sh:node rfdb:AgentRoleShape ;
     sh:description "Agent roles for the work: composer, etc." ;
+  ] ;
+  sh:property [
+    sh:path cidoc:P148_has_component ;
+    sh:nodeKind sh:IRI ;
+    sh:class lrmoo:F2_Expression ;
+    sh:node rfdb:ExpressionShape ;
+    sh:description "Links a work to component expressions (libretto, score, etc.)" ;
   ] .
 
 # ================================
@@ -176,22 +183,12 @@ rfdb:ExpressionShape
     sh:description "Alternate names for the expression" ;
   ] ;
   sh:property [
-    sh:path core:isPartOf ;
-    sh:nodeKind sh:IRI ;
-    sh:class mm:MusicEntity ;
-    sh:node rfdb:MusicalWorkShape ;
-    sh:minCount 1 ;
-    sh:maxCount 1 ;
-    sh:description "An expression must be part of a larger work" ;
-  ] ;
-  sh:property [
     sh:path core:hasAgentRole ;
     sh:nodeKind sh:IRI ;
     sh:class core:AgentRole ;
     sh:node rfdb:AgentRoleShape ;
     sh:description "Agent roles for the expression: librettist (original/translator), arranger, etc." ;
   ] ;
-
   sh:property [
     sh:path rdfs:comment ;
     sh:maxCount 1 ;
@@ -252,7 +249,7 @@ rfdb:ManifestationShape
 # ================================
 rfdb:SourceShape
   a sh:NodeShape ;
-  sh:targetClass source:Source ;
+  sh:targetClass source:Source;
   sh:class lrmoo:F5_Item ;
   rdfs:label "Source"@en, "Fonte"@it ;
   sh:description "A particular physical copy of a document, such as a specific printed edition of a libretto, held by a library or archive. Items exemplify Manifestations."@en ;
@@ -435,7 +432,7 @@ rfdb:AgentRoleShape
     sh:path rdf:type ;
     sh:minCount 1 ;
     sh:hasValue core:AgentRole ;
-    sh:description "An agent role must include core:AgentRole among its rdf:type values" ;
+    sh:description "An agent role must have at least one rdf:type and core:AgentRole must be among them" ;
   ] ;
   sh:property [
     sh:path core:hasAgent ;
@@ -503,6 +500,7 @@ rfdb:HoldingOrganizationShape
     sh:description "Location of the organization" ;
   ] .
 
+
 # ================================
 # Shape for Language (Glottolog / dcterms:LinguisticSystem)
 # ================================
@@ -523,3 +521,11 @@ rfdb:LanguageShape
     sh:datatype rdf:langString ;
     sh:description "Preferred label (skos:prefLabel), present in Glottolog data" ;
   ] .
+
+
+
+# ================================
+# Shape for Donor of Source
+# connects to the source through the property cidoc:P51_has_former_or_current_owner
+# ================================
+
