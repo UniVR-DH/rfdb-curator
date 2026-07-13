@@ -52,11 +52,13 @@ export default function EntitySearch({ field, control, name }) {
       try {
         const targetShape = field.nestedShape ?? field.nodeClass ?? ''
         const results = await apiClient.searchEntities(targetShape, inputValue)
-        return results.map((r) => ({
-          value: r.uri,
-          label: r.label ?? compactIri(r.uri),
-          compactUri: compactIri(r.uri),
-        }))
+        return results
+          .map((r) => ({
+            value: r.uri,
+            label: r.label ?? compactIri(r.uri),
+            compactUri: compactIri(r.uri),
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
       } catch {
         return []
       }
