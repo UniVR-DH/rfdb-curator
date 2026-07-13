@@ -51,11 +51,15 @@ The initial version does not aim to:
 - [x] the `owl:sameAs` field allows multiple values (e.g. linking to multiple external authority records)
 - [x] Allow `rdfs:label` / `rdfs:comment` without language tags for generic untranslated values
 - [x] Expression form comment field renders as `[object Object]` instead of the actual string value
-- [ ] Language field in Source form should be a dropdown of available languages, not free text
+- [ ] HIGH PRIORITY/REQUIRES PLANNING: Hydrate `data/glottolog_language.ttl` into Oxigraph and connect it to `rfdb:Source` language handling via `sh:path dcterms:language ; sh:nodeKind sh:IRI ;` in `rfdb:SourceShape`
+- [ ] HIGH PRIORITY/REQUIRES PLANNING: Language field in Source form should be a dropdown of available languages, not free text, check above
 - [ ] Auto-refresh entity lists (e.g. "has place" relations) when backend data changes behind the scenes
+- [ ] Implement records pagination with default page size 20
+- [ ] Implement smarter search ranking that favors edit distance without relying on server-side cap or limit
 - [ ] Preserve current form/page state on browser reload (survive refresh)
-- [ ] Comment / description fields should use a larger textarea instead of single-line input (need to brainstorm how to derive that from SHACL shapes, maybe some predicates are treated as "long text" fields by default)
+- [ ] REQUIRES PLANNING: Comment / description fields should use a larger textarea instead of single-line input (need to brainstorm how to derive that from SHACL shapes, maybe some predicates are treated as "long text" fields by default)
 - [ ] Dropdown selections should display both label and comment (not just label)
+- [ ] For shapes using `sh:or` with alternative `sh:class` constraints, render a class-selection dropdown so users can explicitly choose which class branch they are filling
 - [x] READ_ONLY FLAG: add a flag to make the editor read-only and refuse with a message if the user tries to edit (for demo or presentation mode)
 - [ ] File upload  of digital copy for Source entities (need to define which properties to use for this, and how to store the files, e.g. in a local `uploads/` folder with unique filenames and a mapping in the RDF data)
 
@@ -70,6 +74,8 @@ The initial version does not aim to:
 - [ ] Cascade delete for orphaned bridge entities (AgentRole, etc.)
 - [ ] SPARQL-level pagination cursor
 - [ ] valdity check on dates between MusicalWork, Expression, and Manifestation (e.g. creation date of Expression should be after creation date of Work)
+- [ ] for all same-as fields check if other records already have it and if so, warn the user 
+
 
 
 ### c. Development and Deployment
