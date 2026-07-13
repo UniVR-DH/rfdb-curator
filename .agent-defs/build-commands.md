@@ -42,6 +42,35 @@ npm run lint
 npm run build
 ```
 
+### RDF Validation with Jena
+
+Single file:
+
+```bash
+docker run --rm \
+	--platform=linux/amd64 \
+	-v "$PWD":/data \
+	stain/jena:5.1.0 \
+	riot --validate /data/data/corporate/prod-inst.ttl
+```
+
+Batch (all `.ttl` / `.nt` under `data/`):
+
+```bash
+docker run --rm \
+	--platform=linux/amd64 \
+	-v "$PWD":/data \
+	stain/jena:5.1.0 \
+	bash -euo pipefail -c '
+		status=0
+		while IFS= read -r -d "" f; do
+			echo "==== Validating: $f ===="
+			riot --validate "$f" || { echo "ERROR in $f" >&2; status=1; }
+		done < <(find /data/data -type f \( -name "*.ttl" -o -name "*.nt" \) -print0)
+		exit $status
+	' 2>&1 | tee .temp/ttl-validation.log
+```
+
 ## Linting and Formatting
 
 ```bash
