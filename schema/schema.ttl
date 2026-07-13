@@ -563,14 +563,14 @@ sh:property [
       [ sh:datatype rdf:langString ]
       [ sh:datatype xsd:string ]
     ) ;
-    sh:description "A performance must have exactly one label" ;
+    sh:description "Contributor's short name (person or organization)" ;
   ] ;
 sh:property [
   sh:path foaf:name ;
   sh:minCount 1 ;
   sh:maxCount 1 ;
   sh:or ( [ sh:datatype rdf:langString ] [ sh:datatype xsd:string ] ) ;
-  sh:description "Contributor's name (person or organization)" ;
+  sh:description "Contributor's full name (person first last name or organization official expanded name)" ;
 ] .
 
 
