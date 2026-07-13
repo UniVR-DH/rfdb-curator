@@ -8,7 +8,7 @@
 # add a non-writable filesystem, and consider a multi-stage build to
 # exclude build tools from the final image.
 
-# Pin the full patch version so `docker build` is fully reproducible.
+# Pin the version so `docker build` is fully reproducible.
 # Update deliberately when you want to take a new Python release.
 FROM python:3.12-slim
 
