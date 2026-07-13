@@ -20,7 +20,7 @@ def search_entities(
     request: Request,
     shape: str = Query(..., description="Shape label or full URI (e.g. PlaceShape)"),
     query: str = Query("", description="Partial label or IRI to match"),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=100),
 ):
     """Search for entities that conform to a given SHACL shape.
 
