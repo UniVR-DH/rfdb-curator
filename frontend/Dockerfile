@@ -27,6 +27,12 @@ WORKDIR /app
 # on overlay2 storage drivers via copy-up).
 COPY --chown=node:node frontend/package.json frontend/package-lock.json ./
 
+# WORKDIR creates /app as root before any USER switch. COPY --chown only
+# changes ownership of the files it copies, not the /app directory entry —
+# node still can't write into it (e.g. mkdir node_modules) without this.
+RUN chown node:node /app
+
+
 # Drop root before installing — nothing in a dependency's install script
 # needs root in the build environment, and node_modules ends up correctly
 # owned from the start.
