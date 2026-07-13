@@ -406,11 +406,17 @@ Each RDF resource must have a stable subject IRI.
 Main project namespace:
 
 ```text
-https://rfdb.it/data/
+https://rosfeatr.eu/rdf
+```
+
+Two main prefixes:
+```ttl 
+@prefix rfdb: <https://rosfeatr.eu/rdf/data/> .
+@prefix rfdbs: <https://rosfeatr.eu/rdf/schema/> .
 ```
 
 Compact form: `rfdb:EntityID`
-Expanded form: `https://rfdb.it/data/EntityID`
+Expanded form: `https://rosfeatr.eu/rdf/data/EntityID`
 
 The editor supports:
 

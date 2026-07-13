@@ -55,4 +55,11 @@ export const apiClient = {
     http.delete(`/api/data/${encodeURIComponent(entityId)}`, {
       params: shapeId ? { shapeId } : undefined,
     }),
+
+  /**
+   * Fetch the authoritative prefix-to-namespace map from the backend.
+   * Returns a plain object keyed by prefix (e.g. { "rfdb": "https://…", … }).
+   * Called once at app startup to hydrate utils/prefixes.js and utils/jsonld.js.
+   */
+  getPrefixes: () => http.get('/api/meta/prefixes').then((r) => r.data.prefixes),
 }

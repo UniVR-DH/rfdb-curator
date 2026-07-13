@@ -35,7 +35,7 @@ class Settings(BaseSettings):
         data_graph_uri: Named graph URI where all instance data is stored and
             queried.  All SPARQL reads use ``FROM <uri>`` and all Turtle loads
             use ``?graph=<uri>`` via the Graph Store Protocol.
-            Example: ``https://rfdb.it/graph/data``
+            Example: ``https://rosfeatr.eu/rdf/graph/``
 
         schema_path: Path to the SHACL schema Turtle file used by
             ``SchemaExtractor`` and ``ShaclValidator``.  Relative to the backend

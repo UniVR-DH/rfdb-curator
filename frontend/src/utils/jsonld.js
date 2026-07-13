@@ -26,32 +26,13 @@
 /**
  * JSON-LD `@context` block included in every entity payload sent to POST /api/data.
  *
- * SCHEMA RESILIENCE NOTE:
- *   This context must be updated manually whenever a new @prefix is added to
- *   schema/schema.ttl that is not already listed below.  Without an entry here:
- *     - The JSON-LD parser on the backend will fail to expand the prefixed property
- *       path, and the triple will be silently dropped or cause a parse error.
- *   Also update PREFIX_MAP in utils/prefixes.js (same set of prefixes).
+ * Previously a hardcoded object literal duplicating PREFIX_MAP in utils/prefixes.js.
+ * Now reads from the shared `prefixMap` hydrated at startup from GET /api/meta/prefixes,
+ * so both the compaction display logic and the JSON-LD context stay in sync automatically.
+ *
+ * See App.jsx for the startup fetch and hydration call.
  */
-const JSONLD_CONTEXT = {
-  cidoc: 'http://www.cidoc-crm.org/cidoc-crm/',
-  core: 'https://w3id.org/polifonia/ontology/core/',
-  dcterms: 'http://purl.org/dc/terms/',
-  fabio: 'http://purl.org/spar/fabio/',
-  frbr: 'http://purl.org/vocab/frbr/core#',
-  lrmoo: 'http://iflastandards.info/ns/lrm/lrmoo/',
-  mm: 'https://w3id.org/polifonia/ontology/music-meta/',
-  owl: 'http://www.w3.org/2002/07/owl#',
-  prism: 'http://prismstandard.org/namespaces/basic/2.0/',
-  rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-  rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
-  rfdb: 'https://rfdb.it/data/',
-  sh: 'http://www.w3.org/ns/shacl#',
-  skos: 'http://www.w3.org/2004/02/skos/core#',
-  source: 'https://w3id.org/polifonia/ontology/source/',
-  wd: 'http://www.wikidata.org/entity/',
-  xsd: 'http://www.w3.org/2001/XMLSchema#',
-}
+import { prefixMap } from './prefixes.js'
 
 /**
  * Returns true for values the form should treat as "not filled in".
@@ -284,7 +265,7 @@ function normalizeFieldValue(field, value) {
  */
 export function buildJsonLdEntity(shape, fields, rawFormData) {
   const entity = {
-    '@context': JSONLD_CONTEXT,
+    '@context': prefixMap,
   }
 
   // --- Ensure @id is included if present in form data ---

@@ -45,6 +45,7 @@ import Icon from './components/Icon.jsx'
 import ShapeForm from './components/ShapeForm.jsx'
 import ShapeRecordList from './components/ShapeRecordList.jsx'
 import ValidationPanel from './components/ValidationPanel.jsx'
+import { hydratePrefixes } from './utils/prefixes.js'
 
 export default function App() {
   // --- Application state ---
@@ -115,6 +116,13 @@ export default function App() {
     loadShapes()
 
     refreshShapeCounts()
+
+    // Hydrate prefix map in parallel with shape loading.
+    // On failure degrade gracefully: IRI compaction and JSON-LD @context will be
+    // empty until the next reload, but the app remains fully functional.
+    apiClient.getPrefixes().then(hydratePrefixes).catch(() => {
+      console.warn('Failed to fetch prefix map from /api/meta/prefixes; IRI compaction disabled.')
+    })
   }, [])
 
   useEffect(() => {

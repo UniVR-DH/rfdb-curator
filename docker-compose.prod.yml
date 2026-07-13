@@ -94,8 +94,8 @@ services:
       - internal   # to reach oxigraph
       - edge       # to be reached by proxy
     environment:
-      OXIGRAPH_URL: http://oxigraph:7878
-      DATA_GRAPH_URI: "https://rfdb.it/graph/data"
+      OXIGRAPH_URL: http://oxigraph:7878      
+      DATA_GRAPH_URI: "https://rosfeatr.eu/rdf/graph/"
       SCHEMA_PATH: /app/schema/schema.ttl
       VOCAB_PATH: /app/data/vocab.ttl
       DATA_PATH: /app/data/data.ttl

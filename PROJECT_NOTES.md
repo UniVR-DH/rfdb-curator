@@ -189,7 +189,8 @@ The active schema currently declares these prefixes:
 @prefix prism:   <http://prismstandard.org/namespaces/basic/2.0/> .
 @prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix rfdb:    <https://rfdb.it/data/> .
+@prefix rfdb:    <https://rosfeatr.eu/rdf/data/> .
+@prefix rfdbs:   <https://rosfeatr.eu/rdf/schema/> .
 @prefix sh:      <http://www.w3.org/ns/shacl#> .
 @prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
 @prefix source:  <https://w3id.org/polifonia/ontology/source/> .
@@ -214,7 +215,8 @@ The editor should use this prefix map for:
 ### 7.1 RFDB Namespace
 
 ```text
-rfdb: <https://rfdb.it/data/>
+rfdb: <https://rosfeatr.eu/rdf/data/>
+rfdbs:   <https://rosfeatr.eu/rdf/schema/> .
 ```
 
 Used for local RFDB resources and SHACL shapes.
@@ -882,23 +884,7 @@ The UI should allow users to preserve the intended precision. Avoid converting a
 
 Every persisted RDF resource must have a stable subject IRI.
 
-Main project namespace:
-
-```text
-https://rfdb.it/data/
-```
-
-Compact form:
-
-```text
-rfdb:EntityID
-```
-
-Expanded form:
-
-```text
-https://rfdb.it/data/EntityID
-```
+Use the two prefixes declared in the schema above: `rfdb:` and `rfdbs:`.
 
 Requirements:
 
@@ -1053,11 +1039,6 @@ Features:
 - copy Turtle prefix declaration
 - warn when prefix mappings differ between schema, JSON-LD context, and runtime configuration
 
-Example copy output:
-
-```turtle
-@prefix rfdb: <https://rfdb.it/data/> .
-```
 
 ---
 
@@ -1109,7 +1090,7 @@ Example response:
   "prefixes": [
     {
       "prefix": "rfdb",
-      "namespace": "https://rfdb.it/data/",
+      "namespace": "https://rosfeatr.eu/rdf/data/",
       "source": "schema"
     }
   ],
@@ -1137,10 +1118,10 @@ Example response:
 
 ```json
 {
-  "activeGraph": "https://rfdb.it/graph/data",
+  "activeGraph": "https://rosfeatr.eu/rdf/graph/",
   "graphs": [
     {
-      "graph": "https://rfdb.it/graph/data",
+      "graph": "https://rosfeatr.eu/rdf/graph/",
       "tripleCount": 1234,
       "status": "active"
     }
