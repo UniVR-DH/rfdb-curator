@@ -51,7 +51,7 @@ The initial version does not aim to:
 - [x] the `owl:sameAs` field allows multiple values (e.g. linking to multiple external authority records)
 - [x] Allow `rdfs:label` / `rdfs:comment` without language tags for generic untranslated values
 - [x] Expression form comment field renders as `[object Object]` instead of the actual string value
-- [ ] HIGH PRIORITY/REQUIRES PLANNING: Hydrate `data/glottolog_language.ttl` into Oxigraph and connect it to `rfdb:Source` language handling via `sh:path dcterms:language ; sh:nodeKind sh:IRI ;` in `rfdb:SourceShape`
+- [x] HIGH PRIORITY/REQUIRES PLANNING: Hydrate `data/glottolog_language.ttl` into Oxigraph and connect it to `rfdb:Source` language handling via `sh:path dcterms:language ; sh:nodeKind sh:IRI ;` in `rfdb:SourceShape`
 - [ ] HIGH PRIORITY/REQUIRES PLANNING: Language field in Source form should be a dropdown of available languages, not free text, check above
 - [ ] Auto-refresh entity lists (e.g. "has place" relations) when backend data changes behind the scenes
 - [ ] Implement records pagination with default page size 20
@@ -65,7 +65,7 @@ The initial version does not aim to:
 
 
 ### b. Advanced Features (from roadmap)
-
+- [ ] Welcome / onboarding page with simple guide on how to use the editor (should be possible to re-open again)
 - [ ] Real-time validation (debounced SHACL checking on blur/change)
 - [ ] Bulk import (CSV → RDF)
 - [ ] Data export (RDF, JSON-LD, CSV)
