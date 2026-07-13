@@ -556,6 +556,16 @@ sh:or (
   [ sh:class foaf:Organization ]
 ) ;
 sh:property [
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:or (
+      [ sh:datatype rdf:langString ]
+      [ sh:datatype xsd:string ]
+    ) ;
+    sh:description "A performance must have exactly one label" ;
+  ] ;
+sh:property [
   sh:path foaf:name ;
   sh:minCount 1 ;
   sh:maxCount 1 ;
