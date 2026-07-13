@@ -279,10 +279,10 @@ def test_first_write_can_read_shape_dep_graph_after_startup(
     payload = entity_models.EntityData(
         shapeId="urn:shape:manifestation",
         data={
-            "@id": "https://rfdb.it/data/startup_manifestation",
-            "@type": "https://rfdb.it/data/Manifestation",
-            "https://rfdb.it/data/embodies": {
-                "@id": "https://rfdb.it/data/startup_expression"
+            "@id": "https://rosfeatr.eu/rdf/data/startup_manifestation",
+            "@type": "https://rosfeatr.eu/rdf/data/Manifestation",
+            "https://rosfeatr.eu/rdf/data/embodies": {
+                "@id": "https://rosfeatr.eu/rdf/data/startup_expression"
             },
         },
         originalTriples=None,
@@ -294,8 +294,8 @@ def test_first_write_can_read_shape_dep_graph_after_startup(
     assert response.success is False
     assert captured["dep_graph"] is fake_app.state.shape_dep_graph
     assert captured["root_shape_id"] == "urn:shape:manifestation"
-    assert "https://rfdb.it/data/startup_manifestation" in captured["seed_iris"]
-    assert "https://rfdb.it/data/startup_expression" in captured["seed_iris"]
+    assert "https://rosfeatr.eu/rdf/data/startup_manifestation" in captured["seed_iris"]
+    assert "https://rosfeatr.eu/rdf/data/startup_expression" in captured["seed_iris"]
 
 
 def test_startup_failure_stops_before_partially_initialized_state(

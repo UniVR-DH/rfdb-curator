@@ -46,10 +46,10 @@ def _schema_field(shape_id: str, path: str) -> dict:
 @pytest.mark.parametrize(
     "shape_id",
     [
-        "https://rfdb.it/data/PlaceShape",
-        "https://rfdb.it/data/MusicalWorkShape",
-        "https://rfdb.it/data/PersonShape",
-        "https://rfdb.it/data/HoldingOrganizationShape",
+        "https://rosfeatr.eu/rdf/schema/PlaceShape",
+        "https://rosfeatr.eu/rdf/schema/MusicalWorkShape",
+        "https://rosfeatr.eu/rdf/schema/PersonShape",
+        "https://rosfeatr.eu/rdf/schema/HoldingOrganizationShape",
     ],
 )
 def test_owl_same_as_allows_multiple_values(shape_id: str) -> None:
@@ -69,7 +69,7 @@ def test_place_plain_label_with_multiple_same_as_conforms() -> None:
 @prefix core: <https://w3id.org/polifonia/ontology/core/> .
 @prefix owl:  <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix rfdb: <https://rfdb.it/data/> .
+@prefix rfdb: <https://rosfeatr.eu/rdf/data/> .
 
 rfdb:TestPlace
   a core:Place ;
@@ -91,7 +91,7 @@ def test_manifestation_plain_comment_conforms() -> None:
 @prefix lrmoo: <http://iflastandards.info/ns/lrm/lrmoo/> .
 @prefix mm:    <https://w3id.org/polifonia/ontology/music-meta/> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix rfdb:  <https://rfdb.it/data/> .
+@prefix rfdb:  <https://rosfeatr.eu/rdf/data/> .
 
 rfdb:TestManifestation
   a lrmoo:F3_Manifestation ;
@@ -116,19 +116,19 @@ rfdb:TestWork
 
 def test_label_field_is_language_capable_with_string_option() -> None:
     """Label fields remain language-capable while accepting plain strings."""
-    field = _schema_field("https://rfdb.it/data/PlaceShape", "rdfs:label")
+    field = _schema_field("https://rosfeatr.eu/rdf/schema/PlaceShape", "rdfs:label")
 
     assert field["type"] == "lang-string"
     assert field["datatypeOptions"] == ["rdf:langString", "xsd:string"]
 
 
 def test_language_shape_exists_with_correct_target_class() -> None:
-    """rfdb:LanguageShape exists and targets dcterms:LinguisticSystem."""
+    """rfdbs:LanguageShape exists and targets dcterms:LinguisticSystem."""
     from rdflib import URIRef
     from rdflib.namespace import SH
 
     schema = Graph().parse(str(SCHEMA_PATH), format="turtle")
-    shape_uri = URIRef("https://rfdb.it/data/LanguageShape")
+    shape_uri = URIRef("https://rosfeatr.eu/rdf/schema/LanguageShape")
     target = schema.value(shape_uri, SH.targetClass)
     assert target == URIRef("http://purl.org/dc/terms/LinguisticSystem"), (
         f"Expected dcterms:LinguisticSystem, got {target}"
@@ -138,12 +138,12 @@ def test_language_shape_exists_with_correct_target_class() -> None:
 def test_source_shape_language_field_is_entity_search() -> None:
     """dcterms:language in SourceShape resolves to entity-search with correct class."""
     field = _schema_field(
-        "https://rfdb.it/data/SourceShape", "dcterms:language"
+        "https://rosfeatr.eu/rdf/schema/SourceShape", "dcterms:language"
     )
     assert field["type"] == "entity-search", f"Expected entity-search, got {field['type']}"
     assert field["nodeClass"] == "dcterms:LinguisticSystem", (
         f"Expected dcterms:LinguisticSystem, got {field['nodeClass']}"
     )
-    assert field["nestedShape"] == "https://rfdb.it/data/LanguageShape", (
-        f"Expected rfdb:LanguageShape, got {field['nestedShape']}"
+    assert field["nestedShape"] == "https://rosfeatr.eu/rdf/schema/LanguageShape", (
+        f"Expected rfdbs:LanguageShape, got {field['nestedShape']}"
     )

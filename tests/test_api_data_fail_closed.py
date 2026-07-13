@@ -16,6 +16,8 @@ import pytest
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[1] / "backend"
+DATA_NS = "https://rosfeatr.eu/rdf/data"
+SHAPE_NS = "https://rosfeatr.eu/rdf/schema"
 
 
 def _load_backend_symbols() -> SimpleNamespace:
@@ -52,7 +54,7 @@ class _RejectingValidator:
             "conforms": False,
             "violations": [
                 {
-                    "focusNode": "https://rfdb.it/data/focus",
+                    "focusNode": f"{DATA_NS}/focus",
                     "path": "http://www.w3.org/2000/01/rdf-schema#label",
                     "message": "forced test violation",
                 }
@@ -134,16 +136,16 @@ def test_create_or_update_fails_closed_on_related_merge_error() -> None:
     request = _fake_request(oxigraph)
 
     payload = symbols.EntityData(
-        shapeId="https://rfdb.it/data/ManifestationShape",
+        shapeId=f"{SHAPE_NS}/ManifestationShape",
         data={
             "@context": {
                 "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
                 "lrmoo": "http://iflastandards.info/ns/lrm/lrmoo/",
             },
-            "@id": "https://rfdb.it/data/fail_closed_manifestation",
+            "@id": f"{DATA_NS}/fail_closed_manifestation",
             "@type": "lrmoo:F3_Manifestation",
             "rdfs:label": {"@value": "Fail-Closed Test", "@language": "en"},
-            "lrmoo:R4_embodies": {"@id": "https://rfdb.it/data/fail_closed_expression"},
+            "lrmoo:R4_embodies": {"@id": f"{DATA_NS}/fail_closed_expression"},
         },
         originalTriples=None,
     )
@@ -163,61 +165,61 @@ def test_create_or_update_fails_closed_on_related_merge_error() -> None:
     [
         (
             {
-                "@id": "https://rfdb.it/data/literals_only",
-                "@type": "https://rfdb.it/data/LocalType",
+                "@id": f"{DATA_NS}/literals_only",
+                "@type": f"{DATA_NS}/LocalType",
                 "http://www.w3.org/2000/01/rdf-schema#label": {
                     "@value": "Only literals",
                     "@language": "en",
                 },
             },
             {
-                "https://rfdb.it/data/literals_only",
-                "https://rfdb.it/data/LocalType",
+                f"{DATA_NS}/literals_only",
+                f"{DATA_NS}/LocalType",
             },
         ),
         (
             {
-                "@id": "https://rfdb.it/data/vocab_only",
-                "@type": "https://rfdb.it/data/LocalType",
-                "https://rfdb.it/data/pointsTo": {
+                "@id": f"{DATA_NS}/vocab_only",
+                "@type": f"{DATA_NS}/LocalType",
+                f"{DATA_NS}/pointsTo": {
                     "@id": "http://www.w3.org/2000/01/rdf-schema#label"
                 },
             },
             {
-                "https://rfdb.it/data/vocab_only",
-                "https://rfdb.it/data/LocalType",
+                f"{DATA_NS}/vocab_only",
+                f"{DATA_NS}/LocalType",
             },
         ),
         (
             {
-                "@id": "https://rfdb.it/data/mixed_iris",
-                "@type": "https://rfdb.it/data/LocalType",
-                "https://rfdb.it/data/pointsTo": {
-                    "@id": "https://rfdb.it/data/RelatedNode"
+                "@id": f"{DATA_NS}/mixed_iris",
+                "@type": f"{DATA_NS}/LocalType",
+                f"{DATA_NS}/pointsTo": {
+                    "@id": f"{DATA_NS}/RelatedNode"
                 },
-                "https://rfdb.it/data/vocabRef": {
+                f"{DATA_NS}/vocabRef": {
                     "@id": "http://www.w3.org/2001/XMLSchema#string"
                 },
             },
             {
-                "https://rfdb.it/data/mixed_iris",
-                "https://rfdb.it/data/LocalType",
-                "https://rfdb.it/data/RelatedNode",
+                f"{DATA_NS}/mixed_iris",
+                f"{DATA_NS}/LocalType",
+                f"{DATA_NS}/RelatedNode",
             },
         ),
         (
             {
-                "@id": "https://rfdb.it/data/repeated_non_vocab",
-                "@type": "https://rfdb.it/data/LocalType",
-                "https://rfdb.it/data/pointsTo": [
-                    {"@id": "https://rfdb.it/data/DedupNode"},
-                    {"@id": "https://rfdb.it/data/DedupNode"},
+                "@id": f"{DATA_NS}/repeated_non_vocab",
+                "@type": f"{DATA_NS}/LocalType",
+                f"{DATA_NS}/pointsTo": [
+                    {"@id": f"{DATA_NS}/DedupNode"},
+                    {"@id": f"{DATA_NS}/DedupNode"},
                 ],
             },
             {
-                "https://rfdb.it/data/repeated_non_vocab",
-                "https://rfdb.it/data/LocalType",
-                "https://rfdb.it/data/DedupNode",
+                f"{DATA_NS}/repeated_non_vocab",
+                f"{DATA_NS}/LocalType",
+                f"{DATA_NS}/DedupNode",
             },
         ),
     ],
@@ -247,7 +249,7 @@ def test_create_or_update_seed_iri_composition(
     )
 
     payload = symbols.EntityData(
-        shapeId="https://rfdb.it/data/TestShape",
+        shapeId=f"{SHAPE_NS}/TestShape",
         data=payload_data,
         originalTriples=None,
     )
@@ -262,7 +264,7 @@ def test_create_or_update_seed_iri_composition(
 
     assert response.success is False
     assert set(captured["seed_iris"]) == expected_seed_iris
-    assert captured["root_shape_id"] == "https://rfdb.it/data/TestShape"
+    assert captured["root_shape_id"] == f"{SHAPE_NS}/TestShape"
 
 
 def test_create_or_update_rejects_in_read_only_mode(
@@ -276,8 +278,8 @@ def test_create_or_update_rejects_in_read_only_mode(
     monkeypatch.setattr(symbols.data_module.settings, "read_only", True)
 
     payload = symbols.EntityData(
-        shapeId="https://rfdb.it/data/TestShape",
-        data={"@context": {}, "@id": "https://rfdb.it/data/read_only_test"},
+        shapeId=f"{SHAPE_NS}/TestShape",
+        data={"@context": {}, "@id": f"{DATA_NS}/read_only_test"},
         originalTriples=None,
     )
 
@@ -298,7 +300,7 @@ def test_delete_rejects_in_read_only_mode(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(symbols.data_module.settings, "read_only", True)
 
     with pytest.raises(symbols.HTTPException) as exc:
-        symbols.data_module.delete_entity("https://rfdb.it/data/read_only_test", request)
+        symbols.data_module.delete_entity(f"{DATA_NS}/read_only_test", request)
 
     assert exc.value.status_code == 403
     assert "READ_ONLY=true" in str(exc.value.detail)
@@ -316,12 +318,12 @@ def test_create_or_update_rejects_read_only_shape(
     monkeypatch.setattr(
         symbols.data_module.settings,
         "read_only_shapes",
-        ["https://rfdb.it/data/LanguageShape"],
+        [f"{SHAPE_NS}/LanguageShape"],
     )
 
     payload = symbols.EntityData(
-        shapeId="https://rfdb.it/data/LanguageShape",
-        data={"@id": "https://rfdb.it/data/russ1263"},
+        shapeId=f"{SHAPE_NS}/LanguageShape",
+        data={"@id": f"{DATA_NS}/russ1263"},
         originalTriples=None,
     )
 
@@ -346,12 +348,12 @@ def test_create_or_update_allows_non_read_only_shape(
     monkeypatch.setattr(
         symbols.data_module.settings,
         "read_only_shapes",
-        ["https://rfdb.it/data/LanguageShape"],
+        [f"{SHAPE_NS}/LanguageShape"],
     )
 
     payload = symbols.EntityData(
-        shapeId="https://rfdb.it/data/SourceShape",
-        data={"@id": "https://rfdb.it/data/TestSource"},
+        shapeId=f"{SHAPE_NS}/SourceShape",
+        data={"@id": f"{DATA_NS}/TestSource"},
         originalTriples=None,
     )
 
@@ -373,14 +375,14 @@ def test_delete_rejects_read_only_shape(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(
         symbols.data_module.settings,
         "read_only_shapes",
-        ["https://rfdb.it/data/LanguageShape"],
+        [f"{SHAPE_NS}/LanguageShape"],
     )
 
     with pytest.raises(symbols.HTTPException) as exc:
         symbols.data_module.delete_entity(
-            "https://rfdb.it/data/russ1263",
+            f"{DATA_NS}/russ1263",
             request,
-            shapeId="https://rfdb.it/data/LanguageShape",
+            shapeId=f"{SHAPE_NS}/LanguageShape",
         )
 
     assert exc.value.status_code == 403
@@ -397,8 +399,8 @@ def test_shapes_endpoint_stamps_read_only_flag(monkeypatch: pytest.MonkeyPatch) 
 
     shapes_module = importlib.import_module("api.shapes")
 
-    language_shape_uri = "https://rfdb.it/data/LanguageShape"
-    other_shape_uri = "https://rfdb.it/data/SourceShape"
+    language_shape_uri = f"{SHAPE_NS}/LanguageShape"
+    other_shape_uri = f"{SHAPE_NS}/SourceShape"
 
     monkeypatch.setattr(
         shapes_module.settings,

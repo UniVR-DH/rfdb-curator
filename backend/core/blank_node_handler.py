@@ -11,7 +11,7 @@ sees stable IRIs, and the same IRIs are written to Oxigraph.
 
 from __future__ import annotations
 
-RFDB_BASE = "https://rfdb.it/data/"
+RFDB_BASE = "https://rosfeatr.eu/rdf/data/"
 
 
 def skolemize(data: dict, parent_id: str) -> dict:
@@ -24,10 +24,10 @@ def skolemize(data: dict, parent_id: str) -> dict:
 
     Example::
 
-        parent_id = "https://rfdb.it/data/L111"
+        parent_id = "https://rosfeatr.eu/rdf/data/L111"
         property  = "core:hasAgentRole"
         index     = 0
-        result    = "https://rfdb.it/data/L111_hasAgentRole_0"
+        result    = "https://rosfeatr.eu/rdf/data/L111_hasAgentRole_0"
     """
     result = dict(data)
     local_parent = parent_id.replace(RFDB_BASE, "").replace("rfdb:", "")
@@ -59,8 +59,8 @@ def assign_entity_id(data: dict, shape_id: str) -> dict:
     The IRI is derived from the shape name plus a random 8-hex-character
     suffix to keep it short and collision-resistant::
 
-        shape_id  = "https://rfdb.it/data/PlaceShape"
-        result    = "https://rfdb.it/data/Place_4f3a9d12"
+        shape_id  = "https://rosfeatr.eu/rdf/schema/PlaceShape"
+        result    = "https://rosfeatr.eu/rdf/data/Place_4f3a9d12"
 
     If the entity already carries a non-blank `@id` it is returned unchanged.
     """

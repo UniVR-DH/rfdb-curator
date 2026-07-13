@@ -91,6 +91,8 @@ docker compose up
 docker compose down
 ```
 
+RDF validation: use the Dockerized Jena `riot --validate` workflow documented in [.agent-defs/build-commands.md](.agent-defs/build-commands.md) under `RDF Validation with Jena`.
+
 Full command reference: [.agent-defs/build-commands.md](.agent-defs/build-commands.md)
 
 ## 5. Code Style Essentials

@@ -189,12 +189,12 @@ def test_build_validation_construct_emits_seed_and_suffix_blocks() -> None:
     query = symbols.build_validation_construct(
         dep_graph=dep_graph,
         root_shape_id="root",
-        seed_iris={"https://rfdb.it/data/B", "https://rfdb.it/data/A"},
+        seed_iris={"https://rosfeatr.eu/rdf/data/B", "https://rosfeatr.eu/rdf/data/A"},
         from_clause="FROM <https://rfdb.it/graph/data>",
     )
 
     assert query.startswith("CONSTRUCT {")
-    assert "VALUES ?seed { <https://rfdb.it/data/A> <https://rfdb.it/data/B> }" in query
+    assert "VALUES ?seed { <https://rosfeatr.eu/rdf/data/A> <https://rosfeatr.eu/rdf/data/B> }" in query
     assert "?seed ?p0 ?o0 ." in query
     assert "FROM <https://rfdb.it/graph/data>" in query
     assert "<urn:pred:r_to_expr>" in query
@@ -227,7 +227,7 @@ def test_construct_query_syntax_smoke_against_oxigraph() -> None:
     query = symbols.build_validation_construct(
         dep_graph=dep_graph,
         root_shape_id="root",
-        seed_iris={"https://rfdb.it/data/syntax_seed"},
+        seed_iris={"https://rosfeatr.eu/rdf/data/syntax_seed"},
         from_clause="",
     )
 
@@ -244,12 +244,12 @@ def test_missing_root_shape_emits_minimal_seed_query() -> None:
     query = symbols.build_validation_construct(
         dep_graph={},
         root_shape_id="urn:shape:missing",
-        seed_iris={"https://rfdb.it/data/seed"},
+        seed_iris={"https://rosfeatr.eu/rdf/data/seed"},
         from_clause="",
     )
 
     assert query.startswith("CONSTRUCT {")
-    assert "VALUES ?seed { <https://rfdb.it/data/seed> }" in query
+    assert "VALUES ?seed { <https://rosfeatr.eu/rdf/data/seed> }" in query
     assert "?seed ?p0 ?o0 ." in query
     assert "UNION" not in query
 
@@ -269,12 +269,12 @@ def test_root_without_outgoing_edges_emits_minimal_seed_query() -> None:
     query = symbols.build_validation_construct(
         dep_graph=dep_graph,
         root_shape_id="urn:shape:root",
-        seed_iris={"https://rfdb.it/data/seed"},
+        seed_iris={"https://rosfeatr.eu/rdf/data/seed"},
         from_clause="",
     )
 
     assert query.startswith("CONSTRUCT {")
-    assert "VALUES ?seed { <https://rfdb.it/data/seed> }" in query
+    assert "VALUES ?seed { <https://rosfeatr.eu/rdf/data/seed> }" in query
     assert "?seed ?p0 ?o0 ." in query
     assert "UNION" not in query
 
@@ -300,7 +300,7 @@ def test_deep_chain_topology_compiles_without_crash() -> None:
     query = symbols.build_validation_construct(
         dep_graph=dep_graph,
         root_shape_id="urn:shape:0",
-        seed_iris={"https://rfdb.it/data/seed"},
+        seed_iris={"https://rosfeatr.eu/rdf/data/seed"},
         from_clause="",
     )
 
@@ -359,7 +359,7 @@ def test_planner_scale_topologies_have_stable_runtime(topology: str) -> None:
     query = symbols.build_validation_construct(
         dep_graph=dep_graph,
         root_shape_id=root_shape_id,
-        seed_iris={"https://rfdb.it/data/seed"},
+        seed_iris={"https://rosfeatr.eu/rdf/data/seed"},
         from_clause="",
     )
     elapsed = time.perf_counter() - started

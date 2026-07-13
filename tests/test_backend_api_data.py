@@ -106,7 +106,7 @@ def _make_agent_role(
     person_id: str, person_label: str, role_id: str, role_label: str
 ) -> dict:
     return {
-        "@id": f"https://rfdb.it/data/{_make_suffix()}_agentrole",
+        "@id": f"https://rosfeatr.eu/rdf/data/{_make_suffix()}_agentrole",
         "@type": CORE_AGENT_ROLE,
         CORE_HAS_AGENT: {
             "@id": person_id,
@@ -125,13 +125,13 @@ def _make_manifestation_payload(
     *, suffix: str, include_work_label: bool = True
 ) -> dict:
     work = {
-        "@id": f"https://rfdb.it/data/{suffix}_work",
+        "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_work",
         "@type": [MM_MUSIC_ENTITY, LRMOO_F1_WORK],
         CORE_HAS_AGENT_ROLE: [
             _make_agent_role(
-                person_id=f"https://rfdb.it/data/{suffix}_person",
+                person_id=f"https://rosfeatr.eu/rdf/data/{suffix}_person",
                 person_label="Test Person",
-                role_id=f"https://rfdb.it/data/{suffix}_role",
+                role_id=f"https://rosfeatr.eu/rdf/data/{suffix}_role",
                 role_label="Test Role",
             )
         ],
@@ -140,11 +140,11 @@ def _make_manifestation_payload(
         work[RDFS_LABEL] = {"@value": "Test Work", "@language": "en"}
 
     return {
-        "@id": f"https://rfdb.it/data/{suffix}_manifestation",
+        "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_manifestation",
         "@type": LRMOO_F3_MANIFESTATION,
         RDFS_LABEL: {"@value": "Test Manifestation", "@language": "en"},
         LRMOO_R4_EMBODIES: {
-            "@id": f"https://rfdb.it/data/{suffix}_expression",
+            "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_expression",
             "@type": LRMOO_F2_EXPRESSION,
             RDFS_LABEL: {"@value": "Test Expression", "@language": "en"},
             CORE_IS_PART_OF: work,
@@ -154,14 +154,14 @@ def _make_manifestation_payload(
 
 def _make_work_payload(suffix: str) -> dict:
     return {
-        "@id": f"https://rfdb.it/data/{suffix}_work",
+        "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_work",
         "@type": [MM_MUSIC_ENTITY, LRMOO_F1_WORK],
         RDFS_LABEL: {"@value": "Chain Work", "@language": "en"},
         CORE_HAS_AGENT_ROLE: [
             _make_agent_role(
-                person_id=f"https://rfdb.it/data/{suffix}_person",
+                person_id=f"https://rosfeatr.eu/rdf/data/{suffix}_person",
                 person_label="Chain Person",
-                role_id=f"https://rfdb.it/data/{suffix}_role",
+                role_id=f"https://rosfeatr.eu/rdf/data/{suffix}_role",
                 role_label="Chain Role",
             )
         ],
@@ -170,18 +170,18 @@ def _make_work_payload(suffix: str) -> dict:
 
 def _make_expression_payload(suffix: str) -> dict:
     return {
-        "@id": f"https://rfdb.it/data/{suffix}_expression",
+        "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_expression",
         "@type": LRMOO_F2_EXPRESSION,
         RDFS_LABEL: {"@value": "Chain Expression", "@language": "en"},
         CORE_IS_PART_OF: {
-            "@id": f"https://rfdb.it/data/{suffix}_work",
+            "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_work",
             "@type": [MM_MUSIC_ENTITY, LRMOO_F1_WORK],
             RDFS_LABEL: {"@value": "Chain Work", "@language": "en"},
             CORE_HAS_AGENT_ROLE: [
                 _make_agent_role(
-                    person_id=f"https://rfdb.it/data/{suffix}_person",
+                    person_id=f"https://rosfeatr.eu/rdf/data/{suffix}_person",
                     person_label="Chain Person",
-                    role_id=f"https://rfdb.it/data/{suffix}_role",
+                    role_id=f"https://rosfeatr.eu/rdf/data/{suffix}_role",
                     role_label="Chain Role",
                 )
             ],
@@ -191,22 +191,22 @@ def _make_expression_payload(suffix: str) -> dict:
 
 def _make_manifestation_chain_payload(suffix: str) -> dict:
     return {
-        "@id": f"https://rfdb.it/data/{suffix}_manifestation",
+        "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_manifestation",
         "@type": LRMOO_F3_MANIFESTATION,
         RDFS_LABEL: {"@value": "Chain Manifestation", "@language": "en"},
         LRMOO_R4_EMBODIES: {
-            "@id": f"https://rfdb.it/data/{suffix}_expression",
+            "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_expression",
             "@type": LRMOO_F2_EXPRESSION,
             RDFS_LABEL: {"@value": "Chain Expression", "@language": "en"},
             CORE_IS_PART_OF: {
-                "@id": f"https://rfdb.it/data/{suffix}_work",
+                "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_work",
                 "@type": [MM_MUSIC_ENTITY, LRMOO_F1_WORK],
                 RDFS_LABEL: {"@value": "Chain Work", "@language": "en"},
                 CORE_HAS_AGENT_ROLE: [
                     _make_agent_role(
-                        person_id=f"https://rfdb.it/data/{suffix}_person",
+                        person_id=f"https://rosfeatr.eu/rdf/data/{suffix}_person",
                         person_label="Chain Person",
-                        role_id=f"https://rfdb.it/data/{suffix}_role",
+                        role_id=f"https://rosfeatr.eu/rdf/data/{suffix}_role",
                         role_label="Chain Role",
                     )
                 ],
@@ -217,7 +217,7 @@ def _make_manifestation_chain_payload(suffix: str) -> dict:
 
 def _make_source_payload(suffix: str, manifestation_id: str) -> dict:
     return {
-        "@id": f"https://rfdb.it/data/{suffix}_source",
+        "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_source",
         "@type": [
             "https://w3id.org/polifonia/ontology/source/Source",
             "http://iflastandards.info/ns/lrm/lrmoo/F5_Item",
@@ -231,17 +231,17 @@ def _make_source_payload(suffix: str, manifestation_id: str) -> dict:
             "@type": "http://www.w3.org/2001/XMLSchema#gYear",
         },
         "https://w3id.org/polifonia/ontology/core/hasType": {
-            "@id": f"https://rfdb.it/data/{suffix}_type",
+            "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_type",
             "@type": "https://w3id.org/polifonia/ontology/core/Type",
             RDFS_LABEL: {"@value": "Libretto a Stampa", "@language": "en"},
         },
         "http://purl.org/dc/terms/identifier": "Shelfmark-Chain",
         "http://www.cidoc-crm.org/cidoc-crm/P51_has_former_or_current_owner": {
-            "@id": f"https://rfdb.it/data/{suffix}_owner",
+            "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_owner",
             "@type": "https://w3id.org/polifonia/ontology/core/Organization",
             RDFS_LABEL: {"@value": "Chain Library", "@language": "en"},
             "https://w3id.org/polifonia/ontology/core/hasPlace": {
-                "@id": f"https://rfdb.it/data/{suffix}_place",
+                "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_place",
                 "@type": "https://w3id.org/polifonia/ontology/core/Place",
                 RDFS_LABEL: {"@value": "Chain City", "@language": "en"},
             },
@@ -251,11 +251,11 @@ def _make_source_payload(suffix: str, manifestation_id: str) -> dict:
             "@type": LRMOO_F3_MANIFESTATION,
             RDFS_LABEL: {"@value": "Chain Manifestation", "@language": "en"},
             LRMOO_R4_EMBODIES: {
-                "@id": f"https://rfdb.it/data/{suffix}_expression",
+                "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_expression",
                 "@type": LRMOO_F2_EXPRESSION,
                 RDFS_LABEL: {"@value": "Chain Expression", "@language": "en"},
                 CORE_IS_PART_OF: {
-                    "@id": f"https://rfdb.it/data/{suffix}_work",
+                    "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_work",
                     "@type": [MM_MUSIC_ENTITY, LRMOO_F1_WORK],
                     RDFS_LABEL: {"@value": "Chain Work", "@language": "en"},
                 },
@@ -266,11 +266,11 @@ def _make_source_payload(suffix: str, manifestation_id: str) -> dict:
 
 def _make_manifestation_reference_only_payload(suffix: str) -> dict:
     return {
-        "@id": f"https://rfdb.it/data/{suffix}_manifestation_ref_only",
+        "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_manifestation_ref_only",
         "@type": LRMOO_F3_MANIFESTATION,
         RDFS_LABEL: {"@value": "Chain Manifestation Ref Only", "@language": "en"},
         LRMOO_R4_EMBODIES: {
-            "@id": f"https://rfdb.it/data/{suffix}_expression",
+            "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_expression",
         },
     }
 
@@ -351,7 +351,7 @@ def test_positive_manifestation_insert_persists(api_client):
     """POST /api/data persists a valid manifestation with required links."""
     suffix = _make_suffix()
     payload = {
-        "shapeId": "https://rfdb.it/data/ManifestationShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/ManifestationShape",
         "data": _make_manifestation_payload(suffix=suffix),
     }
 
@@ -359,7 +359,7 @@ def test_positive_manifestation_insert_persists(api_client):
     assert status == 200
 
     assert body["success"] is True
-    assert body["entityId"] == f"https://rfdb.it/data/{suffix}_manifestation"
+    assert body["entityId"] == f"https://rosfeatr.eu/rdf/data/{suffix}_manifestation"
     assert body["validationReport"]["conforms"] is True
 
     triples = _assert_entity_has_label_and_type(
@@ -372,16 +372,16 @@ def test_positive_work_insert_persists(api_client):
     """POST /api/data persists a standalone work with an agent-role relation."""
     suffix = _make_suffix()
     payload = {
-        "shapeId": "https://rfdb.it/data/MusicalWorkShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/MusicalWorkShape",
         "data": {
-            "@id": f"https://rfdb.it/data/{suffix}_work",
+            "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_work",
             "@type": [MM_MUSIC_ENTITY, LRMOO_F1_WORK],
             RDFS_LABEL: {"@value": "Standalone Work", "@language": "en"},
             CORE_HAS_AGENT_ROLE: [
                 _make_agent_role(
-                    person_id=f"https://rfdb.it/data/{suffix}_person",
+                    person_id=f"https://rosfeatr.eu/rdf/data/{suffix}_person",
                     person_label="Composer Person",
-                    role_id=f"https://rfdb.it/data/{suffix}_role",
+                    role_id=f"https://rosfeatr.eu/rdf/data/{suffix}_role",
                     role_label="Composer Role",
                 )
             ],
@@ -402,9 +402,9 @@ def test_positive_source_insert_persists(api_client):
     """POST /api/data persists a valid source including publication metadata."""
     suffix = _make_suffix()
     payload = {
-        "shapeId": "https://rfdb.it/data/SourceShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/SourceShape",
         "data": {
-            "@id": f"https://rfdb.it/data/{suffix}_source",
+            "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_source",
             "@type": [
                 "https://w3id.org/polifonia/ontology/source/Source",
                 "http://iflastandards.info/ns/lrm/lrmoo/F5_Item",
@@ -418,31 +418,31 @@ def test_positive_source_insert_persists(api_client):
                 "@type": "http://www.w3.org/2001/XMLSchema#gYear",
             },
             "https://w3id.org/polifonia/ontology/core/hasType": {
-                "@id": f"https://rfdb.it/data/{suffix}_type",
+                "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_type",
                 "@type": "https://w3id.org/polifonia/ontology/core/Type",
                 RDFS_LABEL: {"@value": "Libretto a Stampa", "@language": "en"},
             },
             "http://purl.org/dc/terms/identifier": "Shelfmark-123",
             "http://www.cidoc-crm.org/cidoc-crm/P51_has_former_or_current_owner": {
-                "@id": f"https://rfdb.it/data/{suffix}_owner",
+                "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_owner",
                 "@type": "https://w3id.org/polifonia/ontology/core/Organization",
                 RDFS_LABEL: {"@value": "Test Library", "@language": "en"},
                 "https://w3id.org/polifonia/ontology/core/hasPlace": {
-                    "@id": f"https://rfdb.it/data/{suffix}_place",
+                    "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_place",
                     "@type": "https://w3id.org/polifonia/ontology/core/Place",
                     RDFS_LABEL: {"@value": "Test City", "@language": "en"},
                 },
             },
             "http://iflastandards.info/ns/lrm/lrmoo/R7_exemplifies": {
-                "@id": f"https://rfdb.it/data/{suffix}_manifestation",
+                "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_manifestation",
                 "@type": LRMOO_F3_MANIFESTATION,
                 RDFS_LABEL: {"@value": "Source Manifestation", "@language": "en"},
                 LRMOO_R4_EMBODIES: {
-                    "@id": f"https://rfdb.it/data/{suffix}_expression",
+                    "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_expression",
                     "@type": LRMOO_F2_EXPRESSION,
                     RDFS_LABEL: {"@value": "Source Expression", "@language": "en"},
                     CORE_IS_PART_OF: {
-                        "@id": f"https://rfdb.it/data/{suffix}_work",
+                        "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_work",
                         "@type": [MM_MUSIC_ENTITY, LRMOO_F1_WORK],
                         RDFS_LABEL: {"@value": "Source Work", "@language": "en"},
                     },
@@ -472,7 +472,7 @@ def test_full_stack_valid_insert_sequence(api_client):
     suffix = _make_suffix()
 
     work_payload = {
-        "shapeId": "https://rfdb.it/data/MusicalWorkShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/MusicalWorkShape",
         "data": _make_work_payload(suffix),
     }
     work_status, work_body = _request_json("POST", "/api/data", work_payload)
@@ -483,7 +483,7 @@ def test_full_stack_valid_insert_sequence(api_client):
     )
 
     expression_payload = {
-        "shapeId": "https://rfdb.it/data/ExpressionShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/ExpressionShape",
         "data": _make_expression_payload(suffix),
     }
     expression_status, expression_body = _request_json(
@@ -496,7 +496,7 @@ def test_full_stack_valid_insert_sequence(api_client):
     )
 
     manifestation_payload = {
-        "shapeId": "https://rfdb.it/data/ManifestationShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/ManifestationShape",
         "data": _make_manifestation_chain_payload(suffix),
     }
     manifestation_status, manifestation_body = _request_json(
@@ -509,7 +509,7 @@ def test_full_stack_valid_insert_sequence(api_client):
     )
 
     source_payload = {
-        "shapeId": "https://rfdb.it/data/SourceShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/SourceShape",
         "data": _make_source_payload(suffix, manifestation_body["entityId"]),
     }
     source_status, source_body = _request_json("POST", "/api/data", source_payload)
@@ -540,7 +540,7 @@ def test_manifestation_reference_only_insert_uses_merged_context(api_client):
     suffix = _make_suffix()
 
     work_payload = {
-        "shapeId": "https://rfdb.it/data/MusicalWorkShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/MusicalWorkShape",
         "data": _make_work_payload(suffix),
     }
     work_status, work_body = _request_json("POST", "/api/data", work_payload)
@@ -548,7 +548,7 @@ def test_manifestation_reference_only_insert_uses_merged_context(api_client):
     assert work_body["success"] is True
 
     expression_payload = {
-        "shapeId": "https://rfdb.it/data/ExpressionShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/ExpressionShape",
         "data": _make_expression_payload(suffix),
     }
     expression_status, expression_body = _request_json(
@@ -558,7 +558,7 @@ def test_manifestation_reference_only_insert_uses_merged_context(api_client):
     assert expression_body["success"] is True
 
     manifestation_payload = {
-        "shapeId": "https://rfdb.it/data/ManifestationShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/ManifestationShape",
         "data": _make_manifestation_reference_only_payload(suffix),
     }
     manifestation_status, manifestation_body = _request_json(
@@ -598,7 +598,7 @@ def test_negative_manifestation_insert_is_rejected(api_client, payload_factory):
     """
     suffix = _make_suffix()
     payload = {
-        "shapeId": "https://rfdb.it/data/ManifestationShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/ManifestationShape",
         "data": payload_factory(suffix),
     }
 
@@ -641,7 +641,7 @@ def test_negative_cascade_insert_rolls_back_every_nested_entity(api_client):
     status, body = _request_json(
         "POST",
         "/api/data",
-        {"shapeId": "https://rfdb.it/data/ManifestationShape", "data": payload_data},
+        {"shapeId": "https://rosfeatr.eu/rdf/schema/ManifestationShape", "data": payload_data},
     )
     assert status == 200
     assert body["success"] is False
@@ -652,7 +652,7 @@ def test_negative_cascade_insert_rolls_back_every_nested_entity(api_client):
     # contain *some* violation. The backend exposes violations with explicit
     # `focusNode` and `path` keys.
     violations = body["validationReport"]["violations"]
-    work_id = f"https://rfdb.it/data/{suffix}_work"
+    work_id = f"https://rosfeatr.eu/rdf/data/{suffix}_work"
     assert any(
         v.get("focusNode") == work_id and v.get("path") == RDFS_LABEL
         for v in violations
@@ -675,15 +675,15 @@ def test_negative_work_insert_without_label_is_rejected(api_client):
     """Work missing required label fails SHACL validation and is not stored."""
     suffix = _make_suffix()
     payload = {
-        "shapeId": "https://rfdb.it/data/MusicalWorkShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/MusicalWorkShape",
         "data": {
-            "@id": f"https://rfdb.it/data/{suffix}_work",
+            "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_work",
             "@type": [MM_MUSIC_ENTITY, LRMOO_F1_WORK],
             CORE_HAS_AGENT_ROLE: [
                 _make_agent_role(
-                    person_id=f"https://rfdb.it/data/{suffix}_person",
+                    person_id=f"https://rosfeatr.eu/rdf/data/{suffix}_person",
                     person_label="Composer Person",
-                    role_id=f"https://rfdb.it/data/{suffix}_role",
+                    role_id=f"https://rosfeatr.eu/rdf/data/{suffix}_role",
                     role_label="Composer Role",
                 )
             ],
@@ -707,9 +707,9 @@ def test_negative_work_insert_without_label_is_rejected(api_client):
 def test_failed_update_keeps_existing_entity(api_client):
     """Failed update leaves previously persisted entity triples unchanged."""
     suffix = _make_suffix()
-    entity_id = f"https://rfdb.it/data/{suffix}_manifestation"
+    entity_id = f"https://rosfeatr.eu/rdf/data/{suffix}_manifestation"
     valid_payload = {
-        "shapeId": "https://rfdb.it/data/ManifestationShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/ManifestationShape",
         "data": _make_manifestation_payload(suffix=suffix),
     }
 
@@ -718,12 +718,12 @@ def test_failed_update_keeps_existing_entity(api_client):
     assert create_body["success"] is True
 
     invalid_update = {
-        "shapeId": "https://rfdb.it/data/ManifestationShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/ManifestationShape",
         "data": _make_manifestation_payload(suffix=suffix, include_work_label=False),
         "originalTriples": [
             {
                 "predicate": LRMOO_R4_EMBODIES,
-                "object": f"https://rfdb.it/data/{suffix}_expression",
+                "object": f"https://rosfeatr.eu/rdf/data/{suffix}_expression",
                 "objectType": "iri",
             }
         ],
@@ -748,9 +748,9 @@ def test_failed_update_keeps_existing_entity(api_client):
 def test_valid_update_replaces_label_without_dropping_type(api_client):
     """Valid update replaces label while preserving rdf:type and other structure."""
     suffix = _make_suffix()
-    entity_id = f"https://rfdb.it/data/{suffix}_manifestation"
+    entity_id = f"https://rosfeatr.eu/rdf/data/{suffix}_manifestation"
     create_payload = {
-        "shapeId": "https://rfdb.it/data/ManifestationShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/ManifestationShape",
         "data": _make_manifestation_payload(suffix=suffix),
     }
 
@@ -764,7 +764,7 @@ def test_valid_update_replaces_label_without_dropping_type(api_client):
         "@language": "en",
     }
     update_payload = {
-        "shapeId": "https://rfdb.it/data/ManifestationShape",
+        "shapeId": "https://rosfeatr.eu/rdf/schema/ManifestationShape",
         "data": updated_data,
         "originalTriples": [
             {

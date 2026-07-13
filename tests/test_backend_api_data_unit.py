@@ -58,14 +58,14 @@ def test_api_write_accepts_place_plain_label_and_multiple_same_as() -> None:
     """POST /api/data accepts an untranslated place label and two sameAs IRIs."""
     oxigraph = _ValidationOxigraph()
     payload = EntityData(
-        shapeId="https://rfdb.it/data/PlaceShape",
+        shapeId="https://rosfeatr.eu/rdf/schema/PlaceShape",
         data={
             "@context": {
                 "core": "https://w3id.org/polifonia/ontology/core/",
                 "owl": "http://www.w3.org/2002/07/owl#",
                 "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
             },
-            "@id": "https://rfdb.it/data/api_unit_place",
+            "@id": "https://rosfeatr.eu/rdf/data/api_unit_place",
             "@type": "core:Place",
             "rdfs:label": {"@value": "API Place"},
             "owl:sameAs": [
@@ -88,7 +88,7 @@ def test_api_write_accepts_manifestation_plain_comment() -> None:
     """POST /api/data accepts an untranslated manifestation comment."""
     oxigraph = _ValidationOxigraph()
     payload = EntityData(
-        shapeId="https://rfdb.it/data/ManifestationShape",
+        shapeId="https://rosfeatr.eu/rdf/schema/ManifestationShape",
         data={
             "@context": {
                 "core": "https://w3id.org/polifonia/ontology/core/",
@@ -96,16 +96,16 @@ def test_api_write_accepts_manifestation_plain_comment() -> None:
                 "mm": "https://w3id.org/polifonia/ontology/music-meta/",
                 "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
             },
-            "@id": "https://rfdb.it/data/api_unit_manifestation",
+            "@id": "https://rosfeatr.eu/rdf/data/api_unit_manifestation",
             "@type": "lrmoo:F3_Manifestation",
             "rdfs:label": {"@value": "API Manifestation", "@language": "en"},
             "rdfs:comment": {"@value": "Generic API comment"},
             "lrmoo:R4_embodies": {
-                "@id": "https://rfdb.it/data/api_unit_expression",
+                "@id": "https://rosfeatr.eu/rdf/data/api_unit_expression",
                 "@type": "lrmoo:F2_Expression",
                 "rdfs:label": {"@value": "API Expression", "@language": "en"},
                 "core:isPartOf": {
-                    "@id": "https://rfdb.it/data/api_unit_work",
+                    "@id": "https://rosfeatr.eu/rdf/data/api_unit_work",
                     "@type": ["mm:MusicEntity", "lrmoo:F1_Work"],
                     "rdfs:label": {"@value": "API Work", "@language": "en"},
                 },

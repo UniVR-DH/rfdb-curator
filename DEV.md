@@ -135,12 +135,49 @@ GET /api/shapes
 GET /api/forms?shapeId=...
 ```
 
+### Helper/bridge shapes
+
+Shape behavior in the UI is schema-driven, not hardcoded per class name.
+
+- If a shape declares a `sh:property` with `sh:path rdfs:label`, the backend classifies it as a standalone `external-entity`.
+- If a shape has no `rdfs:label` property, the backend classifies it as a `helper-bridge` shape.
+- If a parent property uses `sh:node` to point at a `helper-bridge` shape, the form generator exposes that field as a nested inline editor instead of a normal top-level linked entity form.
+
+`rfdbs:AgentRoleShape` is the current example of this pattern. It is referenced from `core:hasAgentRole`, defines no `sh:property` whose `sh:path` is `rdfs:label`, and is therefore edited inline as a bridge between the parent Work/Expression and the linked `Person`/`Role` records.
+
+When changing this behavior, check both the SHACL shape and the resulting `/api/shapes` metadata before changing frontend code. A shape can look label-like because it has a shape-level `rdfs:label` for display, but the classifier only cares whether the shape defines an RDF property with `sh:path rdfs:label`.
+
+### Performance and contributor semantics
+
+Two modeling choices in `schema/schema.ttl` are intentional and should be preserved unless there is an explicit migration plan:
+
+- Performance links use both `cidoc:P19_was_intended_use_of` (strong: the manifestation was made for this performance) and `cidoc:P16_used_specific_object` (weak: the manifestation was merely present or used there). Do not merge these into one property; they encode different evidentiary strength and exact CIDOC-CRM domain/range fit.
+- Source donor/provenance uses `dcterms:contributor`, not `cidoc:P51_has_former_or_current_owner` and not `core:hasAgentRole`. This keeps digital-copy contributor attribution separate from legal ownership and from the open Role vocabulary used for creative/performance attribution. CIDOC-CRM has no simple donor shortcut outside the full acquisition event, so `dcterms:contributor` is the chosen reuse point.
+
+Contributor nodes are constrained via `rfdbs:ContributorShape` to `foaf:Person` or `foaf:Organization`. This is a schema-level guardrail against accidental reuse of `core:Person`/`core:Organization` entities in donor/provenance assertions.
+
 ---
 
 ## 5. Data Change Workflow
 
 - `data/vocab.ttl` — canonical seed data for controlled vocabulary. Seeding should normally be **enabled**.
 - `data/data.ttl` — test-only fixture data. Seeding should normally be **disabled** outside dev/test.
+
+### Namespace hardcoding map
+
+When the RFDB namespaces change, update these locations together:
+
+- `schema/schema.ttl` — authoritative Turtle prefixes and SHACL shape IRIs. Shape IRIs use `rfdbs:` (`https://rosfeatr.eu/rdf/schema/`); data resources use `rfdb:` (`https://rosfeatr.eu/rdf/data/`).
+- `data/vocab.ttl` and `data/data.ttl` — authoritative Turtle data prefixes for seeded and fixture data.
+- `backend/core/blank_node_handler.py` — generated entity IDs use the hardcoded `RFDB_BASE` data namespace.
+- `backend/models/data.py` and `backend/core/config.py` — backend doc examples reference shape/data IRIs.
+- `tests/` Python files — many tests assert full shape or entity IRIs directly; search for `rosfeatr.eu/rdf/` before and after any namespace migration.
+
+Quick check from repo root:
+
+```bash
+rg -n 'https://rosfeatr\.eu/rdf/|https://rfdb\.it/data/' schema data backend tests DEV.md AGENTS.md .agent-defs
+```
 
 ---
 

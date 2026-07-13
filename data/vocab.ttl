@@ -1,6 +1,6 @@
 @prefix core: <https://w3id.org/polifonia/ontology/core/> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix rfdb: <https://rfdb.it/data/> .
+@prefix rfdb: <https://rosfeatr.eu/rdf/data/> .
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 
 # Canonical controlled vocabulary for the editor seed stage.

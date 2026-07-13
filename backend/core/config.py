@@ -167,7 +167,7 @@ class Settings(BaseSettings):
     """Shape URIs whose records are read-only in the editor.
 
     Supplied as a JSON array string via the ``READ_ONLY_SHAPES`` environment variable,
-    e.g. ``'["https://rfdb.it/data/LanguageShape"]'``.  Shapes listed here get
+    e.g. ``'["https://rosfeatr.eu/rdf/schema/LanguageShape"]'``.  Shapes listed here get
     ``"readOnly": true`` injected into ``/api/shapes`` responses, and ``POST /api/data``
     and ``DELETE /api/data/{id}`` return HTTP 403 when the target shape is in this list.
     Optional; defaults to ``[]`` (no shapes are read-only) so existing deployments
