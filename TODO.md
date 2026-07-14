@@ -53,17 +53,18 @@ The initial version does not aim to:
 - [x] Allow `rdfs:label` / `rdfs:comment` without language tags for generic untranslated values
 - [x] Expression form comment field renders as `[object Object]` instead of the actual string value
 - [x] HIGH PRIORITY/REQUIRES PLANNING: Hydrate `data/glottolog_language.ttl` into Oxigraph and connect it to `rfdb:Source` language handling via `sh:path dcterms:language ; sh:nodeKind sh:IRI ;` in `rfdb:SourceShape`
-- [ ] HIGH PRIORITY/REQUIRES PLANNING: Language field in Source form should be a dropdown of available languages, not free text, check above
+- [x] HIGH PRIORITY/REQUIRES PLANNING: Language field in Source form should be a dropdown of available languages, not free text, check above
 - [ ] Auto-refresh entity lists (e.g. "has place" relations) when backend data changes behind the scenes
 - [ ] Implement records pagination with default page size 20
 - [ ] Implement smarter search ranking that favors edit distance without relying on server-side cap or limit
 - [ ] Preserve current form/page state on browser reload (survive refresh)
 - [ ] REQUIRES PLANNING: Comment / description fields should use a larger textarea instead of single-line input (need to brainstorm how to derive that from SHACL shapes, maybe some predicates are treated as "long text" fields by default)
-- [ ] Dropdown selections should display both label and comment (not just label)
-- [ ] For shapes using `sh:or` with alternative `sh:class` constraints, render a class-selection dropdown so users can explicitly choose which class branch they are filling
+- [ ] Dropdown selections should display both label and comment (not just label) with ellipsis if longer than a certain length, e.g., 100 characters, when available 
+- [x] For shapes using `sh:or` with alternative `sh:class` constraints, render a class-selection dropdown so users can explicitly choose which class branch they are filling
 - [x] READ_ONLY FLAG: add a flag to make the editor read-only and refuse with a message if the user tries to edit (for demo or presentation mode)
 - [ ] File upload  of digital copy for Source entities (need to define which properties to use for this, and how to store the files, e.g. in a local `uploads/` folder with unique filenames and a mapping in the RDF data)
-
+- [ ] somehwere put the mapping from xsd language acronym (EN, IT...) to the name 
+- [ ] for a Performance we need to select also the Venue not only the place, but keep the place because we not always know, and for venues consider coordinates
 
 ### b. Advanced Features (from roadmap)
 - [ ] Welcome / onboarding page with simple guide on how to use the editor (should be possible to re-open again)
@@ -76,7 +77,10 @@ The initial version does not aim to:
 - [ ] SPARQL-level pagination cursor
 - [ ] valdity check on dates between MusicalWork, Expression, and Manifestation (e.g. creation date of Expression should be after creation date of Work)
 - [ ] for all same-as fields check if other records already have it and if so, warn the user 
-
+- [ ] in the form, the dropdown selection for language and person should use the same UI component of the other selectors instead of the native HTML select, or at least a component with the same UI
+- [ ] support ruoli vocali, personaggi as AgentRoles a part
+- [ ]  for performances we need: scenografo, coreografo, ballerini, cantani/attori, musicisti 
+- [ ] for performances we need to know the "source" that is telling us about the performance, and the source should be linked to the performance, not to the work or expression. Sometimes a manifestation is the source, sometimes is another source like an anthology 
 
 
 ### c. Development and Deployment
@@ -87,3 +91,4 @@ The initial version does not aim to:
 - [ ] configure Docker Compose to run in production mode with Nginx reverse proxy and SSL termination
 - [x] check closely in README.md the Repository Structure
 - [ ] consider a pre-commit hook configuration (.pre-commit-config.yaml)
+- [ ] make a pre-flight check for the backend to ensure that the SHACL shapes are valid and consistent before starting the server and that they do not contain unsupported features or paradgims (e.g., shapes without a targetClass)
