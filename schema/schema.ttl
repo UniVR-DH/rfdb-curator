@@ -610,7 +610,7 @@ rfdbs:PerformanceShape
   ] ;
 
   sh:property [
-    sh:path prism:publicationDate ;
+    sh:path dcterms:date ;
     sh:maxCount 1 ;
     sh:or (
       [ sh:datatype xsd:date ]
