@@ -37,8 +37,8 @@ services:
       # `CMD oxigraph --help` resolves to ENTRYPOINT + ["--help"], exits
       # 0 immediately, and proves the process is alive.
       # This is a LIVENESS check only — it does not verify the HTTP port.
-      # HTTP readiness is handled by _oxigraph_wait() in app.py, which
-      # retries OxigraphClient.health() before seeding.
+      # HTTP readiness is handled in app.py's lifespan, which polls
+      # OxigraphClient.health() before any reset/seed call.
       test: ["CMD", "/usr/local/bin/oxigraph", "--help"]
       interval: 5s
       timeout: 3s

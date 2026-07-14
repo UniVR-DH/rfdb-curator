@@ -22,10 +22,11 @@ Note — startup blocking I/O:
     becomes a concern, wrap each blocking call in ``asyncio.to_thread()``.
 
 Note — Oxigraph readiness:
-    There is no built-in retry loop waiting for Oxigraph to become available.
-    In Docker Compose, use a ``healthcheck`` + ``depends_on: condition:
-    service_healthy`` on the Oxigraph service, or add a wait-for-it script,
-    to ensure Oxigraph is ready before this process starts.
+    The Oxigraph Docker healthcheck (``oxigraph --help``) only proves the
+    process is alive, not that its HTTP port is accepting connections yet.
+    ``lifespan`` therefore polls ``OxigraphClient.health()`` after connecting
+    and before any reset/seed call that would otherwise raise on a refused
+    connection.
 """
 
 from __future__ import annotations
@@ -80,6 +81,13 @@ if "*" in settings.cors_origins:
 # Lifespan
 # ---------------------------------------------------------------------------
 
+# Bounds for the Oxigraph HTTP-readiness poll in lifespan (see step 2 below).
+# Oxigraph's own storage init (RocksDB) can take well over a minute on a cold
+# start with an existing/large data volume, long after Docker's liveness
+# healthcheck (`oxigraph --help`, which never touches storage) reports healthy.
+_OXIGRAPH_READY_TIMEOUT_S = 120.0
+_OXIGRAPH_READY_POLL_S = 0.5
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -98,7 +106,8 @@ async def lifespan(app: FastAPI):
        (``ShaclValidator``).  Both parse ``settings.schema_path`` independently;
        this is a known redundancy that can be eliminated by passing a pre-parsed
        rdflib ``Graph`` to ``ShaclValidator`` once the interface supports it.
-    2. Connect to Oxigraph (``OxigraphClient``).
+    2. Connect to Oxigraph (``OxigraphClient``) and poll ``health()`` until it
+       responds or ``_OXIGRAPH_READY_TIMEOUT_S`` elapses.
     3. If ``reset_data_on_startup`` is ``True``, wipe the store completely via
        ``clear_store()``.  Any exception here propagates and aborts startup
        intentionally — the app must not serve requests with a partially-cleared
@@ -134,10 +143,22 @@ async def lifespan(app: FastAPI):
     )
     logger.info("OxigraphClient initialised (base_url='%s').", settings.oxigraph_url)
 
+    # Docker's `depends_on: condition: service_healthy` only proves the
+    # Oxigraph process is alive (its healthcheck runs `oxigraph --help`,
+    # which never touches the network) — it does not prove the HTTP port
+    # is accepting connections yet. Poll health() so a fresh `compose up`
+    # doesn't lose the startup race and abort on a refused connection.
+    deadline = time.monotonic() + _OXIGRAPH_READY_TIMEOUT_S
+    while not app.state.oxigraph.health():
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"Oxigraph not reachable at '{settings.oxigraph_url}' after "
+                f"{_OXIGRAPH_READY_TIMEOUT_S}s — aborting startup."
+            )
+        time.sleep(_OXIGRAPH_READY_POLL_S)
+    logger.info("Oxigraph is reachable.")
+
     # -- 3. Optional store reset -------------------------------------------
-    # If Oxigraph is not yet reachable (e.g. still starting in Docker Compose)
-    # clear_store() will raise and abort startup.  Use a readiness dependency
-    # (healthcheck + depends_on) in docker-compose.yml to prevent this.
     if settings.reset_data_on_startup:
         logger.warning(
             "reset_data_on_startup=true — clearing all triples from Oxigraph. "

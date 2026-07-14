@@ -90,6 +90,9 @@ def test_startup_initialization_order_populates_services_before_seeding(
             self.base_url = base_url
             self.data_graph_uri = data_graph_uri
 
+        def health(self) -> bool:
+            return True
+
         def clear_store(self) -> None:
             calls.append("clear_store")
 
@@ -163,6 +166,9 @@ def test_reset_data_on_startup_clears_store_before_seeding(
             self.base_url = base_url
             self.data_graph_uri = data_graph_uri
 
+        def health(self) -> bool:
+            return True
+
         def clear_store(self) -> None:
             calls.append("clear_store")
 
@@ -228,6 +234,9 @@ def test_first_write_can_read_shape_dep_graph_after_startup(
         def __init__(self, base_url: str, data_graph_uri: str):
             self.base_url = base_url
             self.data_graph_uri = data_graph_uri
+
+        def health(self) -> bool:
+            return True
 
         def from_clause(self) -> str:
             return ""
