@@ -2,6 +2,7 @@
 @prefix core:    <https://w3id.org/polifonia/ontology/core/> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
 @prefix foaf:    <http://xmlns.com/foaf/0.1/> .
+@prefix glottolog: <http://glottolog.org/resource/languoid/id/> .
 @prefix lrmoo:   <http://iflastandards.info/ns/lrm/lrmoo/> .
 @prefix mm:      <https://w3id.org/polifonia/ontology/music-meta/> .
 @prefix owl:     <http://www.w3.org/2002/07/owl#> .
@@ -137,7 +138,7 @@ rfdbs:MusicalWorkShape
   sh:property [
     sh:path owl:sameAs ;
     sh:nodeKind sh:IRI ;
-    sh:description "External identifiers (e.g., Wikidata, VIAF)" ;
+    sh:description "External identifiers (e.g., Wikidata, VIAF, Corago ID)" ;
   ] ;
   sh:property [
     sh:path cidoc:P129_is_about ;
@@ -288,7 +289,7 @@ rfdbs:SourceShape
     sh:nodeKind sh:IRI ;
     sh:class dcterms:LinguisticSystem ;
     sh:node rfdbs:LanguageShape ;
-    sh:description "Language(s) of the item (Lingua), e.g., from glottolog.org as 'https://glottolog.org/resource/languoid/id/russ1263" ;
+    sh:description "Language(s) of the item (Lingua), e.g., from glottolog.org as 'http://glottolog.org/resource/languoid/id/russ1263" ;
   ] ;
 
   sh:property [
@@ -650,4 +651,11 @@ rfdbs:PerformanceShape
     sh:class lrmoo:F3_Manifestation ;
     sh:node rfdbs:ManifestationShape ;
     sh:description "WEAK claim: manifestation was present/used at this performance (P16 used specific object / was used for), with no assertion about why it was printed. Use for a pre-existing or reused edition adopted for this staging, or whenever purpose-of-printing is unknown or unconfirmed. Safer default when evidence for intent is lacking." ;
+  ] ;
+
+  sh:property [
+    sh:path owl:sameAs ;
+    sh:minCount 0 ;
+    sh:nodeKind sh:IRI ;
+    sh:description "External identifier(s) for the performance/event, e.g. Corago ID such as https://corago.unibo.it/evento/0000376534" ;
   ] .
