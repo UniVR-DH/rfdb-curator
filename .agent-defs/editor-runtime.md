@@ -53,6 +53,12 @@ curl http://localhost:8000/health
 curl -s -o /dev/null -w "%{http_code}" http://localhost:5173
 ```
 
+## Browser Verification (Mandatory)
+
+Never open, launch, or drive a browser (Playwright, Puppeteer, headless Chrome, or similar) to verify frontend changes. Do not install or invoke browser-automation tooling for this purpose.
+
+Instead: verify what is verifiable without a browser (API responses via `curl`, backend tests, lint/build), then tell the user the change is ready for them to test manually in their own browser and report back what they see.
+
 ## Troubleshooting Tips
 
 - **Frontend proxy errors (`/api` 502/504):** inspect backend health and logs.
