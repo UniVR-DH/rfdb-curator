@@ -38,7 +38,7 @@
  *   3. ValidationPanel shows details for selectedRecord in inspector sidebar.
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import './App.css'
 import { apiClient } from './api/client.js'
 import Icon from './components/Icon.jsx'
@@ -60,6 +60,29 @@ export default function App() {
   const [recordsRefreshKey, setRecordsRefreshKey] = useState(0) // bump to re-fetch list
   const [activeView, setActiveView] = useState('form') // 'form' | 'records'
   const [recordLoading, setRecordLoading] = useState(false) // true while fetching entity data for editing
+  // In-memory, same-session draft cache keyed by `shape::<shapeId>`. Single slot per
+  // shape form (last state wins), so unsaved input survives shape/record navigation
+  // even though ShapeForm re-hydrates via reset() on every shape/record change.
+  const [drafts, setDrafts] = useState({})
+
+  // Draft key for the active shape form. Keyed by shape only (not record) so a draft
+  // survives switching away and back; ShapeForm rebinds @id from the live record.
+  const draftKey = activeShape ? `shape::${activeShape.id}` : null
+
+  // Stable across renders (only closes over setDrafts) so ShapeForm's watch
+  // subscription is not torn down and rebuilt on every keystroke-driven re-render.
+  const handleDraftChange = useCallback((key, value) => {
+    setDrafts((prev) => ({ ...prev, [key]: value }))
+  }, [])
+
+  const handleDraftClear = useCallback((key) => {
+    setDrafts((prev) => {
+      if (!key || !(key in prev)) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }, [])
 
   /** Pull per-shape record counts from the backend and sync `shapeCounts`. */
   function refreshShapeCounts() {
@@ -242,14 +265,19 @@ export default function App() {
                       shape={activeShape}
                       allShapes={shapes}
                       record={loadedRecord}
+                      draftKey={draftKey}
+                      draftValue={draftKey ? drafts[draftKey] : undefined}
+                      onDraftChange={handleDraftChange}
                       onValidation={setValidation}
                       onSaved={() => {
+                        handleDraftClear(draftKey)
                         setSelectedRecord(null)
                         setLoadedRecord(null)
                         setRecordsRefreshKey((k) => k + 1)
                         setActiveView('records')
                       }}
                       onReset={() => {
+                        handleDraftClear(draftKey)
                         setSelectedRecord(null)
                         setLoadedRecord(null)
                       }}

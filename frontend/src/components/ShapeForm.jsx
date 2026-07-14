@@ -1,5 +1,5 @@
 /** SHACL-driven form: loads schema metadata, maps records to form state, and submits JSON-LD. */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { apiClient } from '../api/client.js'
 import { buildJsonLdEntity } from '../utils/jsonld.js'
@@ -95,12 +95,46 @@ function tripleToFieldScalarValue(val, fieldType, languageTagPolicy) {
   return tripleToFieldValue(val, fieldType, languageTagPolicy, 1)
 }
 
-export default function ShapeForm({ shape, allShapes, record, onValidation, onSaved, onReset }) {
+export default function ShapeForm({
+  shape,
+  allShapes,
+  record,
+  draftKey,
+  draftValue,
+  onDraftChange,
+  onValidation,
+  onSaved,
+  onReset,
+}) {
   const [formSchema, setFormSchema] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
+  // Bumped by the Reset button to force the hydration effect to re-seed a blank form
+  // after its draft has been cleared (a create-mode reset otherwise leaves no state
+  // change for the effect to react to).
+  const [resetNonce, setResetNonce] = useState(0)
 
-  const { register, handleSubmit, reset, control, formState } = useForm()
+  const { register, handleSubmit, reset, control, watch, formState } = useForm()
+
+  // Latest draft, read at hydration time without making the hydration effect depend
+  // on draftValue — otherwise every keystroke (which updates draftValue upstream)
+  // would re-run reset() and clobber the user's in-progress edits.
+  const draftValueRef = useRef(draftValue)
+  draftValueRef.current = draftValue
+
+  // Suppresses draft publishing while we programmatically reset() during hydration,
+  // so restoring a draft (or seeding defaults) never echoes back up to the parent.
+  const hydratingRef = useRef(false)
+
+  /**
+   * reset() wrapper that flags the surrounding hydration so the watch subscription
+   * ignores the resulting change event (see the publish effect below).
+   */
+  function hydrateReset(values) {
+    hydratingRef.current = true
+    reset(values)
+    hydratingRef.current = false
+  }
 
   function formatApiError(err) {
     const detail = err?.response?.data?.detail
@@ -294,6 +328,20 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
 
     setSubmitError(null)
 
+    // Prefer a saved draft over the backend baseline. Read via ref so this effect
+    // does not depend on draftValue (which changes on every keystroke and would
+    // otherwise re-run reset() and wipe the user's in-progress edits).
+    // @id is rebound from the live record prop — never trust the draft's cached @id,
+    // or a create context could silently reuse a prior edit's identity and overwrite it.
+    const savedDraft = draftValueRef.current
+    if (savedDraft) {
+      const restored = { ...savedDraft }
+      if (record?.id) restored['@id'] = record.id
+      else delete restored['@id']
+      hydrateReset(restored)
+      return
+    }
+
     // Ignore stale async mapping results if record/shape changes mid-flight.
     let ignore = false
 
@@ -316,7 +364,7 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
       if (formSchema.shape.typeOptions?.length > 0) {
         defaults.__typeChoice = ''
       }
-      if (!ignore) reset(defaults)
+      if (!ignore) hydrateReset(defaults)
       return () => {
         ignore = true
       }
@@ -337,7 +385,7 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
 
     if (nestedFields.length === 0 && entitySearchFields.length === 0) {
       // Nothing async needed — reset straight away
-      if (!ignore) reset(mapped)
+      if (!ignore) hydrateReset(mapped)
       return () => {
         ignore = true
       }
@@ -435,7 +483,7 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
 
     Promise.all([...nestedPromises, ...entitySearchPromises]).then(() => {
       if (ignore) return
-      reset(mapped)
+      hydrateReset(mapped)
     })
 
     // Mark this run as stale when a newer run starts or component unmounts.
@@ -447,7 +495,20 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
     // the effect when it does would reset unsaved form edits. `resolveEntityLabel` is
     // a stable function in practice (defined once per render, not memoized). If
     // either causes stale-closure bugs in a future refactor, add them here.
-  }, [record, shape, reset, formSchema])
+  }, [record, shape, reset, formSchema, resetNonce])
+
+  // Publish form edits upward as the draft for this shape so switching shapes and
+  // returning restores unsaved input. Guarded by hydratingRef so programmatic
+  // resets (hydration) don't echo back, and gated on formSchema so a pre-hydration
+  // empty form never overwrites a valid draft.
+  useEffect(() => {
+    if (!formSchema || !draftKey) return
+    const subscription = watch((value) => {
+      if (hydratingRef.current) return
+      onDraftChange?.(draftKey, value)
+    })
+    return () => subscription.unsubscribe()
+  }, [watch, formSchema, draftKey, onDraftChange])
 
   // Track dirty predicates to build a minimal originalTriples delete set on update.
   const { dirtyFields } = formState
@@ -637,8 +698,15 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
               ? 'Update record'
               : 'Insert record'}
         </button>
-        {/* Reset returns to a blank create form by clearing selected record in the parent. */}
-        <button type="button" className="btn btn-ghost" onClick={() => onReset?.()}>
+        {/* Reset clears the draft + selection in the parent and re-seeds a blank form. */}
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={() => {
+            onReset?.()
+            setResetNonce((n) => n + 1)
+          }}
+        >
           Reset
         </button>
       </footer>
