@@ -71,6 +71,8 @@ export default function App() {
 
   // Stable across renders (only closes over setDrafts) so ShapeForm's watch
   // subscription is not torn down and rebuilt on every keystroke-driven re-render.
+  // Only new (create) forms keep a draft; editing an existing record always reloads
+  // from that record, so drafts never carry an @id and can never turn into an update.
   const handleDraftChange = useCallback((key, value) => {
     setDrafts((prev) => ({ ...prev, [key]: value }))
   }, [])

@@ -328,16 +328,15 @@ export default function ShapeForm({
 
     setSubmitError(null)
 
-    // Prefer a saved draft over the backend baseline. Read via ref so this effect
-    // does not depend on draftValue (which changes on every keystroke and would
-    // otherwise re-run reset() and wipe the user's in-progress edits).
-    // @id is rebound from the live record prop — never trust the draft's cached @id,
-    // or a create context could silently reuse a prior edit's identity and overwrite it.
+    // Only new (create) forms restore a draft. Editing an existing record always
+    // reloads from that record — a draft can never carry an @id, so it can never
+    // silently turn a create into an update of some previously-edited entity.
+    // Read via ref so this effect does not depend on draftValue (which changes on
+    // every keystroke and would otherwise re-run reset() and wipe in-progress edits).
     const savedDraft = draftValueRef.current
-    if (savedDraft) {
+    if (savedDraft && !record?.id) {
       const restored = { ...savedDraft }
-      if (record?.id) restored['@id'] = record.id
-      else delete restored['@id']
+      delete restored['@id'] // defensive: a create form never carries an identity
       hydrateReset(restored)
       return
     }
@@ -505,10 +504,12 @@ export default function ShapeForm({
     if (!formSchema || !draftKey) return
     const subscription = watch((value) => {
       if (hydratingRef.current) return
+      // Only new (create) forms publish a draft; edits are never preserved.
+      if (record?.id) return
       onDraftChange?.(draftKey, value)
     })
     return () => subscription.unsubscribe()
-  }, [watch, formSchema, draftKey, onDraftChange])
+  }, [watch, formSchema, draftKey, onDraftChange, record])
 
   // Track dirty predicates to build a minimal originalTriples delete set on update.
   const { dirtyFields } = formState
