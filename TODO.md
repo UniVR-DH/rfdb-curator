@@ -7,26 +7,29 @@
 - Add cleanup for orphaned bridge entities after delete operations.
 - Improve JSON-LD handling for nested forms and repeated multilingual values.
 - Replace OFFSET-based pagination with cursor-based SPARQL pagination for large graphs.
-- ~~**Prefix map duplication**~~ — resolved: `GET /api/meta/prefixes` (`backend/api/meta.py`) now serves the schema graph's namespace map, and `frontend/src/utils/prefixes.js` / `utils/jsonld.js` hydrate from it at startup (`frontend/src/App.jsx`). See `.temp/temp-prefix-consolidation-20260713.md` for the completed implementation plan.
+- ~~**Prefix map duplication**~~ — resolved: `GET /api/meta/prefixes` (`backend/api/meta.py`) now serves the schema graph's namespace map, and `frontend/src/utils/prefixes.js` / `utils/jsonld.js` hydrate from it at startup (`frontend/src/App.jsx`). See `.temp/temp-DONE-prefix-consolidation-20260713.md` for the completed implementation plan.
 
 ---
 
 ## Planned Feature: Data Context Panel
 
-A future read-only panel should expose:
+A read-only panel exposing the runtime data context. Design and implementation plan:
+`.temp/temp-data-context-panel-20260715.md`. The baseline version remains read-only and
+must not expose destructive graph operations.
 
-- active prefix mapping
-- active data graph from `DATA_GRAPH_URI`
-- available named graphs in Oxigraph
-- lightweight graph statistics
-- prefix consistency warnings between schema, JSON-LD context, and runtime configuration
+Exposed information:
 
-Endpoints:
+- [x] active prefix mapping — served by `GET /api/meta/prefixes`, hydrated at startup
+- [ ] active data graph from `DATA_GRAPH_URI` — via `GET /api/meta/graphs`
+- [ ] available named graphs in Oxigraph — via `GET /api/meta/graphs`
+- [ ] lightweight graph statistics (triple counts) — via `GET /api/meta/graphs`
+- [ ] prefix / config consistency warnings — via `GET /api/meta/graphs`
 
-- `GET /api/meta/prefixes` — **shipped** (first milestone; resolved the prefix-map duplication gap above)
-- `GET /api/meta/graphs` — planned
+Milestones:
 
-The baseline version should remain read-only and must not expose destructive graph operations.
+- [x] Backend `GET /api/meta/prefixes` — **shipped** (resolved the prefix-map duplication gap above; `.temp/temp-DONE-prefix-consolidation-20260713.md`)
+- [ ] Backend `GET /api/meta/graphs` — planned (Task 1 in the plan doc)
+- [ ] Frontend read-only `DataContextPanel` — planned (Task 2 in the plan doc)
 
 ---
 
@@ -69,7 +72,7 @@ The initial version does not aim to:
 ### b. Advanced Features (from roadmap)
 - [ ] Welcome / onboarding page with simple guide on how to use the editor (should be possible to re-open again)
 - [ ] Real-time validation (debounced SHACL checking on blur/change)
-- [ ] Bulk import (CSV → RDF)
+- [ ] Bulk import (Excel/CSV → RDF)
 - [ ] Data export (RDF, JSON-LD, CSV)
 - [ ] Entity relationship graph visualization
 - [ ] Audit trail / change history
