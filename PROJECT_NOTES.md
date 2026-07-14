@@ -1,6 +1,6 @@
 # RFDB CURATOR PROJECT NOTES
 
-This document collects implementation details, modeling notes, operational plans, and roadmap items that are useful for `rfdb-editor` but intentionally kept out of the main `README.md` to keep that file concise.
+This document collects implementation details, modeling notes, operational plans, and roadmap items that are useful for `rfdb-curator` (package names `rfdb-editor-backend` / `rfdb-editor` internally in `backend/pyproject.toml` and `frontend/package.json`) but intentionally kept out of the main `README.md` to keep that file concise.
 
 The main README should remain the entry point for setup, core architecture, and daily development. This file can be used as a reference for contributors working on schema extraction, validation behavior, linked-record modeling, metadata panels, and future backend or frontend extensions.
 
@@ -38,7 +38,7 @@ This document keeps the remaining useful project-specific information:
 
 ## 2. Core Architectural Principle
 
-`rfdb-editor` should remain schema-driven.
+`rfdb-curator` should remain schema-driven.
 
 The frontend should not contain hard-coded assumptions about the current RossijskijFeatrDB entity model unless those assumptions are necessary for usability and are clearly isolated.
 
@@ -219,15 +219,15 @@ rfdb: <https://rosfeatr.eu/rdf/data/>
 rfdbs:   <https://rosfeatr.eu/rdf/schema/> .
 ```
 
-Used for local RFDB resources and SHACL shapes.
+`rfdb:` is used for local RFDB data resources; `rfdbs:` is used for SHACL shapes.
 
 Examples:
 
 ```text
-rfdb:MusicalWorkShape
-rfdb:ExpressionShape
-rfdb:SourceShape
-rfdb:PlaceShape
+rfdbs:MusicalWorkShape
+rfdbs:ExpressionShape
+rfdbs:SourceShape
+rfdbs:PlaceShape
 rfdb:PrintedLibretto
 rfdb:SanPietroburgo
 ```
@@ -488,7 +488,7 @@ xsd:gYearMonth
 Shape:
 
 ```text
-rfdb:PlaceShape
+rfdbs:PlaceShape
 ```
 
 Target class:
@@ -510,7 +510,7 @@ Main fields:
 Shape:
 
 ```text
-rfdb:SubjectShape
+rfdbs:SubjectShape
 ```
 
 Target class:
@@ -533,7 +533,7 @@ Subjects can represent themes, stories, plots, characters, narrative elements, o
 Shape:
 
 ```text
-rfdb:SourceTypeShape
+rfdbs:SourceTypeShape
 ```
 
 Target class:
@@ -555,7 +555,7 @@ Main fields:
 Shape:
 
 ```text
-rfdb:MusicalWorkShape
+rfdbs:MusicalWorkShape
 ```
 
 Target class:
@@ -586,7 +586,7 @@ Main fields:
 Shape:
 
 ```text
-rfdb:ExpressionShape
+rfdbs:ExpressionShape
 ```
 
 Target class:
@@ -610,7 +610,7 @@ Main fields:
 Shape:
 
 ```text
-rfdb:ManifestationShape
+rfdbs:ManifestationShape
 ```
 
 Target class:
@@ -633,7 +633,7 @@ Main fields:
 Shape:
 
 ```text
-rfdb:SourceShape
+rfdbs:SourceShape
 ```
 
 Target classes:
@@ -665,7 +665,7 @@ Main fields:
 Shape:
 
 ```text
-rfdb:PersonShape
+rfdbs:PersonShape
 ```
 
 Target class:
@@ -688,7 +688,7 @@ Main fields:
 Shape:
 
 ```text
-rfdb:RoleShape
+rfdbs:RoleShape
 ```
 
 Target class:
@@ -711,7 +711,7 @@ Roles are usually controlled records, for example composer, librettist, translat
 Shape:
 
 ```text
-rfdb:AgentRoleShape
+rfdbs:AgentRoleShape
 ```
 
 Target class:
@@ -735,7 +735,7 @@ This shape is closed. The editor must avoid adding unsupported properties unless
 Shape:
 
 ```text
-rfdb:HoldingOrganizationShape
+rfdbs:HoldingOrganizationShape
 ```
 
 Target class:
@@ -1066,16 +1066,16 @@ The first version should be read-only. It must not expose delete, clear, or dest
 
 ---
 
-## 21. Planned Metadata API
+## 21. Metadata API
 
-Planned read-only metadata endpoints:
+Read-only metadata endpoints:
 
 ```text
-GET /api/meta/prefixes
-GET /api/meta/graphs
+GET /api/meta/prefixes   — shipped
+GET /api/meta/graphs     — planned
 ```
 
-### 21.1 Prefix Metadata
+### 21.1 Prefix Metadata — Shipped
 
 Endpoint:
 
@@ -1083,7 +1083,28 @@ Endpoint:
 GET /api/meta/prefixes
 ```
 
-Example response:
+Implemented in `backend/api/meta.py`, registered in `backend/app.py`, tested in
+`tests/test_api_meta.py`. This was the first milestone of the Data Context Panel
+(§18 below) and also resolved the prefix-map duplication gap between
+`utils/prefixes.js` and `utils/jsonld.js` on the frontend — both now hydrate from
+this single endpoint at app startup (`frontend/src/App.jsx`).
+
+Actual response shape (flatter than originally sketched — a plain object, not an
+array with per-entry `source`/`warnings`):
+
+```json
+{
+  "prefixes": {
+    "rfdb": "https://rosfeatr.eu/rdf/data/",
+    "xsd": "http://www.w3.org/2001/XMLSchema#"
+  }
+}
+```
+
+Derived directly from `request.app.state.schema_extractor.graph.namespaces()` —
+i.e. the schema graph's namespace manager only. The richer shape below (merging
+JSON-LD context and runtime config per-entry, with drift `warnings`) remains a
+possible future enhancement for the Prefixes tab (§19), not yet implemented:
 
 ```json
 {
@@ -1097,14 +1118,6 @@ Example response:
   "warnings": []
 }
 ```
-
-Prefix metadata should be merged from:
-
-- schema graph namespace manager
-- JSON-LD context map
-- runtime configuration
-
-The backend should serve this merged metadata to avoid frontend/backend drift.
 
 ### 21.2 Graph Metadata
 
@@ -1237,9 +1250,9 @@ Holding Organization
 ### SHACL shape names
 
 ```text
-rfdb:MusicalWorkShape
-rfdb:ExpressionShape
-rfdb:SourceShape
+rfdbs:MusicalWorkShape
+rfdbs:ExpressionShape
+rfdbs:SourceShape
 ```
 
 ### RDF classes and predicates

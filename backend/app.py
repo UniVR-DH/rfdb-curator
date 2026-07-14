@@ -47,9 +47,9 @@ from core.config import settings
 from core.logging_config import configure_logging
 from core.oxigraph_client import OxigraphClient
 from core.schema_extractor import SchemaExtractor
-from core.validation_merge import _build_shape_dep_graph
 from core.seeder import seed_store
 from core.shacl_validator import ShaclValidator
+from core.validation_merge import _build_shape_dep_graph
 
 # Configure structured file + console logging before anything else runs.
 configure_logging(

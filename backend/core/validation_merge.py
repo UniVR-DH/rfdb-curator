@@ -19,7 +19,6 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -28,7 +27,7 @@ class _ShapeEdge:
 
     predicate_uri: str
     target_shape_id: str
-    class_constraint: Optional[str] = None
+    class_constraint: str | None = None
 
 
 @dataclass
@@ -36,7 +35,7 @@ class _ShapeNode:
     """A single SHACL NodeShape with its outbound constraint edges."""
 
     shape_id: str
-    target_class_uri: Optional[str]
+    target_class_uri: str | None
     edges: list[_ShapeEdge] = field(default_factory=list)
 
 
@@ -152,8 +151,4 @@ def _build_validation_construct(
     construct_body = "\n    ".join(construct_triples)
     where_body = "\n    UNION\n    ".join(where_blocks)
 
-    return (
-        f"CONSTRUCT {{\n    {construct_body}\n}}\n"
-        f"{from_clause}\n"
-        f"WHERE {{\n    {where_body}\n}}"
-    )
+    return f"CONSTRUCT {{\n    {construct_body}\n}}\n{from_clause}\nWHERE {{\n    {where_body}\n}}"

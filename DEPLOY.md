@@ -16,6 +16,9 @@ This file will not run as-is. It assumes the following:
   on 80/443.
 - **`.env.prod` exists**, populated from `.env.prod.example`, with real
   values for `CORS_ORIGINS`, `VITE_API_BASE`, `READ_ONLY`, `LOG_LEVEL`.
+  `.env.prod.example` is currently untracked in this repo (`git status`
+  shows it as `??`) — commit it before relying on step 4 below on a
+  fresh clone, or recreate it there with the four variables above.
 - **You're running Compose v2** (the `docker compose` plugin, not the
   legacy Python `docker-compose` binary). `deploy.resources.limits` is
   only honored outside Swarm by v2.
@@ -94,6 +97,11 @@ $EDITOR .env.prod
 Fill in `CORS_ORIGINS`, `VITE_API_BASE`, `READ_ONLY`, `LOG_LEVEL` with
 real values — the compose file will refuse to start if `CORS_ORIGINS`
 or `VITE_API_BASE` are left unset.
+
+`READ_ONLY_SHAPES` locks the seeded Glottolog language vocabulary
+against edits; it's hardcoded the same way in both `docker-compose.yml`
+(dev) and `docker-compose.prod.yml`, so this stays consistent across
+environments without an env-file knob.
 
 ## 5. Build and start
 

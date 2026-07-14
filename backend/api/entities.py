@@ -50,7 +50,8 @@ def search_entities(
 
     safe_query = query.replace('"', "").replace("\\", "")
     filter_clause = (
-        f'FILTER(regex(COALESCE(str(?label), ""), "{safe_query}", "i") || regex(str(?uri), "{safe_query}", "i"))'
+        f'FILTER(regex(COALESCE(str(?label), ""), "{safe_query}", "i") '
+        f'|| regex(str(?uri), "{safe_query}", "i"))'
         if safe_query
         else ""
     )
@@ -77,8 +78,4 @@ def search_entities(
     except Exception:
         return []
 
-    return [
-        {"uri": r["uri"], "label": r.get("label", r["uri"])}
-        for r in rows
-        if r.get("uri")
-    ]
+    return [{"uri": r["uri"], "label": r.get("label", r["uri"])} for r in rows if r.get("uri")]

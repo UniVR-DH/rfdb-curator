@@ -7,7 +7,7 @@
 - Add cleanup for orphaned bridge entities after delete operations.
 - Improve JSON-LD handling for nested forms and repeated multilingual values.
 - Replace OFFSET-based pagination with cursor-based SPARQL pagination for large graphs.
-- **Prefix map duplication:** `JSONLD_CONTEXT` in `frontend/src/utils/jsonld.js` and `PREFIX_MAP` in `frontend/src/utils/prefixes.js` are two hardcoded copies of the same prefix-to-namespace mapping.  The backend already reads namespaces directly from the parsed rdflib graph at startup (see `_curie()` in `backend/core/schema_extractor.py`).  Add a `GET /api/meta/prefixes` endpoint that returns the graph's namespace map as a flat JSON object, and hydrate both frontend dictionaries from that single authoritative source at app startup.  Eliminate the hardcoded maps; a single runtime fetch replaces both.  See `.temp/temp-prefix-consolidation-20260713.md` for the implementation plan.
+- ~~**Prefix map duplication**~~ — resolved: `GET /api/meta/prefixes` (`backend/api/meta.py`) now serves the schema graph's namespace map, and `frontend/src/utils/prefixes.js` / `utils/jsonld.js` hydrate from it at startup (`frontend/src/App.jsx`). See `.temp/temp-prefix-consolidation-20260713.md` for the completed implementation plan.
 
 ---
 
@@ -21,10 +21,10 @@ A future read-only panel should expose:
 - lightweight graph statistics
 - prefix consistency warnings between schema, JSON-LD context, and runtime configuration
 
-Planned endpoints:
+Endpoints:
 
-- `GET /api/meta/prefixes` — **first milestone:** implement this to resolve the prefix-map duplication gap above (see Known Gaps); the full panel can be built on top later
-- `GET /api/meta/graphs`
+- `GET /api/meta/prefixes` — **shipped** (first milestone; resolved the prefix-map duplication gap above)
+- `GET /api/meta/graphs` — planned
 
 The baseline version should remain read-only and must not expose destructive graph operations.
 

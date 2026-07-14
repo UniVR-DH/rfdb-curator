@@ -1,6 +1,8 @@
-# RFDB Editor — Development Workflow
+# RFDB Curator — Development Workflow
 
-This document covers development workflow for the standalone `rfdb-editor` project. 
+This document covers development workflow for the standalone `rfdb-curator` project
+(package names `rfdb-editor-backend` / `rfdb-editor` internally in `backend/pyproject.toml`
+and `frontend/package.json`).
 
 ---
 

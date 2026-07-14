@@ -96,7 +96,7 @@ def _curie(uri: URIRef | BNode | None, graph: Graph) -> str | None:
     for prefix, ns in graph.namespaces():
         ns_str = str(ns)
         if uri_str.startswith(ns_str) and prefix:
-            return f"{prefix}:{uri_str[len(ns_str):]}"
+            return f"{prefix}:{uri_str[len(ns_str) :]}"
     return uri_str
 
 
@@ -141,9 +141,7 @@ class SchemaExtractor:
         """Extract all relevant metadata for a single NodeShape."""
         g = self.graph
         label = self._preferred_label(shape_uri) or _curie(shape_uri, g)
-        description = (
-            g.value(shape_uri, SH.description) or g.value(shape_uri, RDFS.comment) or ""
-        )
+        description = g.value(shape_uri, SH.description) or g.value(shape_uri, RDFS.comment) or ""
         target_class = g.value(shape_uri, SH.targetClass)
         shape_role = self._infer_shape_role(shape_uri)
 
@@ -289,9 +287,7 @@ class SchemaExtractor:
 
         return {
             "path": path_curie,  # compact CURIE used as form field key
-            "pathUri": str(
-                path
-            ),  # full URI used to match against record.triples[].predicate
+            "pathUri": str(path),  # full URI used to match against record.triples[].predicate
             "name": str(name) if name else path_curie.split(":")[-1],
             "description": str(description),
             "type": field_type,
@@ -303,9 +299,7 @@ class SchemaExtractor:
             "nestedShape": str(node) if node else None,
             "nestedShapeRole": nested_shape_role,
             "minCount": int(min_count) if min_count is not None else 0,
-            "maxCount": int(max_count)
-            if max_count is not None
-            else None,  # None means unbounded
+            "maxCount": int(max_count) if max_count is not None else None,  # None means unbounded
             "pattern": str(pattern) if pattern else None,
             "in": in_values,
         }
@@ -319,9 +313,7 @@ class SchemaExtractor:
         g = self.graph
         labels = [o for o in g.objects(shape_uri, RDFS.label) if isinstance(o, Literal)]
         if labels:
-            en = next(
-                (lbl for lbl in labels if (lbl.language or "").lower() == "en"), None
-            )
+            en = next((lbl for lbl in labels if (lbl.language or "").lower() == "en"), None)
             if en is not None:
                 return en
             no_lang = next((lbl for lbl in labels if not lbl.language), None)
@@ -368,7 +360,8 @@ class SchemaExtractor:
 
         Resolution order:
           1. sh:in present              → 'enum'
-          2. datatype is rdf:langString → 'lang-string'  (may be promoted to 'lang-string-list' by caller)
+          2. datatype is rdf:langString → 'lang-string'
+             (may be promoted to 'lang-string-list' by caller)
           3. datatype is temporal       → 'temporal'
           4. datatype is xsd:gYear      → 'year'
           5. datatype is numeric        → 'number'
@@ -389,9 +382,7 @@ class SchemaExtractor:
 
         if datatype_pool:
             # Language-tagged string
-            if any(
-                dt == str(RDF.langString) or "langString" in dt for dt in datatype_pool
-            ):
+            if any(dt == str(RDF.langString) or "langString" in dt for dt in datatype_pool):
                 return "lang-string"
 
             # Temporal: date / gYear / gYearMonth (only when all options are temporal)
@@ -406,8 +397,7 @@ class SchemaExtractor:
 
             # Numeric
             if any(
-                dt in (str(XSD.decimal), str(XSD.integer), str(XSD.int))
-                for dt in datatype_pool
+                dt in (str(XSD.decimal), str(XSD.integer), str(XSD.int)) for dt in datatype_pool
             ):
                 return "number"
 

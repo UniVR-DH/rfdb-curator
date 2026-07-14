@@ -12,9 +12,9 @@ is responsible for merging the referenced triples into the graph passed to
 
 from __future__ import annotations
 
+from pyshacl import validate
 from rdflib import Graph, URIRef
 from rdflib.namespace import SH
-from pyshacl import validate
 
 
 class ShaclValidator:
@@ -29,9 +29,7 @@ class ShaclValidator:
         self._shacl_graph = Graph()
         self._shacl_graph.parse(schema_path, format="turtle")
 
-    def validate(
-        self, data_graph: Graph, focus_nodes: list[URIRef] | None = None
-    ) -> dict:
+    def validate(self, data_graph: Graph, focus_nodes: list[URIRef] | None = None) -> dict:
         """Validate `data_graph` against the SHACL schema.
 
         Args:

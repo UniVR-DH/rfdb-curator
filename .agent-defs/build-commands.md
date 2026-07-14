@@ -74,7 +74,7 @@ docker run --rm \
 ## Linting and Formatting
 
 ```bash
-# Backend (if ruff is installed in backend env)
+# Backend (ruff is a dev dependency, installed via `uv sync --all-extras --dev`)
 cd backend
 source .venv/bin/activate
 ruff check .

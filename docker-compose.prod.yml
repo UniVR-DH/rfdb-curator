@@ -110,6 +110,9 @@ services:
       SEED_TEST_DATA_ON_STARTUP: "false"
 
       READ_ONLY: "${READ_ONLY:-false}"
+      # Per-shape read-only: mirrors docker-compose.yml (dev) so the seeded
+      # Glottolog language vocabulary stays reference-only in production too.
+      READ_ONLY_SHAPES: '["https://rosfeatr.eu/rdf/schema/LanguageShape"]'
 
       # No default on purpose: failing to start is safer than silently
       # falling back to a dev localhost origin, or to an empty/broken

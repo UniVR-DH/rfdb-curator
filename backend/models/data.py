@@ -7,7 +7,7 @@ returns sparse results for entities that are missing recommended properties.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -45,10 +45,10 @@ class DataListItem(BaseModel):
     """
 
     id: str
-    label: Optional[str] = None
-    labelLang: Optional[str] = None
+    label: str | None = None
+    labelLang: str | None = None
     status: str = "unknown"
-    updatedAt: Optional[str] = None
+    updatedAt: str | None = None
 
 
 class DataListResponse(BaseModel):
@@ -80,5 +80,5 @@ class DataCreateResponse(BaseModel):
     """
 
     success: bool
-    entityId: Optional[str] = None
+    entityId: str | None = None
     validationReport: ValidationResult

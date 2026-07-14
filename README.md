@@ -16,7 +16,7 @@ This repository is self-contained: backend, frontend, schema, data, and Docker C
 - Shape-aware create, read, update, and delete operations
 - RDF instance data stored in Oxigraph
 - SHACL validation with pySHACL
-- Autocomplete for linked RDF resources (TODO)
+- Autocomplete for linked RDF resources
 - Record inspection through RDF triples
 - Controlled-vocabulary seeding from Turtle files
 - Docker Compose deployment
@@ -39,7 +39,7 @@ This repository is self-contained: backend, frontend, schema, data, and Docker C
 ```text
 rfdb-curator/
 ├── backend/
-│   ├── api/                      # Route handlers (data, entities, shapes, validate)
+│   ├── api/                      # Route handlers (data, entities, shapes, validate, meta)
 │   ├── core/                     # Core services
 │   │   ├── config.py             # Pydantic settings (env var loading)
 │   │   ├── logging_config.py     # Structured JSON-lines + console logger
@@ -192,6 +192,7 @@ Use `docker compose logs -f backend` for stdout/stderr logs.
 | `SEED_VOCAB_ON_STARTUP` | Yes | `true`/`false`. Load `VOCAB_PATH` on every startup. Should be `true` in all environments. |
 | `SEED_TEST_DATA_ON_STARTUP` | Yes | `true`/`false`. Load `DATA_PATH` on startup. `true` in dev/test only. |
 | `READ_ONLY` | No | `true`/`false`. When `true`, rejects `POST /api/data` and `DELETE /api/data/{entityId}` with HTTP 403 while keeping read endpoints available. Default: `false`. |
+| `READ_ONLY_SHAPES` | No | JSON array string of shape IRIs to protect from create/update/delete even when `READ_ONLY` is `false`, e.g. `["https://rosfeatr.eu/rdf/schema/LanguageShape"]`. Used to lock down controlled-vocabulary shapes such as `rfdbs:LanguageShape`. Default: `[]`. |
 | `CORS_ORIGINS` | Yes | JSON array string of allowed CORS origins, e.g. `["http://localhost:5173"]`. |
 | `LOG_FILE` | No | Path to the JSON-lines log file. Default: `logs/app.jsonl`. Parent directory created automatically. |
 | `LOG_LEVEL` | No | Minimum log level for file and console handlers. Default: `INFO`. One of `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. |
@@ -230,6 +231,7 @@ Default policy: seed vocabulary on, seed test data off, preserve existing data o
 | `DELETE` | `/api/data/{entityId}` | Delete triples where the entity is subject |
 | `GET` | `/api/entities/search` | Autocomplete for linked-resource fields |
 | `POST` | `/api/validate` | Dry-run SHACL validation without persisting |
+| `GET` | `/api/meta/prefixes` | Prefix-to-namespace map derived from the parsed schema graph |
 
 ### Health Check Response
 
@@ -264,7 +266,9 @@ The form generator derives:
 - help text from `sh:description`
 - closed-shape behavior from `sh:closed true`
 
-The backend also infers a shape role from the schema. Shapes with a `sh:property` on `rdfs:label` are treated as standalone entities; shapes without one are treated as helper/bridge nodes and rendered inline when referenced by a parent shape. `rfdb:AgentRoleShape` follows this helper/bridge pattern.
+The backend also infers a shape role from the schema. Shapes with a `sh:property` on `rdfs:label` are treated as standalone entities; shapes without one are treated as helper/bridge nodes and rendered inline when referenced by a parent shape. `rfdbs:AgentRoleShape` follows this helper/bridge pattern.
+
+Shapes whose shape-level `sh:or` branches into multiple `sh:class` alternatives (e.g. `rfdbs:ContributorShape`, constrained to `foaf:Person` or `foaf:Organization`) surface a `typeOptions` list; the frontend renders a type-selection dropdown so the user picks the concrete class at creation time.
 
 ---
 
@@ -294,19 +298,20 @@ LRMoo hierarchy: a **Musical Work** is the abstract work; an **Expression** is a
 
 The current schema includes these primary record types:
 
-- `rfdb:MusicalWorkShape`: musical work, targeting `mm:MusicEntity`, constrained as `lrmoo:F1_Work`
-- `rfdb:ExpressionShape`: expression, targeting `lrmoo:F2_Expression`
-- `rfdb:ManifestationShape`: manifestation, targeting `lrmoo:F3_Manifestation`
-- `rfdb:SourceShape`: source/item, targeting `source:Source` and `lrmoo:F5_Item`
-- `rfdb:PersonShape`: person, targeting `core:Person`
-- `rfdb:RoleShape`: role, targeting `core:Role`
-- `rfdb:AgentRoleShape`: agent-role assignment, targeting `core:AgentRole`
-- `rfdb:PlaceShape`: place, targeting `core:Place`
-- `rfdb:SubjectShape`: subject, targeting `cidoc:E89_Propositional_Object`
-- `rfdb:SourceTypeShape`: source type, targeting `core:Type`
-- `rfdb:HoldingOrganizationShape`: holding organization, targeting `core:Organization`
-- `rfdb:ContributorShape`: donor/contributor record for digital-copy provenance
-- `rfdb:PerformanceShape`: staged performance, targeting `lrmoo:F31_Performance`
+- `rfdbs:MusicalWorkShape`: musical work, targeting `mm:MusicEntity`, constrained as `lrmoo:F1_Work`
+- `rfdbs:ExpressionShape`: expression, targeting `lrmoo:F2_Expression`
+- `rfdbs:ManifestationShape`: manifestation, targeting `lrmoo:F3_Manifestation`
+- `rfdbs:SourceShape`: source/item, targeting `source:Source` and `lrmoo:F5_Item`
+- `rfdbs:PersonShape`: person, targeting `core:Person`
+- `rfdbs:RoleShape`: role, targeting `core:Role`
+- `rfdbs:AgentRoleShape`: agent-role assignment, targeting `core:AgentRole`
+- `rfdbs:PlaceShape`: place, targeting `core:Place`
+- `rfdbs:SubjectShape`: subject, targeting `cidoc:E89_Propositional_Object`
+- `rfdbs:SourceTypeShape`: source type, targeting `core:Type`
+- `rfdbs:HoldingOrganizationShape`: holding organization, targeting `core:Organization`
+- `rfdbs:ContributorShape`: donor/contributor record for digital-copy provenance
+- `rfdbs:PerformanceShape`: staged performance, targeting `lrmoo:F31_Performance`
+- `rfdbs:LanguageShape`: controlled-vocabulary language record, targeting `dcterms:LinguisticSystem` (seeded from Glottolog, see Data Seeding below)
 
 ---
 

@@ -7,18 +7,19 @@ This module keeps the route handlers and the small request-scoped helpers they n
 import json
 import logging
 import re
-from fastapi import APIRouter, HTTPException, Query, Request, status
-from rdflib import Literal, URIRef, Graph
 
+from fastapi import APIRouter, HTTPException, Query, Request, status
+from rdflib import Graph, Literal, URIRef
+
+from core.blank_node_handler import assign_entity_id, skolemize
+from core.config import settings
+from core.validation_merge import _build_validation_construct
 from models.data import (
     DataCreateResponse,
     DataListResponse,
     EntityData,
     ValidationResult,
 )
-from core.blank_node_handler import assign_entity_id, skolemize
-from core.config import settings
-from core.validation_merge import _build_validation_construct
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -48,9 +49,7 @@ def _validate_iri(entity_id: str) -> None:
     if not entity_id.startswith("http://") and not entity_id.startswith("https://"):
         raise HTTPException(status_code=400, detail=f"Invalid IRI: {entity_id}")
     if _IRI_UNSAFE.search(entity_id):
-        raise HTTPException(
-            status_code=400, detail=f"IRI contains unsafe characters: {entity_id}"
-        )
+        raise HTTPException(status_code=400, detail=f"IRI contains unsafe characters: {entity_id}")
 
 
 def _is_non_vocab_iri(value: str) -> bool:
@@ -68,8 +67,14 @@ def _log_agent_role_completeness(validation_graph: Graph) -> None:
         key=str,
     ):
         has_type = (role_node, _RDF_TYPE, _CORE_AGENT_ROLE) in validation_graph
-        has_agent = any(
-            validation_graph.objects(subject=role_node, predicate=_CORE_HAS_AGENT)
+        has_agent = any(validation_graph.objects(subject=role_node, predicate=_CORE_HAS_AGENT))
+        has_role = any(validation_graph.objects(subject=role_node, predicate=_CORE_HAS_ROLE))
+        logger.debug(
+            "Validation AgentRole node=%s has_type=%s hasAgent=%s hasRole=%s",
+            role_node,
+            has_type,
+            has_agent,
+            has_role,
         )
 
 
@@ -80,16 +85,6 @@ def _assert_writable_mode() -> None:
             status_code=403,
             detail="Editor is in read-only mode (READ_ONLY=true). Write operations are disabled.",
         )
-        has_role = any(
-            validation_graph.objects(subject=role_node, predicate=_CORE_HAS_ROLE)
-        )
-        logger.debug(
-            "Validation AgentRole node=%s has_type=%s hasAgent=%s hasRole=%s",
-            role_node,
-            has_type,
-            has_agent,
-            has_role,
-        )
 
 
 def _assert_shape_writable(shape_id: str) -> None:
@@ -97,7 +92,10 @@ def _assert_shape_writable(shape_id: str) -> None:
     if shape_id in settings.read_only_shapes:
         raise HTTPException(
             status_code=403,
-            detail=f"Shape '{shape_id}' is read-only (READ_ONLY_SHAPES). Write operations are disabled for this shape.",
+            detail=(
+                f"Shape '{shape_id}' is read-only (READ_ONLY_SHAPES). "
+                "Write operations are disabled for this shape."
+            ),
         )
 
 
@@ -145,7 +143,8 @@ def list_data(
 
     escaped_q = q.replace("\\", "\\\\").replace('"', '\\"')
     filter_clause = (
-        f'FILTER(regex(COALESCE(str(?label_raw), ""), "{escaped_q}", "i") || regex(str(?id), "{escaped_q}", "i"))'
+        f'FILTER(regex(COALESCE(str(?label_raw), ""), "{escaped_q}", "i") '
+        f'|| regex(str(?id), "{escaped_q}", "i"))'
         if q
         else ""
     )
@@ -319,18 +318,18 @@ def get_entity(entity_id: str, request: Request):
 def create_or_update_entity(payload: EntityData, request: Request):
     """Create or update an entity (RDF resource) from JSON-LD payload.
 
-        SHACL targeting nuance:
-        - Constraints attached to class-targeted shapes (sh:targetClass) are
-            evaluated only for nodes that declare that class.
-        - If a node is missing its expected RDF type, those class-targeted
-            constraints may not be evaluated for that node.
-        - Callers should therefore emit explicit @type values for entities and
-            bridge/helper nodes whenever schema constraints depend on class targeting.
+    SHACL targeting nuance:
+    - Constraints attached to class-targeted shapes (sh:targetClass) are
+        evaluated only for nodes that declare that class.
+    - If a node is missing its expected RDF type, those class-targeted
+        constraints may not be evaluated for that node.
+    - Callers should therefore emit explicit @type values for entities and
+        bridge/helper nodes whenever schema constraints depend on class targeting.
 
-        Validation scope:
-        - The full merged validation graph is validated (incoming payload +
-            referenced entities merged from store), so nested linked-node
-            constraint violations are rejected within the same write request.
+    Validation scope:
+    - The full merged validation graph is validated (incoming payload +
+        referenced entities merged from store), so nested linked-node
+        constraint violations are rejected within the same write request.
     """
     _assert_writable_mode()
     _assert_shape_writable(payload.shapeId)
@@ -385,9 +384,7 @@ def create_or_update_entity(payload: EntityData, request: Request):
         for obj in data_graph.objects()
         if isinstance(obj, URIRef) and _is_non_vocab_iri(str(obj))
     }
-    logger.debug(
-        "Validation merge seed IRIs (%d): %s", len(seed_iris), sorted(seed_iris)
-    )
+    logger.debug("Validation merge seed IRIs (%d): %s", len(seed_iris), sorted(seed_iris))
 
     # Build the validation graph by merging the payload with the referenced
     # entities fetched from Oxigraph.
@@ -407,9 +404,7 @@ def create_or_update_entity(payload: EntityData, request: Request):
             from_clause=oxigraph.from_clause(),
         )
         try:
-            referenced_graph = (
-                oxigraph.construct(construct_query) if construct_query else Graph()
-            )
+            referenced_graph = oxigraph.construct(construct_query) if construct_query else Graph()
             validation_graph = referenced_graph + data_graph
         except Exception as exc:
             raise HTTPException(
@@ -487,9 +482,7 @@ def create_or_update_entity(payload: EntityData, request: Request):
                     status_code=503,
                     detail=f"Store write failed and rollback failed: {restore_exc}",
                 ) from restore_exc
-        raise HTTPException(
-            status_code=503, detail=f"Store write failed: {exc}"
-        ) from exc
+        raise HTTPException(status_code=503, detail=f"Store write failed: {exc}") from exc
 
     return DataCreateResponse(
         success=True,
@@ -499,7 +492,13 @@ def create_or_update_entity(payload: EntityData, request: Request):
 
 
 @router.delete("/data/{entity_id:path}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_entity(entity_id: str, request: Request, shapeId: str = Query("", description="Shape URI of the entity being deleted (used to enforce READ_ONLY_SHAPES)")):
+def delete_entity(
+    entity_id: str,
+    request: Request,
+    shapeId: str = Query(
+        "", description="Shape URI of the entity being deleted (used to enforce READ_ONLY_SHAPES)"
+    ),
+):
     """Delete all triples for a given entity IRI.
 
     An optional ``shapeId`` query parameter may be supplied by the frontend to
