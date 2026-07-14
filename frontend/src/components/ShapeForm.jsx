@@ -8,6 +8,22 @@ import { compactIri } from '../utils/prefixes.js'
 import FormField from './FormField.jsx'
 import './ShapeForm.css'
 
+const RDF_TYPE_URI = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
+
+/**
+ * Resolve which `typeOptions` value (e.g. "foaf:Person") a record's actual
+ * `rdf:type` triples match, for pre-selecting the type selector on edit.
+ * Returns '' when the record has none of the declared alternatives (e.g. a
+ * brand new shape whose data predates this constraint).
+ */
+function resolveTypeChoice(flatTriples, typeOptions) {
+  const raw = flatTriples['rdf:type']
+  const values = Array.isArray(raw) ? raw : raw ? [raw] : []
+  const types = values.map((t) => compactIri(t.object))
+  const match = typeOptions.find((opt) => types.includes(opt.value))
+  return match?.value ?? ''
+}
+
 /**
  * Convert backend triples for one predicate into the value shape expected by a field widget.
  */
@@ -297,6 +313,9 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
           defaults[field.path] = ['']
         }
       }
+      if (formSchema.shape.typeOptions?.length > 0) {
+        defaults.__typeChoice = ''
+      }
       if (!ignore) reset(defaults)
       return () => {
         ignore = true
@@ -308,6 +327,10 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
     //           while async fetches are in flight.
     const mapped = mapRecordToFormData(record, formSchema.fields)
     const flat = triplesToFlatObject(record.triples)
+
+    if (formSchema.shape.typeOptions?.length > 0) {
+      mapped.__typeChoice = resolveTypeChoice(flat, formSchema.shape.typeOptions)
+    }
 
     const nestedFields = formSchema.fields.filter((f) => f.type === 'nested')
     const entitySearchFields = formSchema.fields.filter((f) => f.type === 'entity-search')
@@ -472,6 +495,12 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
         const dirtyPathUris = new Set(
           formSchema.fields.filter((f) => isFieldDirty(f)).map((f) => f.pathUri)
         )
+        // Type selector changed: drop all existing rdf:type triples so the
+        // stale concrete type (and re-asserted targetClass) don't linger
+        // alongside the newly chosen type emitted by buildJsonLdEntity.
+        if (formSchema.shape.typeOptions?.length > 0 && dirtyFields.__typeChoice) {
+          dirtyPathUris.add(RDF_TYPE_URI)
+        }
         changedOriginalTriples = record.triples.filter((t) => dirtyPathUris.has(t.predicate))
       }
 
@@ -498,6 +527,7 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
     )
 
     const labelByPath = new Map((formSchema?.fields ?? []).map((f) => [f.path, f.name]))
+    labelByPath.set('__typeChoice', 'Type')
     const labels = normalizedPaths.map((p) => labelByPath.get(p) ?? p)
 
     const message =
@@ -565,6 +595,25 @@ export default function ShapeForm({ shape, allShapes, record, onValidation, onSa
       </header>
 
       <div className="form-fields">
+        {formSchema.shape.typeOptions?.length > 0 && (
+          <div className="field-group">
+            <label className="field-label" htmlFor="__typeChoice">
+              Type<span className="field-required">*</span>
+            </label>
+            <select
+              id="__typeChoice"
+              className="field-input"
+              {...register('__typeChoice', { required: true })}
+            >
+              <option value="">— select —</option>
+              {formSchema.shape.typeOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         {formSchema.fields.map((field) => (
           <FormField
             key={field.path}

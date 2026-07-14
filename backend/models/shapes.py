@@ -33,6 +33,7 @@ class ShapeSchema(BaseModel):
     targetClassUri: Optional[str] = None
     properties: list[PropertySchema] = []
     additionalTypes: list[str] = []
+    typeOptions: list[dict[str, str]] = []
 
 
 class FormSchema(BaseModel):

@@ -147,3 +147,37 @@ def test_source_shape_language_field_is_entity_search() -> None:
     assert field["nestedShape"] == "https://rosfeatr.eu/rdf/schema/LanguageShape", (
         f"Expected rfdbs:LanguageShape, got {field['nestedShape']}"
     )
+
+
+def test_contributor_shape_exposes_type_options() -> None:
+    """ContributorShape's shape-level sh:or/sh:class alternation surfaces as typeOptions.
+
+    ContributorShape targets foaf:Agent but every focus node must also satisfy
+    `sh:or ( [sh:class foaf:Person] [sh:class foaf:Organization] )`. targetClass
+    alone can never satisfy that, so the extractor exposes the alternatives as
+    typeOptions for the frontend to offer as a "which concrete type?" selector.
+    """
+    extractor = SchemaExtractor(str(SCHEMA_PATH))
+    shape = extractor.get_shape("https://rosfeatr.eu/rdf/schema/ContributorShape")
+    assert shape is not None
+    assert shape["targetClass"] == "foaf:Agent"
+    assert shape["typeOptions"] == [
+        {"value": "foaf:Person", "label": "Person"},
+        {"value": "foaf:Organization", "label": "Organization"},
+    ]
+
+
+def test_only_contributor_shape_declares_type_options() -> None:
+    """No other shape accidentally matches the sh:or/sh:class alternation pattern.
+
+    Regression guard: every other shape's sh:or usage in schema.ttl is a
+    property-level datatype alternation (e.g. rdf:langString | xsd:string),
+    not a shape-level sh:class alternation. If a future schema edit adds a
+    shape-level sh:or with mixed constraints, this should stay empty; only a
+    clean sh:class-only alternation should ever populate typeOptions.
+    """
+    extractor = SchemaExtractor(str(SCHEMA_PATH))
+    shapes_with_options = [
+        shape["id"] for shape in extractor.get_all_shapes() if shape["typeOptions"]
+    ]
+    assert shapes_with_options == ["https://rosfeatr.eu/rdf/schema/ContributorShape"]

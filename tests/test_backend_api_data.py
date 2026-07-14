@@ -13,6 +13,7 @@ import json
 import uuid
 from typing import Iterator
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
@@ -34,6 +35,11 @@ CORE_HAS_ROLE = "https://w3id.org/polifonia/ontology/core/hasRole"
 CORE_IS_PART_OF = "https://w3id.org/polifonia/ontology/core/isPartOf"
 CORE_PERSON = "https://w3id.org/polifonia/ontology/core/Person"
 CORE_ROLE = "https://w3id.org/polifonia/ontology/core/Role"
+FOAF_AGENT = "http://xmlns.com/foaf/0.1/Agent"
+FOAF_PERSON = "http://xmlns.com/foaf/0.1/Person"
+FOAF_ORGANIZATION = "http://xmlns.com/foaf/0.1/Organization"
+FOAF_NAME = "http://xmlns.com/foaf/0.1/name"
+CONTRIBUTOR_SHAPE = "https://rosfeatr.eu/rdf/schema/ContributorShape"
 
 
 def _make_suffix() -> str:
@@ -787,3 +793,114 @@ def test_valid_update_replaces_label_without_dropping_type(api_client):
         t["predicate"] == RDFS_LABEL and t["object"] == "Test Manifestation"
         for t in triples
     )
+
+
+# ---------------------------------------------------------------------------
+# Contributor polymorphic type tests
+#
+# ContributorShape targets foaf:Agent but constrains every focus node with
+# `sh:or ( [sh:class foaf:Person] [sh:class foaf:Organization] )`. foaf:Agent
+# alone never satisfies that constraint, so callers must assert one of the
+# two concrete types alongside it -- see schema_extractor.typeOptions and
+# jsonld.buildJsonLdEntity on the frontend, which drive this from a form
+# selector instead of hardcoding it.
+# ---------------------------------------------------------------------------
+
+
+def _make_contributor_payload(suffix: str, concrete_type: str) -> dict:
+    return {
+        "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_contributor",
+        "@type": [FOAF_AGENT, concrete_type],
+        RDFS_LABEL: {"@value": "Test Donor", "@language": "en"},
+        FOAF_NAME: {"@value": "Test Donor Full Name", "@language": "en"},
+    }
+
+
+def test_positive_contributor_person_insert_persists(api_client):
+    """A Contributor typed [foaf:Agent, foaf:Person] satisfies sh:or and persists."""
+    suffix = _make_suffix()
+    payload = {
+        "shapeId": CONTRIBUTOR_SHAPE,
+        "data": _make_contributor_payload(suffix, FOAF_PERSON),
+    }
+
+    status, body = _request_json("POST", "/api/data", payload)
+    assert status == 200
+    assert body["success"] is True, body.get("validationReport")
+
+    entity_id = payload["data"]["@id"]
+    stored_status, stored_body = _request_json("GET", f"/api/data/{entity_id}")
+    assert stored_status == 200
+    types = {t["object"] for t in stored_body["triples"] if t["predicate"] == RDF_TYPE}
+    assert types == {FOAF_AGENT, FOAF_PERSON}
+
+
+def test_positive_contributor_organization_insert_persists(api_client):
+    """A Contributor typed [foaf:Agent, foaf:Organization] also satisfies sh:or."""
+    suffix = _make_suffix()
+    payload = {
+        "shapeId": CONTRIBUTOR_SHAPE,
+        "data": _make_contributor_payload(suffix, FOAF_ORGANIZATION),
+    }
+
+    status, body = _request_json("POST", "/api/data", payload)
+    assert status == 200
+    assert body["success"] is True, body.get("validationReport")
+
+    entity_id = payload["data"]["@id"]
+    stored_status, stored_body = _request_json("GET", f"/api/data/{entity_id}")
+    assert stored_status == 200
+    types = {t["object"] for t in stored_body["triples"] if t["predicate"] == RDF_TYPE}
+    assert types == {FOAF_AGENT, FOAF_ORGANIZATION}
+
+
+def test_negative_contributor_missing_concrete_type_is_rejected(api_client):
+    """A Contributor typed only foaf:Agent fails sh:or and is not persisted.
+
+    This reproduces the exact bug the typeOptions selector fixes: before it
+    existed, the frontend always emitted `@type = shape.targetClass` alone,
+    which is what this payload does directly against the API.
+    """
+    suffix = _make_suffix()
+    payload = {
+        "shapeId": CONTRIBUTOR_SHAPE,
+        "data": {
+            "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_contributor",
+            "@type": FOAF_AGENT,
+            RDFS_LABEL: {"@value": "Test Donor", "@language": "en"},
+            FOAF_NAME: {"@value": "Test Donor Full Name", "@language": "en"},
+        },
+    }
+
+    status, body = _request_json("POST", "/api/data", payload)
+    assert status == 200
+    assert body["success"] is False
+    assert body["validationReport"]["conforms"] is False
+
+    stored_status, _ = _request_text("GET", f"/api/data/{payload['data']['@id']}")
+    assert stored_status == 404
+
+
+def test_contributor_appears_in_shape_scoped_list(api_client):
+    """A persisted Contributor is found by its shape-scoped listing query.
+
+    The list/count SPARQL for a shape does an exact `?id a <targetClassUri>`
+    match with no subclass reasoning (see backend/api/data.py), so the
+    Contributor's @type array must keep foaf:Agent alongside the concrete
+    type -- the concrete type alone satisfies sh:or but would silently drop
+    the entity from every shape-scoped listing.
+    """
+    suffix = _make_suffix()
+    payload = {
+        "shapeId": CONTRIBUTOR_SHAPE,
+        "data": _make_contributor_payload(suffix, FOAF_PERSON),
+    }
+    status, body = _request_json("POST", "/api/data", payload)
+    assert status == 200
+    assert body["success"] is True
+
+    entity_id = payload["data"]["@id"]
+    query = urlencode({"shapeId": CONTRIBUTOR_SHAPE, "q": suffix})
+    status, listing = _request_json("GET", f"/api/data/list?{query}")
+    assert status == 200
+    assert any(item["id"] == entity_id for item in listing["items"])

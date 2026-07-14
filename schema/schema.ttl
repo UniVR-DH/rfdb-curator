@@ -550,6 +550,7 @@ rfdbs:LanguageShape
 rfdbs:ContributorShape
 a sh:NodeShape ;
 rdfs:label "Contributor"@en, "Collaboratore"@it ;
+sh:targetClass foaf:Agent ;
 sh:description "A person or institution credited as a contributor to a source, e.g. the donor of a digital copy — kept structurally separate from core:Person/core:Organization." ;
 sh:or (
   [ sh:class foaf:Person ]

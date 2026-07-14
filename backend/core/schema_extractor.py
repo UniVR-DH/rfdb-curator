@@ -16,6 +16,17 @@ produces structured descriptors that drive two things:
   2. **Entity listing** — ``GET /api/data/list`` and ``GET /api/data/counts`` use
      ``targetClassUri`` to build SPARQL queries scoped to the right RDF class.
 
+Polymorphic type selection
+--------------------------
+A shape may declare ``sh:or`` directly on the shape node, with every branch a
+single ``sh:class`` constraint (e.g. ``ContributorShape``: Person | Organization
+under ``sh:targetClass foaf:Agent``). ``_extract_type_options()`` detects this
+pattern and returns it as ``typeOptions``, so the frontend can offer a "which
+concrete type is this?" selector at creation time. The chosen value is emitted
+alongside ``targetClass`` in the entity's ``@type`` array — ``targetClass`` alone
+never satisfies the ``sh:or`` constraint, and it must stay in ``@type`` too so
+entity-listing queries (which match ``targetClassUri`` exactly) keep finding it.
+
 Shape roles
 -----------
 Every NodeShape is classified into one of two roles by ``_infer_shape_role()``:
@@ -143,6 +154,14 @@ class SchemaExtractor:
             if (curie := _curie(klass, g)) is not None
         ]
 
+        # Collect polymorphic type alternatives from a shape-level sh:or whose
+        # every branch is a single sh:class constraint (e.g. ContributorShape:
+        # sh:or ( [sh:class foaf:Person] [sh:class foaf:Organization] ) ). The
+        # frontend uses this to offer a "which concrete type is this?" selector
+        # at creation time, since sh:targetClass alone is too generic to satisfy
+        # the sh:or constraint on its own.
+        type_options = self._extract_type_options(shape_uri)
+
         # Extract and filter out None results from property extraction
         properties = [
             prop
@@ -158,8 +177,34 @@ class SchemaExtractor:
             "targetClassUri": str(target_class) if target_class else None,
             "shapeRole": shape_role,
             "additionalTypes": additional_types,
+            "typeOptions": type_options,
             "properties": properties,
         }
+
+    def _extract_type_options(self, shape_uri: URIRef) -> list[dict[str, str]]:
+        """Return concrete-type choices from a shape-level sh:or/sh:class alternation.
+
+        Only matches when every branch of the sh:or list is exactly one
+        sh:class constraint (no other constraint components). Returns an
+        empty list for shapes without this pattern, or for property-level
+        sh:or (e.g. datatype alternation), which this never inspects.
+        """
+        g = self.graph
+        or_list_head = g.value(shape_uri, SH["or"])
+        if or_list_head is None:
+            return []
+
+        options: list[dict[str, str]] = []
+        for branch in Collection(g, or_list_head):
+            branch_triples = list(g.predicate_objects(branch))
+            classes = [o for p, o in branch_triples if p == SH["class"]]
+            if len(branch_triples) != 1 or len(classes) != 1:
+                return []
+            curie = _curie(classes[0], g)
+            if curie is None:
+                return []
+            options.append({"value": curie, "label": curie.split(":")[-1]})
+        return options
 
     def _extract_property(self, prop_node: BNode | URIRef) -> dict[str, Any] | None:
         """Extract metadata for a single sh:property node.

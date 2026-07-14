@@ -276,8 +276,15 @@ export function buildJsonLdEntity(shape, fields, rawFormData) {
 
   if (shape?.targetClass) {
     const additionalTypes = shape.additionalTypes ?? []
-    entity['@type'] =
-      additionalTypes.length > 0 ? [shape.targetClass, ...additionalTypes] : shape.targetClass
+    if (shape.typeOptions?.length > 0 && rawFormData.__typeChoice) {
+      // Polymorphic shape (shape-level sh:or/sh:class, e.g. ContributorShape):
+      // targetClass alone never satisfies the sh:or constraint, so the
+      // user-picked concrete type is asserted alongside it.
+      entity['@type'] = [shape.targetClass, rawFormData.__typeChoice]
+    } else {
+      entity['@type'] =
+        additionalTypes.length > 0 ? [shape.targetClass, ...additionalTypes] : shape.targetClass
+    }
   }
 
   for (const field of fields) {
