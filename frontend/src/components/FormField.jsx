@@ -11,6 +11,10 @@
  *   lang-string   - text + language dropdown; stored as {__value, __lang}
  *   default       - plain text input
  *
+ * Fields flagged `longText` by the backend (rdfs:comment, description/note
+ * predicates, core:text) render a multi-line <textarea> instead of a single-line
+ * input — applies to the `default` and single `lang-string` widgets.
+ *
  * Props:
  *   field      {object}    - Property descriptor from /api/forms
  *   allShapes  {array}     - All shapes, forwarded to AnonymousEntityEditor
@@ -29,15 +33,14 @@ import AnonymousEntityEditor from './AnonymousEntityEditor.jsx'
 import EntitySearch from './EntitySearch.jsx'
  
 import { Controller } from 'react-hook-form'
- 
+
 import LangStringList from './LangStringList.jsx'
 import UriList from './UriList.jsx'
 import '../components/ShapeForm.css'
-
-const LANG_OPTIONS = ['en', 'it', 'de', 'ru', 'fr', 'la']
+import { LANG_OPTIONS, languageLabel } from '../utils/languages.js'
 
 export default function FormField({ field, allShapes, register, control }) {
-  const { path, name, type, description, minCount, in: options = [] } = field
+  const { path, name, type, description, minCount, longText, in: options = [] } = field
   const isRequired = minCount > 0
   const languageTagPolicy = field.languageTagPolicy ?? 'not-applicable'
   const hasNoLanguageOption = languageTagPolicy === 'optional'
@@ -185,15 +188,25 @@ export default function FormField({ field, allShapes, register, control }) {
             control={control}
             defaultValue={''}
             rules={{ required: isRequired }}
-            render={({ field }) => (
-              <input
-                id={path}
-                className="field-input"
-                type="text"
-                placeholder="Value…"
-                {...field}
-              />
-            )}
+            render={({ field }) =>
+              longText ? (
+                <textarea
+                  id={path}
+                  className="field-input field-textarea"
+                  rows={4}
+                  placeholder="Value…"
+                  {...field}
+                />
+              ) : (
+                <input
+                  id={path}
+                  className="field-input"
+                  type="text"
+                  placeholder="Value…"
+                  {...field}
+                />
+              )
+            }
           />
           <Controller
             name={`${path}.__lang`}
@@ -212,7 +225,7 @@ export default function FormField({ field, allShapes, register, control }) {
                 {hasNoLanguageOption && <option value="">--</option>}
                 {LANG_OPTIONS.map((l) => (
                   <option key={l} value={l}>
-                    {l.toUpperCase()}
+                    {languageLabel(l)}
                   </option>
                 ))}
               </select>
@@ -235,7 +248,13 @@ export default function FormField({ field, allShapes, register, control }) {
           required: isRequired,
           pattern: field.pattern ? new RegExp(field.pattern) : undefined,
         }}
-        render={({ field }) => <input id={path} className="field-input" type="text" {...field} />}
+        render={({ field }) =>
+          longText ? (
+            <textarea id={path} className="field-input field-textarea" rows={4} {...field} />
+          ) : (
+            <input id={path} className="field-input" type="text" {...field} />
+          )
+        }
       />
     </div>
   )

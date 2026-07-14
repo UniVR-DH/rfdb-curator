@@ -21,8 +21,7 @@
  */
  
 import { useFieldArray, Controller } from 'react-hook-form'
-
-const LANG_OPTIONS = ['en', 'it', 'de', 'ru', 'fr', 'la']
+import { LANG_OPTIONS, languageLabel } from '../utils/languages.js'
 
 export default function LangStringList({ path, label, control, isRequired }) {
   const { fields, append, remove } = useFieldArray({ control, name: path })
@@ -50,7 +49,7 @@ export default function LangStringList({ path, label, control, isRequired }) {
               <select className="field-lang" {...field}>
                 {LANG_OPTIONS.map((l) => (
                   <option key={l} value={l}>
-                    {l.toUpperCase()}
+                    {languageLabel(l)}
                   </option>
                 ))}
               </select>

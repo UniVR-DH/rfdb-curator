@@ -85,6 +85,24 @@ from rdflib.collection import Collection
 from rdflib.namespace import RDF, RDFS, SH, XSD
 
 
+# Predicates whose values are free-form prose and should render as a multi-line
+# textarea rather than a single-line input. SHACL has no native "long text" hint,
+# so we derive it from the property's sh:path: these are the description / note /
+# transcription predicates used across the schema. Extend this set to opt another
+# predicate into the larger textarea widget.
+LONG_TEXT_PREDICATES: frozenset[str] = frozenset(
+    {
+        str(RDFS.comment),  # rdfs:comment — free-text notes / descriptions
+        "http://purl.org/dc/terms/description",  # dcterms:description
+        "http://purl.org/dc/terms/abstract",  # dcterms:abstract
+        "http://www.w3.org/2004/02/skos/core#definition",  # skos:definition
+        "http://www.w3.org/2004/02/skos/core#note",  # skos:note
+        "http://www.w3.org/2004/02/skos/core#scopeNote",  # skos:scopeNote
+        "https://w3id.org/polifonia/ontology/core/text",  # core:text — title-page transcription
+    }
+)
+
+
 def _curie(uri: URIRef | BNode | None, graph: Graph) -> str | None:
     """Convert a full URI to a CURIE (prefix:local) using the graph's namespace manager.
 
@@ -291,6 +309,7 @@ class SchemaExtractor:
             "name": str(name) if name else path_curie.split(":")[-1],
             "description": str(description),
             "type": field_type,
+            "longText": str(path) in LONG_TEXT_PREDICATES,
             "datatype": datatype_curie,
             "datatypeOptions": [_curie(dt, g) for dt in datatype_options],
             "languageTagPolicy": language_tag_policy,

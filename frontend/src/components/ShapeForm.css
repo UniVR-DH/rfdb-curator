@@ -115,6 +115,20 @@
   opacity: 0.5;
 }
 
+/* Multi-line variant for long-text predicates (rdfs:comment, descriptions, …).
+   Inherits colour/border/focus from .field-input; adds height and vertical resize. */
+.field-textarea {
+  font-family: var(--font-ui);
+  line-height: 1.45;
+  min-height: 5.5em;
+  resize: vertical;
+}
+
+/* Top-align the language selector next to a multi-line value instead of centring it. */
+.lang-field:has(.field-textarea) {
+  align-items: start;
+}
+
 /* ─── lang-string composite (single value) ───────────────────────── */
 
 .lang-field {
