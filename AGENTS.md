@@ -25,6 +25,7 @@ Before any non-trivial task, read this file plus the relevant files in `.agent-d
 | [.agent-defs/testing.md](.agent-defs/testing.md) | Test structure and execution requirements |
 | [.agent-defs/security.md](.agent-defs/security.md) | Secrets handling, credentials, logging restrictions |
 | [.agent-defs/git-workflow.md](.agent-defs/git-workflow.md) | `[BOT]` commits, non-interactive Git, commit checklist |
+| [.agent-defs/planning-docs.md](.agent-defs/planning-docs.md) | Format for design/implementation plan documents in `.temp/` |
 
 ## 1. Project Overview
 
