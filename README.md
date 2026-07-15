@@ -74,8 +74,7 @@ rfdb-curator/
 │   └── data.ttl                  # Optional test fixture data
 │
 ├── package.json                  # Root npm scripts/metadata
-├── pyproject.toml                # Root Python project metadata
-├── requirements.txt
+├── requirements.txt              # Documentation only — deps live in backend/pyproject.toml
 ├── docker-compose.yml
 ├── AGENTS.md                    # Root agent instructions
 ├── .agent-defs/                 # Project-specific agent instructions

@@ -68,14 +68,17 @@ Not lazy about: trust-boundary validation, data-loss prevention, security, acces
 
 ## 4. Essential Commands
 
-Backend Python commands should run from `backend/` with the backend venv active.
+Backend Python commands must run from `backend/` (CI uses `working-directory: backend`). Ruff and its config live only in `backend/pyproject.toml`; running `uv run ruff` from the repo root fails with a misleading `pyenv: ruff` error. Lint/format exactly as CI does:
 
 ```bash
 cd backend
 uv sync --all-extras --dev
-source .venv/bin/activate
-python -m pytest ../tests -v
+uv run python -m pytest -c pyproject.toml ../tests/ -v  # tests (-c: backend pytest config)
+uv run ruff check .          # lint
+uv run ruff format --check . # format check
 ```
+
+See [.agent-defs/build-commands.md](.agent-defs/build-commands.md) → "Gotcha: `ruff: command not found`" for the full explanation.
 
 Environment setup:
 
@@ -135,6 +138,8 @@ Rules:
 10. After committing, report the commit hash and the exact files included.
 
 If the user asks to "commit everything", do not do it blindly. Treat the request as ambiguous, show `git status --short`, and ask which files should be included.
+
+**File deletion is equally scoped.** Never `rm` a tracked or real project file — use `git rm -- <explicit-path>`. Never rely on the shell's current directory (it drifts between calls): use absolute paths and print `pwd` + `ls <target>` in the same command before any removal. Confirm with the user before deleting any non-`.temp/` file.
 
 Full Git workflow: [.agent-defs/git-workflow.md](.agent-defs/git-workflow.md)
 

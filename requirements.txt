@@ -1,3 +1,7 @@
+# Documentation only — NOT installed by any build.
+# The backend is the single source of truth for Python dependencies:
+#   backend/pyproject.toml  (managed by uv; backend/requirements.txt feeds the Docker image)
+# These are the core RDF/validation/test packages the project centres on.
 rdflib==7.6.0
 pyshacl==0.31.0
 pytest==9.0.3

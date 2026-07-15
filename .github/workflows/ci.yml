@@ -39,7 +39,9 @@ jobs:
         run: uv run python -c "from rdflib import Graph; Graph().parse('../schema/schema.ttl', format='turtle'); print('schema.ttl parses OK')"
 
       - name: Run Python tests
-        run: uv run python -m pytest ../tests/
+        # -c pyproject.toml: pytest can't auto-discover backend/ config from
+        # ../tests/, so point it at the backend project's [tool.pytest.ini_options].
+        run: uv run python -m pytest -c pyproject.toml ../tests/
 
   frontend-checks:
     runs-on: ubuntu-latest

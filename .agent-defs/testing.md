@@ -5,7 +5,8 @@
 ```bash
 cd backend
 source .venv/bin/activate
-python -m pytest ../tests -v
+# -c pyproject.toml: pytest can't auto-discover backend/ config from ../tests/.
+python -m pytest -c pyproject.toml ../tests/ -v
 ```
 
 ## Test Structure

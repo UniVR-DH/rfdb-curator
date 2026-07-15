@@ -31,10 +31,11 @@ docker compose down -v
 ## Validation and Tests
 
 ```bash
-# Backend tests
+# Backend tests — run FROM backend/. `-c pyproject.toml` points pytest at the
+# backend project's [tool.pytest.ini_options]; pytest can't auto-discover it
+# from ../tests/ because backend/ is not an ancestor of tests/.
 cd backend
-source .venv/bin/activate
-python -m pytest ../tests -v
+uv run python -m pytest -c pyproject.toml ../tests/ -v
 
 # Frontend checks
 cd ../frontend
@@ -73,17 +74,27 @@ docker run --rm \
 
 ## Linting and Formatting
 
+There is a single Python project, `backend/` — the repo root has no `pyproject.toml`, `uv.lock`, or `.venv` (root `requirements.txt` is documentation only). Ruff (`ruff==0.14.5`) and its config live in `backend/pyproject.toml`. CI runs the lint with `working-directory: backend`, so always match that:
+
 ```bash
-# Backend (ruff is a dev dependency, installed via `uv sync --all-extras --dev`)
+# Backend — run FROM backend/, mirrors CI exactly
 cd backend
-source .venv/bin/activate
-ruff check .
-ruff format .
+uv run ruff check .          # CI: "Ruff lint"
+uv run ruff format --check . # CI: "Ruff format check"
 
 # Frontend
 cd ../frontend
 npm run lint
 ```
+
+### Gotcha: `ruff: command not found` / `pyenv: ruff`
+
+If you see `pyenv: ruff: command not found (exists in 3.8.14)` you ran ruff from the **wrong directory**. Diagnosis and rules:
+
+- The only Python env is `backend/.venv`; `backend/.venv/bin/ruff` is the sole ruff install. The repo root has no project or venv.
+- Running `uv run ruff` from the **repo root** fails: there's no project there, so PATH falls through to the pyenv `ruff` shim, which only has ruff for Python 3.8.14 — hence the misleading error. **Fix: `cd backend` first.**
+- A stale `VIRTUAL_ENV` (e.g. a previously-activated `<repo-root>/.venv`, now deleted) triggers a harmless `VIRTUAL_ENV does not match` warning; uv ignores it and uses `backend/.venv`. Run `deactivate` to clear it.
+- `uv run ruff check .` from `backend/` needs no manual `source .venv/bin/activate` — uv resolves the backend env itself.
 
 ## Notes
 
