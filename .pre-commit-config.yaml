@@ -1,0 +1,28 @@
+# Pre-commit hooks — run the exact same ruff checks CI does, before commit.
+# Setup (once per clone; needs uv on PATH):
+#   pre-commit install
+# Run manually against everything:
+#   pre-commit run --all-files
+#
+# The hooks run ruff FROM backend/ (like CI's `working-directory: backend`), so
+# ruff's cwd-dependent first-party import detection matches CI exactly and the
+# ruff version comes from backend/pyproject.toml's dev dependency — nothing to
+# keep in sync here. `env -u VIRTUAL_ENV` drops any stale activated-venv var so
+# uv resolves backend/.venv cleanly without a warning. `pass_filenames: false`
+# lets ruff pick the files (`.` = the backend project); the hook only fires when
+# a backend .py is staged.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check (backend)
+        language: system
+        entry: bash -c 'cd backend && env -u VIRTUAL_ENV uv run ruff check --fix .'
+        pass_filenames: false
+        files: ^backend/.*\.py$
+      - id: ruff-format
+        name: ruff format (backend)
+        language: system
+        entry: bash -c 'cd backend && env -u VIRTUAL_ENV uv run ruff format .'
+        pass_filenames: false
+        files: ^backend/.*\.py$

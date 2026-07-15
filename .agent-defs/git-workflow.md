@@ -43,4 +43,6 @@ A wrong-directory `rm` once deleted the backend project files. Never let it happ
 
 ## Hook Notes
 
-The repository currently does not track a hook configuration file. Do not assume pre-commit hooks are installed unless the user configured them locally.
+The repo tracks `.pre-commit-config.yaml` (ruff lint + format, scoped to `backend/*.py`). It is **opt-in** — each clone must run `pre-commit install` once to activate the git hook; it is not enforced automatically. Run manually with `pre-commit run --all-files`.
+
+The hooks `cd backend` and run `uv run ruff …` — identical to CI's `working-directory: backend`. This matters because ruff infers first-party imports from the working directory: running from `backend/` (both hook and CI) agrees; running from the repo root does not. Running from `backend/` also means the ruff version comes from `backend/pyproject.toml`'s dev dependency, so there is no separate version to pin. The hook drops any stale `VIRTUAL_ENV` (`env -u`) so `uv` resolves `backend/.venv` without a warning.

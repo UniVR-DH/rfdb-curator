@@ -61,12 +61,12 @@ The initial version does not aim to:
 - [ ] Implement records pagination with default page size 20
 - [ ] Implement smarter search ranking that favors edit distance without relying on server-side cap or limit
 - [ ] Preserve current form/page state on browser reload (survive refresh)
-- [ ] REQUIRES PLANNING: Comment / description fields should use a larger textarea instead of single-line input (need to brainstorm how to derive that from SHACL shapes, maybe some predicates are treated as "long text" fields by default)
+- [x] Comment / description fields use a larger textarea instead of single-line input — `longText` derived from SHACL in `schema_extractor.py`, rendered in `FormField.jsx` (fe848de)
 - [ ] Dropdown selections should display both label and comment (not just label) with ellipsis if longer than a certain length, e.g., 100 characters, when available 
 - [x] For shapes using `sh:or` with alternative `sh:class` constraints, render a class-selection dropdown so users can explicitly choose which class branch they are filling
 - [x] READ_ONLY FLAG: add a flag to make the editor read-only and refuse with a message if the user tries to edit (for demo or presentation mode)
 - [ ] File upload  of digital copy for Source entities (need to define which properties to use for this, and how to store the files, e.g. in a local `uploads/` folder with unique filenames and a mapping in the RDF data)
-- [ ] somehwere put the mapping from xsd language acronym (EN, IT...) to the name 
+- [x] mapping from xsd language acronym (EN, IT...) to the name — `frontend/src/utils/languages.js` (fe848de)
 - [ ] for a Performance we need to select also the Venue not only the place, but keep the place because we not always know, and for venues consider coordinates
 
 ### b. Advanced Features (from roadmap)
@@ -93,5 +93,5 @@ The initial version does not aim to:
 - [ ] verify versioning and commit tagging works correctly with GitHub Actions and automatic release based on tagged commits
 - [ ] configure Docker Compose to run in production mode with Nginx reverse proxy and SSL termination
 - [x] check closely in README.md the Repository Structure
-- [ ] consider a pre-commit hook configuration (.pre-commit-config.yaml)
+- [x] pre-commit hook configuration (.pre-commit-config.yaml) — ruff lint + format, opt-in via `pre-commit install`
 - [ ] make a pre-flight check for the backend to ensure that the SHACL shapes are valid and consistent before starting the server and that they do not contain unsupported features or paradgims (e.g., shapes without a targetClass)
