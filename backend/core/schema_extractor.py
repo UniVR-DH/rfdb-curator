@@ -84,7 +84,6 @@ from rdflib import BNode, Graph, Literal, URIRef
 from rdflib.collection import Collection
 from rdflib.namespace import RDF, RDFS, SH, XSD
 
-
 # Predicates whose values are free-form prose and should render as a multi-line
 # textarea rather than a single-line input. SHACL has no native "long text" hint,
 # so we derive it from the property's sh:path: these are the description / note /
