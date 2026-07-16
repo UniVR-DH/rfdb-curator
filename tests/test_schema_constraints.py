@@ -9,7 +9,6 @@ import pytest
 from pyshacl import validate
 from rdflib import Graph
 
-
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND_DIR = ROOT / "editor" / "backend"
 SCHEMA_PATH = ROOT / "schema" / "schema.ttl"

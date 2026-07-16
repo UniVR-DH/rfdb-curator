@@ -8,17 +8,16 @@ persistence.
 
 from __future__ import annotations
 
-import os
 import json
+import os
 import uuid
-from typing import Iterator
+from collections.abc import Iterator
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
 import pytest
-
 
 API_BASE_URL = os.getenv("RFDB_API_BASE_URL", "http://localhost:8000")
 RDFS_LABEL = "http://www.w3.org/2000/01/rdf-schema#label"
@@ -657,6 +656,14 @@ def test_negative_cascade_insert_rolls_back_every_nested_entity(api_client):
     # The report must implicate the actual failing node/property, not just
     # contain *some* violation. The backend exposes violations with explicit
     # `focusNode` and `path` keys.
+    #
+    # FUTURE / consider improving: the missing work label can now be reported
+    # more than once. Since cidoc:P148i_is_component_of became a real schema
+    # property (ExpressionShape has sh:node MusicalWorkShape), the same
+    # work-label violation surfaces both via MusicalWorkShape's targetClass and
+    # via the Expression's sh:node traversal. `any(...)` tolerates duplicates,
+    # so this test is unaffected — but do NOT tighten it to assert an exact
+    # violation *count* without first de-duplicating by (focusNode, path).
     violations = body["validationReport"]["violations"]
     work_id = f"https://rosfeatr.eu/rdf/data/{suffix}_work"
     assert any(
