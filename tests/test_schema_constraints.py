@@ -87,7 +87,7 @@ def test_manifestation_plain_comment_conforms() -> None:
     data_graph = Graph()
     data_graph.parse(
         data="""
-@prefix core:  <https://w3id.org/polifonia/ontology/core/> .
+@prefix cidoc: <http://www.cidoc-crm.org/cidoc-crm/> .
 @prefix lrmoo: <http://iflastandards.info/ns/lrm/lrmoo/> .
 @prefix mm:    <https://w3id.org/polifonia/ontology/music-meta/> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
@@ -101,12 +101,12 @@ rfdb:TestManifestation
 
 rfdb:TestExpression
   a lrmoo:F2_Expression ;
-  rdfs:label "Test Expression"@en ;
-  core:isPartOf rfdb:TestWork .
+  rdfs:label "Test Expression"@en .
 
 rfdb:TestWork
   a mm:MusicEntity, lrmoo:F1_Work ;
-  rdfs:label "Test Work"@en .
+  rdfs:label "Test Work"@en ;
+  cidoc:P148_has_component rfdb:TestExpression .
 """,
         format="turtle",
     )

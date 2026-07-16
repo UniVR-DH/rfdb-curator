@@ -91,7 +91,7 @@ def test_api_write_accepts_manifestation_plain_comment() -> None:
         shapeId="https://rosfeatr.eu/rdf/schema/ManifestationShape",
         data={
             "@context": {
-                "core": "https://w3id.org/polifonia/ontology/core/",
+                "cidoc": "http://www.cidoc-crm.org/cidoc-crm/",
                 "lrmoo": "http://iflastandards.info/ns/lrm/lrmoo/",
                 "mm": "https://w3id.org/polifonia/ontology/music-meta/",
                 "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
@@ -104,10 +104,14 @@ def test_api_write_accepts_manifestation_plain_comment() -> None:
                 "@id": "https://rosfeatr.eu/rdf/data/api_unit_expression",
                 "@type": "lrmoo:F2_Expression",
                 "rdfs:label": {"@value": "API Expression", "@language": "en"},
-                "core:isPartOf": {
-                    "@id": "https://rosfeatr.eu/rdf/data/api_unit_work",
-                    "@type": ["mm:MusicEntity", "lrmoo:F1_Work"],
-                    "rdfs:label": {"@value": "API Work", "@language": "en"},
+                # Work → Expression via cidoc:P148_has_component (canonical direction);
+                # expressed with @reverse so the Work still rides along in the cascade.
+                "@reverse": {
+                    "cidoc:P148_has_component": {
+                        "@id": "https://rosfeatr.eu/rdf/data/api_unit_work",
+                        "@type": ["mm:MusicEntity", "lrmoo:F1_Work"],
+                        "rdfs:label": {"@value": "API Work", "@language": "en"},
+                    },
                 },
             },
         },

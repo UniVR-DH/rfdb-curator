@@ -45,7 +45,11 @@ import Icon from './components/Icon.jsx'
 import ShapeForm from './components/ShapeForm.jsx'
 import ShapeRecordList from './components/ShapeRecordList.jsx'
 import ValidationPanel from './components/ValidationPanel.jsx'
+import WelcomeGuide from './components/WelcomeGuide.jsx'
 import { hydratePrefixes } from './utils/prefixes.js'
+
+// localStorage flag: once a curator dismisses the welcome guide it stays closed on reload.
+const GUIDE_SEEN_KEY = 'rfdb.guideSeen'
 
 export default function App() {
   // --- Application state ---
@@ -60,6 +64,7 @@ export default function App() {
   const [recordsRefreshKey, setRecordsRefreshKey] = useState(0) // bump to re-fetch list
   const [activeView, setActiveView] = useState('form') // 'form' | 'records'
   const [recordLoading, setRecordLoading] = useState(false) // true while fetching entity data for editing
+  const [guideOpen, setGuideOpen] = useState(false) // first-time curator welcome guide (WEMI overlay)
   // In-memory, same-session draft cache keyed by `shape::<shapeId>`. Single slot per
   // shape form (last state wins), so unsaved input survives shape/record navigation
   // even though ShapeForm re-hydrates via reset() on every shape/record change.
@@ -154,6 +159,25 @@ export default function App() {
     refreshShapeCounts()
   }, [recordsRefreshKey])
 
+  // Auto-open the welcome guide on a curator's first visit. Wrapped in try/catch:
+  // localStorage can throw (private mode / disabled storage) and must never block the editor.
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem(GUIDE_SEEN_KEY)) setGuideOpen(true)
+    } catch {
+      setGuideOpen(true) // storage unavailable: show it anyway (may re-show each load)
+    }
+  }, [])
+
+  function closeGuide() {
+    setGuideOpen(false)
+    try {
+      localStorage.setItem(GUIDE_SEEN_KEY, '1')
+    } catch {
+      /* storage unavailable — guide simply re-opens next load */
+    }
+  }
+
   // --- Handler: user selects a shape in the sidebar ---
   function handleShapeSelect(shape) {
     setActiveShape(shape)
@@ -191,6 +215,14 @@ export default function App() {
         <div>
           <p className="app-title">RossijskijFeatrDB</p>
           <p className="app-subtitle">Data Editor</p>
+          <button
+            className="nav-help"
+            onClick={() => setGuideOpen(true)}
+            title="How records fit together (WEMI guide)"
+          >
+            <Icon name="CircleHelp" size={14} />
+            Getting started
+          </button>
         </div>
         {loadingShapes ? (
           <p className="nav-loading">Loading shapes…</p>
@@ -320,6 +352,8 @@ export default function App() {
           </div>
         )}
       </main>
+
+      <WelcomeGuide open={guideOpen} onClose={closeGuide} />
     </div>
   )
 }

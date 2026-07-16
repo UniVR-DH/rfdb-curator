@@ -27,6 +27,7 @@ export default [
         console: "readonly",
         document: "readonly",
         fetch: "readonly",
+        localStorage: "readonly",
         navigator: "readonly",
         setTimeout: "readonly",
         window: "readonly",

@@ -320,12 +320,13 @@ The current schema includes these primary record types:
 
 Recommended editorial insertion order:
 
-1. Create the Musical Work (`lrmoo:F1_Work`, `mm:MusicEntity`).
-2. Create the Expression (`lrmoo:F2_Expression`), linked to the Work via `core:isPartOf`.
-3. Create the Manifestation (`lrmoo:F3_Manifestation`), linked to the Expression via `lrmoo:R4_embodies`.
-4. Create the Source / Item (`source:Source`, `lrmoo:F5_Item`), linked to the Manifestation via `lrmoo:R7_exemplifies`.
+1. Create the auxiliary entities (`core:Place`, `core:Person`, `cidoc:E89_Propositional_Object` Subjects, `core:Organization`, and the document `core:Type`) — they populate the dropdowns used below.
+2. Create the Expression (`lrmoo:F2_Expression`), e.g. the libretto text.
+3. Create the Manifestation (`lrmoo:F3_Manifestation`), linked to the Expression via `lrmoo:R4_embodies`. A Manifestation must embody exactly one Expression, so its Expression has to exist first.
+4. Create the Source / Item (`source:Source`, `lrmoo:F5_Item`), linked to the Manifestation via `lrmoo:R7_exemplifies` (one Manifestation can have many Sources).
+5. Create or complete the Musical Work (`lrmoo:F1_Work`, `mm:MusicEntity`) and link it to its component Expressions via `cidoc:P148_has_component`.
 
-This keeps identifiers stable and makes validation errors easier to localize. Use top-down incremental insertion in normal editorial work.
+This keeps identifiers stable and makes validation errors easier to localize. The editor also supports incremental cascade insertion — you can create a parent and inline-create its nested referenced entities in one payload.
 
 `POST /api/data` validates against a merged graph that includes referenced entities already present in the store. Merge expansion is transitive and depth-bounded, so helper nodes (e.g. `AgentRole` → `Person`/`Role`) linked behind referenced Work/Expression nodes are included during validation. This avoids false SHACL negatives in top-down incremental flows when nested linked nodes are not repeated in every later payload.
 

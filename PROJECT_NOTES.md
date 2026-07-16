@@ -316,7 +316,7 @@ core:Organization
 Properties used:
 
 ```text
-core:isPartOf
+cidoc:P148_has_component
 core:hasAgentRole
 core:hasAgent
 core:hasRole
@@ -333,7 +333,7 @@ Usage:
 - `core:Role` for roles.
 - `core:AgentRole` for bridge records connecting agents and roles.
 - `core:Organization` for holding institutions.
-- `core:isPartOf` connects Expressions to parent Musical Works.
+- `cidoc:P148_has_component` connects a Musical Work to its component Expressions (libretto, score, etc.); this is the canonical Work↔Expression link defined in `MusicalWorkShape`.
 - `core:hasAgentRole` connects Works or Expressions to AgentRole records.
 - `core:hasAgent` and `core:hasRole` define AgentRole internals.
 - `core:hasPlace` links Sources and Organizations to Places.
@@ -577,6 +577,7 @@ Main fields:
 - `dcterms:date`: optional, at most one date
 - `owl:sameAs`: repeatable external authority IRIs
 - `cidoc:P129_is_about`: repeatable links to Subject records
+- `cidoc:P148_has_component`: repeatable links to component Expressions (libretto, score, etc.)
 - `core:hasAgentRole`: repeatable links to AgentRole records
 
 ---
@@ -599,9 +600,10 @@ Main fields:
 
 - `rdfs:label`: required, exactly one
 - `skos:altLabel`: repeatable alternate labels
-- `core:isPartOf`: required, exactly one link to a Musical Work
 - `core:hasAgentRole`: repeatable links to AgentRole records
 - `rdfs:comment`: optional, at most one plain string
+
+The Expression itself carries no link to its parent Work; the Work→Expression relation is asserted from the Work via `cidoc:P148_has_component` (see 8.4).
 
 ---
 
@@ -759,8 +761,8 @@ Main fields:
 Important linked fields and expected UI behavior:
 
 ```text
-core:isPartOf
-    Expression → Musical Work
+cidoc:P148_has_component
+    Musical Work → Expression
 
 lrmoo:R4_embodies
     Manifestation → Expression
