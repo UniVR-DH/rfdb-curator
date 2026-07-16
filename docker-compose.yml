@@ -66,6 +66,10 @@ services:
       # Docker-internal hostname — only used inside the container network.
       OXIGRAPH_URL: http://oxigraph:7878
       DATA_GRAPH_URI: "https://rosfeatr.eu/rdf/graph/"
+      # Read timeout (seconds) for bulk Turtle loads. The ~38 MB Glottolog
+      # vocab below needs well over Oxigraph's default; raise if you add
+      # larger seed files.
+      OXIGRAPH_LOAD_TIMEOUT: "${OXIGRAPH_LOAD_TIMEOUT:-300}"
       # Paths inside the container, mapped by the volumes block below.
       SCHEMA_PATH: /app/schema/schema.ttl
       VOCAB_PATH: '["/app/data/vocab.ttl", "/app/data/glottolog_language.ttl"]'

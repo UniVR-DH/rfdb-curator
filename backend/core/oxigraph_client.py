@@ -34,7 +34,12 @@ class OxigraphClient:
     This makes the named graph totally transparent to route handlers.
     """
 
-    def __init__(self, base_url: str, data_graph_uri: str | None = None) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        data_graph_uri: str | None = None,
+        load_timeout: float = 300.0,
+    ) -> None:
         """Initialise the client.
 
         Args:
@@ -45,9 +50,15 @@ class OxigraphClient:
                 operations.  When ``None`` all operations target the default
                 graph.  In normal application use this is always set from
                 ``settings.data_graph_uri``.
+            load_timeout: Read timeout in seconds for :meth:`load_turtle`.
+                Bulk loads block until Oxigraph has parsed *and* indexed the
+                whole document, so large vocabulary files (tens of MB) can take
+                well over a minute.  Defaults to 300s; set from
+                ``settings.oxigraph_load_timeout`` in normal application use.
         """
         self.base_url = base_url.rstrip("/")
         self.data_graph_uri = data_graph_uri
+        self.load_timeout = load_timeout
 
     @property
     def graph(self) -> str | None:
@@ -219,7 +230,12 @@ class OxigraphClient:
             # Oxigraph Graph Store protocol requires `?default` to write to the
             # default graph. Without it, POST /store creates a fresh named graph.
             params = {"default": ""}
-        with httpx.Client(timeout=60.0) as client:
+        # Oxigraph does not send response headers until it has parsed and
+        # indexed the entire document, so the read timeout must cover the whole
+        # bulk load. Large vocab files (e.g. the ~38 MB Glottolog language list)
+        # routinely exceed 60s; use the configurable `load_timeout` instead.
+        timeout = httpx.Timeout(self.load_timeout, connect=10.0)
+        with httpx.Client(timeout=timeout) as client:
             resp = client.post(
                 f"{self.base_url}/store",
                 content=turtle_data.encode("utf-8"),

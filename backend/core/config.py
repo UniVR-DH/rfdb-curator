@@ -92,6 +92,14 @@ class Settings(BaseSettings):
     """Named graph URI used for all SPARQL reads (``FROM <uri>``) and
     Graph Store Protocol writes (``?graph=<uri>``)."""
 
+    oxigraph_load_timeout: float = 300.0
+    """Read timeout in seconds for bulk Turtle loads (``load_turtle``).
+
+    Oxigraph withholds response headers until a document is fully parsed and
+    indexed, so seeding large vocabulary files (e.g. the ~38 MB Glottolog
+    language list) can take well over a minute.  Defaults to 300s; raise it
+    further via ``OXIGRAPH_LOAD_TIMEOUT`` if seeding very large files."""
+
     # ------------------------------------------------------------------ #
     # File paths (relative to the backend working directory)              #
     # ------------------------------------------------------------------ #

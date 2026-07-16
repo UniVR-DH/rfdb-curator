@@ -17,7 +17,6 @@ import pytest
 from rdflib import Graph
 from rdflib.plugins.parsers.notation3 import BadSyntax
 
-
 BACKEND_DIR = Path(__file__).resolve().parents[1] / "backend"
 
 
@@ -84,7 +83,9 @@ def test_startup_initialization_order_populates_services_before_seeding(
             return {"conforms": True, "violations": []}
 
     class OxigraphClientStub:
-        def __init__(self, base_url: str, data_graph_uri: str):
+        def __init__(
+            self, base_url: str, data_graph_uri: str, load_timeout: float = 300.0
+        ):
             assert calls == ["schema_extractor", "shape_dep_graph", "validator"]
             calls.append("oxigraph")
             self.base_url = base_url
@@ -161,7 +162,9 @@ def test_reset_data_on_startup_clears_store_before_seeding(
             return {"conforms": True, "violations": []}
 
     class OxigraphClientStub:
-        def __init__(self, base_url: str, data_graph_uri: str):
+        def __init__(
+            self, base_url: str, data_graph_uri: str, load_timeout: float = 300.0
+        ):
             calls.append("oxigraph")
             self.base_url = base_url
             self.data_graph_uri = data_graph_uri
@@ -231,7 +234,9 @@ def test_first_write_can_read_shape_dep_graph_after_startup(
             return {"conforms": False, "violations": []}
 
     class OxigraphClientStub:
-        def __init__(self, base_url: str, data_graph_uri: str):
+        def __init__(
+            self, base_url: str, data_graph_uri: str, load_timeout: float = 300.0
+        ):
             self.base_url = base_url
             self.data_graph_uri = data_graph_uri
 

@@ -140,6 +140,7 @@ async def lifespan(app: FastAPI):
     app.state.oxigraph = OxigraphClient(
         str(settings.oxigraph_url),
         settings.data_graph_uri,
+        load_timeout=settings.oxigraph_load_timeout,
     )
     logger.info("OxigraphClient initialised (base_url='%s').", settings.oxigraph_url)
 
