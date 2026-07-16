@@ -152,6 +152,37 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* Read-only Data Context trigger, pinned to the bottom of the nav. */
+.nav-context {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-input);
+  background: none;
+  color: var(--color-ambient-2);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.nav-context:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: var(--color-surface-top);
+}
+
+.nav-context.active {
+  background-color: var(--color-primary);
+  color: var(--color-surface-top);
+}
+
 /* ─── Main Area (tabbed content + inspector) ────────────────────── */
 .app-main {
   display: grid;

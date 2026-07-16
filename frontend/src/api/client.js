@@ -62,4 +62,12 @@ export const apiClient = {
    * Called once at app startup to hydrate utils/prefixes.js and utils/jsonld.js.
    */
   getPrefixes: () => http.get('/api/meta/prefixes').then((r) => r.data.prefixes),
+
+  /**
+   * Fetch the runtime graph context for the read-only Data Context Panel:
+   * active graph URI, named graphs with triple counts, a store-wide total,
+   * and advisory config warnings. Store-wide (unscoped) — fetched lazily on
+   * panel open, not at startup.
+   */
+  getGraphs: () => http.get('/api/meta/graphs').then((r) => r.data),
 }

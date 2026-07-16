@@ -43,6 +43,7 @@ import './App.css'
 import { apiClient } from './api/client.js'
 import Icon from './components/Icon.jsx'
 import ShapeForm from './components/ShapeForm.jsx'
+import DataContextPanel from './components/DataContextPanel.jsx'
 import ShapeRecordList from './components/ShapeRecordList.jsx'
 import ValidationPanel from './components/ValidationPanel.jsx'
 import WelcomeGuide from './components/WelcomeGuide.jsx'
@@ -65,6 +66,7 @@ export default function App() {
   const [activeView, setActiveView] = useState('form') // 'form' | 'records'
   const [recordLoading, setRecordLoading] = useState(false) // true while fetching entity data for editing
   const [guideOpen, setGuideOpen] = useState(false) // first-time curator welcome guide (WEMI overlay)
+  const [showContext, setShowContext] = useState(false) // read-only Data Context Panel in the main area
   // In-memory, same-session draft cache keyed by `shape::<shapeId>`. Single slot per
   // shape form (last state wins), so unsaved input survives shape/record navigation
   // even though ShapeForm re-hydrates via reset() on every shape/record change.
@@ -185,6 +187,7 @@ export default function App() {
     setLoadedRecord(null)
     setValidation(null)
     setActiveView('form')
+    setShowContext(false) // picking a shape leaves the Data Context Panel
   }
 
   // --- Effect: when a record is selected for editing, fetch its full data from the backend ---
@@ -253,11 +256,21 @@ export default function App() {
             ))}
           </ul>
         )}
+        <button
+          className={`nav-context ${showContext ? 'active' : ''}`}
+          onClick={() => setShowContext(true)}
+          title="Runtime graph configuration (read-only)"
+        >
+          <Icon name="Database" size={14} />
+          Data context
+        </button>
       </nav>
 
       {/* ── Main area with tabbed content + inspector ── */}
       <main className="app-main">
-        {activeShape ? (
+        {showContext ? (
+          <DataContextPanel />
+        ) : activeShape ? (
           <>
             <section className="panel-content">
               <div className="view-tabs" role="tablist" aria-label="Shape view tabs">

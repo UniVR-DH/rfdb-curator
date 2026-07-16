@@ -29,16 +29,17 @@ must not expose destructive graph operations.
 Exposed information:
 
 - [x] active prefix mapping — served by `GET /api/meta/prefixes`, hydrated at startup
-- [ ] active data graph from `DATA_GRAPH_URI` — via `GET /api/meta/graphs`
-- [ ] available named graphs in Oxigraph — via `GET /api/meta/graphs`
-- [ ] lightweight graph statistics (triple counts) — via `GET /api/meta/graphs`
-- [ ] prefix / config consistency warnings — via `GET /api/meta/graphs`
+- [x] active data graph from `DATA_GRAPH_URI` — via `GET /api/meta/graphs`
+- [x] available named graphs in Oxigraph — via `GET /api/meta/graphs`
+- [x] lightweight graph statistics (triple counts) — via `GET /api/meta/graphs`
+- [x] per-graph distinct subjects / objects / literals (columns in the graphs table) — via `GET /api/meta/graphs`
+- [x] prefix / config consistency warnings — via `GET /api/meta/graphs`
 
 Milestones:
 
 - [x] Backend `GET /api/meta/prefixes` — **shipped** (resolved the prefix-map duplication gap above; `.temp/temp-DONE-prefix-consolidation-20260713.md`)
-- [ ] Backend `GET /api/meta/graphs` — planned (Task 1 in the plan doc)
-- [ ] Frontend read-only `DataContextPanel` — planned (Task 2 in the plan doc)
+- [x] Backend `GET /api/meta/graphs` — **shipped** (`backend/api/meta.py`; 6 tests in `tests/test_api_meta.py`)
+- [x] Frontend read-only `DataContextPanel` — **shipped** (`frontend/src/components/DataContextPanel.{jsx,css}`, wired in `App.jsx`). Live interactive smoke pending the stack run. Plan: `.temp/temp-data-context-panel-20260715.md`.
 
 ---
 
