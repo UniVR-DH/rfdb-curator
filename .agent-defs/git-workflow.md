@@ -14,6 +14,22 @@ git commit -m "[BOT] <area>: <description>"
 - Different topics -> separate commits
 - Large changes -> group by area (backend, frontend, docs)
 
+### Shared files across commits (Mandatory)
+
+If a proposed multi-commit split would put edits to the **same file** into two
+different commits, **STOP and ask the user** how to proceed. Do not try to
+separate the changes yourself.
+
+- The default resolution is simple: **assign the shared file to one of the two
+  commits, or make a single combined commit.** The user picks.
+- **Never** perform manual hunk-splitting workarounds — no backup→revert→
+  re-apply, no `git checkout HEAD -- <file>` then re-add, no hand-authored
+  partial patches, no per-region reverts to fake a clean split. Interactive
+  `git add -p` is unavailable in this environment, and these substitutes are
+  error-prone and have caused rework.
+- Only ever attempt such a split process on a **double-confirmed, explicit**
+  user request that names the process — otherwise ask and take the simple path.
+
 ## Non-Interactive Mode
 
 ```bash

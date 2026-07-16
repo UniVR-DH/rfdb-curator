@@ -136,6 +136,7 @@ Rules:
 8. Never amend, rebase, reset, clean, checkout, restore, or discard changes unless the user explicitly asks for that exact operation.
 9. Before committing, run the relevant checks for the changed area when practical.
 10. After committing, report the commit hash and the exact files included.
+11. If a multi-commit split would put edits to the **same file** into two commits, STOP and ask. Default: put the shared file in one commit or make a single commit. Never do backup/revert/re-apply or other manual hunk-splitting workarounds without a double-confirmed explicit request. See [.agent-defs/git-workflow.md](.agent-defs/git-workflow.md) → "Shared files across commits".
 
 If the user asks to "commit everything", do not do it blindly. Treat the request as ambiguous, show `git status --short`, and ask which files should be included.
 
