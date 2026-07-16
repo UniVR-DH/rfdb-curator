@@ -23,7 +23,8 @@ rfdb:LibrettoStampa a core:Type ;
 
 rfdb:Libretto_11 a lrmoo:F2_Expression ;
     rdfs:label "La *forza dell'amore e dell'odio"@en ;
-    core:hasAgentRole rfdb:AR_3 .
+    core:hasAgentRole rfdb:AR_3 ;
+    cidoc:P148i_is_component_of rfdb:T11 .
 
 rfdb:Libretto_11_manifestation a lrmoo:F3_Manifestation ;
     rdfs:label "La *forza dell'amore e dell'odio printed manifestation"@en ;
@@ -81,7 +82,6 @@ rfdb:Place_P1 a core:Place ;
 rfdb:T11 a mm:MusicEntity, lrmoo:F1_Work ;
     rdfs:label "La *forza dell'amore e dell'odio"@en ;
     owl:sameAs wd:Q55064333 ;
-    cidoc:P148_has_component rfdb:Libretto_11 ;
     core:hasAgentRole rfdb:AR_1,
         rfdb:AR_2 .
 

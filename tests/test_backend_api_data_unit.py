@@ -104,14 +104,11 @@ def test_api_write_accepts_manifestation_plain_comment() -> None:
                 "@id": "https://rosfeatr.eu/rdf/data/api_unit_expression",
                 "@type": "lrmoo:F2_Expression",
                 "rdfs:label": {"@value": "API Expression", "@language": "en"},
-                # Work → Expression via cidoc:P148_has_component (canonical direction);
-                # expressed with @reverse so the Work still rides along in the cascade.
-                "@reverse": {
-                    "cidoc:P148_has_component": {
-                        "@id": "https://rosfeatr.eu/rdf/data/api_unit_work",
-                        "@type": ["mm:MusicEntity", "lrmoo:F1_Work"],
-                        "rdfs:label": {"@value": "API Work", "@language": "en"},
-                    },
+                # Expression → Work via cidoc:P148i_is_component_of (child → parent).
+                "cidoc:P148i_is_component_of": {
+                    "@id": "https://rosfeatr.eu/rdf/data/api_unit_work",
+                    "@type": ["mm:MusicEntity", "lrmoo:F1_Work"],
+                    "rdfs:label": {"@value": "API Work", "@language": "en"},
                 },
             },
         },

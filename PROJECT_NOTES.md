@@ -316,7 +316,7 @@ core:Organization
 Properties used:
 
 ```text
-cidoc:P148_has_component
+cidoc:P148i_is_component_of
 core:hasAgentRole
 core:hasAgent
 core:hasRole
@@ -333,7 +333,7 @@ Usage:
 - `core:Role` for roles.
 - `core:AgentRole` for bridge records connecting agents and roles.
 - `core:Organization` for holding institutions.
-- `cidoc:P148_has_component` connects a Musical Work to its component Expressions (libretto, score, etc.); this is the canonical Work↔Expression link defined in `MusicalWorkShape`.
+- `cidoc:P148i_is_component_of` connects an Expression up to its parent Musical Work (libretto, score, etc.); this is the canonical Work↔Expression link, defined in `ExpressionShape` (inverse of `cidoc:P148_has_component`, giving one child→parent direction across the WEMI chain).
 - `core:hasAgentRole` connects Works or Expressions to AgentRole records.
 - `core:hasAgent` and `core:hasRole` define AgentRole internals.
 - `core:hasPlace` links Sources and Organizations to Places.
@@ -577,7 +577,6 @@ Main fields:
 - `dcterms:date`: optional, at most one date
 - `owl:sameAs`: repeatable external authority IRIs
 - `cidoc:P129_is_about`: repeatable links to Subject records
-- `cidoc:P148_has_component`: repeatable links to component Expressions (libretto, score, etc.)
 - `core:hasAgentRole`: repeatable links to AgentRole records
 
 ---
@@ -600,10 +599,9 @@ Main fields:
 
 - `rdfs:label`: required, exactly one
 - `skos:altLabel`: repeatable alternate labels
+- `cidoc:P148i_is_component_of`: optional, at most one link up to the parent Musical Work (inverse of `cidoc:P148_has_component`)
 - `core:hasAgentRole`: repeatable links to AgentRole records
 - `rdfs:comment`: optional, at most one plain string
-
-The Expression itself carries no link to its parent Work; the Work→Expression relation is asserted from the Work via `cidoc:P148_has_component` (see 8.4).
 
 ---
 
@@ -761,8 +759,8 @@ Main fields:
 Important linked fields and expected UI behavior:
 
 ```text
-cidoc:P148_has_component
-    Musical Work → Expression
+cidoc:P148i_is_component_of
+    Expression → Musical Work
 
 lrmoo:R4_embodies
     Manifestation → Expression

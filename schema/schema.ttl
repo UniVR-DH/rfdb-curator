@@ -153,13 +153,6 @@ rfdbs:MusicalWorkShape
     sh:class core:AgentRole ;
     sh:node rfdbs:AgentRoleShape ;
     sh:description "Agent roles for the work: composer, etc." ;
-  ] ;
-  sh:property [
-    sh:path cidoc:P148_has_component ;
-    sh:nodeKind sh:IRI ;
-    sh:class lrmoo:F2_Expression ;
-    sh:node rfdbs:ExpressionShape ;
-    sh:description "Links a work to component expressions (libretto, score, etc.)" ;
   ] .
 
 # ================================
@@ -179,6 +172,14 @@ rfdbs:ExpressionShape
       [ sh:datatype xsd:string ]
     ) ;
     sh:description "An expression must have exactly one label" ;
+  ] ;
+  sh:property [
+    sh:path cidoc:P148i_is_component_of ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:class lrmoo:F1_Work ;
+    sh:node rfdbs:MusicalWorkShape ;
+    sh:description "The Musical Work this expression is a component of (e.g. the opera a libretto belongs to). Inverse of cidoc:P148_has_component; gives a single child→parent link direction across the WEMI chain." ;
   ] ;
   sh:property [
     sh:path skos:altLabel ;

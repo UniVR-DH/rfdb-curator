@@ -32,7 +32,7 @@ CORE_AGENT_ROLE = "https://w3id.org/polifonia/ontology/core/AgentRole"
 CORE_HAS_AGENT = "https://w3id.org/polifonia/ontology/core/hasAgent"
 CORE_HAS_AGENT_ROLE = "https://w3id.org/polifonia/ontology/core/hasAgentRole"
 CORE_HAS_ROLE = "https://w3id.org/polifonia/ontology/core/hasRole"
-P148_HAS_COMPONENT = "http://www.cidoc-crm.org/cidoc-crm/P148_has_component"
+P148I_IS_COMPONENT_OF = "http://www.cidoc-crm.org/cidoc-crm/P148i_is_component_of"
 CORE_PERSON = "https://w3id.org/polifonia/ontology/core/Person"
 CORE_ROLE = "https://w3id.org/polifonia/ontology/core/Role"
 FOAF_AGENT = "http://xmlns.com/foaf/0.1/Agent"
@@ -44,14 +44,6 @@ CONTRIBUTOR_SHAPE = "https://rosfeatr.eu/rdf/schema/ContributorShape"
 
 def _make_suffix() -> str:
     return uuid.uuid4().hex[:8]
-
-
-def _reverse_part_of(work: dict) -> dict:
-    """Wrap a nested Work so it links to its Expression via the canonical
-    ``cidoc:P148_has_component`` (Work → Expression). Using JSON-LD ``@reverse``
-    keeps the Work riding along in the cascade payload while asserting the edge
-    in the schema-defined direction (the Expression itself holds no back-link)."""
-    return {"@reverse": {P148_HAS_COMPONENT: work}}
 
 
 def _request_json(
@@ -161,7 +153,7 @@ def _make_manifestation_payload(
             "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_expression",
             "@type": LRMOO_F2_EXPRESSION,
             RDFS_LABEL: {"@value": "Test Expression", "@language": "en"},
-            **_reverse_part_of(work),
+            P148I_IS_COMPONENT_OF: work,
         },
     }
 
@@ -187,7 +179,7 @@ def _make_expression_payload(suffix: str) -> dict:
         "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_expression",
         "@type": LRMOO_F2_EXPRESSION,
         RDFS_LABEL: {"@value": "Chain Expression", "@language": "en"},
-        **_reverse_part_of({
+        P148I_IS_COMPONENT_OF: {
             "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_work",
             "@type": [MM_MUSIC_ENTITY, LRMOO_F1_WORK],
             RDFS_LABEL: {"@value": "Chain Work", "@language": "en"},
@@ -199,7 +191,7 @@ def _make_expression_payload(suffix: str) -> dict:
                     role_label="Chain Role",
                 )
             ],
-        }),
+        },
     }
 
 
@@ -212,7 +204,7 @@ def _make_manifestation_chain_payload(suffix: str) -> dict:
             "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_expression",
             "@type": LRMOO_F2_EXPRESSION,
             RDFS_LABEL: {"@value": "Chain Expression", "@language": "en"},
-            **_reverse_part_of({
+            P148I_IS_COMPONENT_OF: {
                 "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_work",
                 "@type": [MM_MUSIC_ENTITY, LRMOO_F1_WORK],
                 RDFS_LABEL: {"@value": "Chain Work", "@language": "en"},
@@ -224,7 +216,7 @@ def _make_manifestation_chain_payload(suffix: str) -> dict:
                         role_label="Chain Role",
                     )
                 ],
-            }),
+            },
         },
     }
 
@@ -268,11 +260,11 @@ def _make_source_payload(suffix: str, manifestation_id: str) -> dict:
                 "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_expression",
                 "@type": LRMOO_F2_EXPRESSION,
                 RDFS_LABEL: {"@value": "Chain Expression", "@language": "en"},
-                **_reverse_part_of({
+                P148I_IS_COMPONENT_OF: {
                     "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_work",
                     "@type": [MM_MUSIC_ENTITY, LRMOO_F1_WORK],
                     RDFS_LABEL: {"@value": "Chain Work", "@language": "en"},
-                }),
+                },
             },
         },
     }
@@ -296,7 +288,7 @@ def _make_invalid_expression_payload(suffix: str) -> dict:
     a cascade insert rooted at ManifestationShape.
     """
     payload = _make_manifestation_payload(suffix=suffix)
-    work = payload[LRMOO_R4_EMBODIES]["@reverse"][P148_HAS_COMPONENT]
+    work = payload[LRMOO_R4_EMBODIES][P148I_IS_COMPONENT_OF]
     work.pop(RDFS_LABEL, None)
     return payload
 
@@ -311,9 +303,7 @@ def _make_invalid_agent_role_payload(suffix: str) -> dict:
     split this into two payload factories that each remove only one.
     """
     payload = _make_manifestation_payload(suffix=suffix)
-    agent_role = payload[LRMOO_R4_EMBODIES]["@reverse"][P148_HAS_COMPONENT][
-        CORE_HAS_AGENT_ROLE
-    ][0]
+    agent_role = payload[LRMOO_R4_EMBODIES][P148I_IS_COMPONENT_OF][CORE_HAS_AGENT_ROLE][0]
     agent_role.pop(CORE_HAS_AGENT, None)
     agent_role.pop(CORE_HAS_ROLE, None)
     return payload
@@ -457,11 +447,11 @@ def test_positive_source_insert_persists(api_client):
                     "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_expression",
                     "@type": LRMOO_F2_EXPRESSION,
                     RDFS_LABEL: {"@value": "Source Expression", "@language": "en"},
-                    **_reverse_part_of({
+                    P148I_IS_COMPONENT_OF: {
                         "@id": f"https://rosfeatr.eu/rdf/data/{suffix}_work",
                         "@type": [MM_MUSIC_ENTITY, LRMOO_F1_WORK],
                         RDFS_LABEL: {"@value": "Source Work", "@language": "en"},
-                    }),
+                    },
                 },
             },
         },

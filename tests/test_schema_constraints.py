@@ -101,12 +101,12 @@ rfdb:TestManifestation
 
 rfdb:TestExpression
   a lrmoo:F2_Expression ;
-  rdfs:label "Test Expression"@en .
+  rdfs:label "Test Expression"@en ;
+  cidoc:P148i_is_component_of rfdb:TestWork .
 
 rfdb:TestWork
   a mm:MusicEntity, lrmoo:F1_Work ;
-  rdfs:label "Test Work"@en ;
-  cidoc:P148_has_component rfdb:TestExpression .
+  rdfs:label "Test Work"@en .
 """,
         format="turtle",
     )

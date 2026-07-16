@@ -27,41 +27,40 @@ const WEMI_STEPS = [
   },
   {
     n: 2,
-    tag: 'F2 · Expression',
-    title: 'Expression',
+    tag: 'F1 · Work',
+    title: 'Musical Work',
     detail:
-      'A specific intellectual realization of the Work — e.g. a Libretto is an Expression that is part of an opera. It only needs a label (plus optional roles), so create it before the Manifestation.',
+      'The intellectual creation itself (an opera or composition). Create it first so its Expressions have a parent to point at.',
   },
   {
     n: 3,
+    tag: 'F2 · Expression',
+    title: 'Expression',
+    detail:
+      'A specific intellectual realization of the Work — e.g. a Libretto. It links up to its parent Work via cidoc:P148i_is_component_of.',
+  },
+  {
+    n: 4,
     tag: 'F3 · Manifestation',
     title: 'Manifestation',
     detail:
       'The product type — all physical copies of one published edition. It must embody exactly one Expression (lrmoo:R4_embodies), so that Expression has to exist first.',
   },
   {
-    n: 4,
+    n: 5,
     tag: 'F5 · Item',
     title: 'Source',
     detail:
-      'A physical copy of a printed work held by a library or archive; it exemplifies a Manifestation (lrmoo:R7_exemplifies) and requires a document Type and a holding Organization. One Manifestation can be exemplified by many Sources.',
-  },
-  {
-    n: 5,
-    tag: 'F1 · Work',
-    title: 'Musical Work',
-    detail:
-      'The intellectual creation itself (an opera or composition). Create or complete it last and link it to its component Expressions via cidoc:P148_has_component. To record a staging, add a Performance (F31), which links to two levels: the Work it performed (lrmoo:R80_performed) and the Manifestation used at / made for it (cidoc:P16_used_specific_object / P19_was_intended_use_of).',
+      'A physical copy of a printed work held by a library or archive; it exemplifies a Manifestation (lrmoo:R7_exemplifies) and requires a document Type and a holding Organization. One Manifestation can be exemplified by many Sources. To record a staging, add a Performance (F31), which links to two levels: the Work it performed (lrmoo:R80_performed) and the Manifestation used at / made for it (cidoc:P16_used_specific_object / P19_was_intended_use_of).',
   },
 ]
 
 /**
  * Inline SVG of the WEMI chain — no charting dependency.
  *
- * Arrows follow the *actual SHACL predicate direction* (subject → object, per each
- * shape's sh:path in schema/schema.ttl), which is deliberately NOT a single top-down
- * flow: the Work points down to its Expression, but a Manifestation points UP to its
- * Expression and a Source UP to its Manifestation. Performance links to two levels.
+ * Arrows follow each shape's sh:path (subject → object, per schema/schema.ttl). With
+ * cidoc:P148i_is_component_of the whole WEMI spine flows one way — child → parent (up):
+ * Source → Manifestation → Expression → Work. Performance links to two levels.
  */
 function WemiDiagram() {
   const box = (x, y, f, label) => (
@@ -95,7 +94,7 @@ function WemiDiagram() {
       className="guide-diagram"
       viewBox="0 0 400 416"
       role="img"
-      aria-label="WEMI model with SHACL predicate directions. Musical Work (F1) points down to Expression (F2) via cidoc P148 has_component. Manifestation (F3) points up to Expression via lrmoo R4 embodies. Source/Item (F5) points up to Manifestation via lrmoo R7 exemplifies. Performance (F31) links to two levels: to the Work via lrmoo R80 performed, and to the Manifestation via cidoc P16 used_specific_object or P19 was_intended_use_of."
+      aria-label="WEMI model with SHACL predicate directions. Every link points child to parent: Expression (F2) points up to its Musical Work (F1) via cidoc P148i is_component_of; Manifestation (F3) points up to Expression via lrmoo R4 embodies; Source/Item (F5) points up to Manifestation via lrmoo R7 exemplifies. Performance (F31) links to two levels: to the Work via lrmoo R80 performed, and to the Manifestation via cidoc P16 used_specific_object or P19 was_intended_use_of."
     >
       <defs>
         <marker
@@ -112,9 +111,9 @@ function WemiDiagram() {
       </defs>
 
       {/* Spine edges — direction matches each shape's sh:path (subject → object). */}
-      {/* Work → Expression (down): cidoc:P148_has_component */}
-      <line x1="78" y1="56" x2="78" y2="128" className="guide-edge" markerEnd="url(#guide-arrow)" />
-      {edgeLabel(86, 80, 'cidoc:', 'P148_has_component')}
+      {/* Expression → Work (up): cidoc:P148i_is_component_of */}
+      <line x1="78" y1="128" x2="78" y2="56" className="guide-edge" markerEnd="url(#guide-arrow)" />
+      {edgeLabel(86, 80, 'cidoc:', 'P148i_is_component_of')}
       {/* Manifestation → Expression (up): lrmoo:R4_embodies */}
       <line x1="78" y1="248" x2="78" y2="176" className="guide-edge" markerEnd="url(#guide-arrow)" />
       {edgeLabel(86, 200, 'lrmoo:', 'R4_embodies')}
@@ -190,13 +189,14 @@ export default function WelcomeGuide({ open, onClose }) {
           </h2>
           <p className="guide-intro">
             Rossiysky Featr follows the <strong>WEMI</strong> model (<a target="_blank" rel="noopener noreferrer" href="https://cidoc-crm.org/lrmoo/short-intro-frbroo">LRMoo</a>).
-            For a musical work, the flow is from the record describing the abstract idea down to the physical copy.
-            The insertion process starts by recording all auxiliary entities (Place, Person, Subject, Organization, and document Type).
-            Then, working from the document in hand, create the Expression (e.g. the libretto text),
-            then its Manifestation (the published edition, which embodies that Expression),
-            and then each Source (a physical copy held by a library, which exemplifies the Manifestation —
+            For a musical work, records go from the abstract idea down to the physical copy, and every link
+            points the other way — from the more concrete record up to its parent. So create parents before children:
+            first the auxiliary entities (Place, Person, Subject, Organization, and document Type),
+            then the Musical Work (the abstract idea),
+            then its Expression (e.g. the libretto text, linked up to the Work via cidoc:P148i_is_component_of),
+            then the Manifestation (the published edition, which embodies that Expression),
+            and finally each Source (a physical copy held by a library, which exemplifies the Manifestation —
             one Manifestation can have many Sources).
-            Finally, update the Musical Work record with the links to the Expressions you just created.
           </p>
         </header>
 
@@ -204,8 +204,8 @@ export default function WelcomeGuide({ open, onClose }) {
           <div className="guide-diagram-wrap">
             <WemiDiagram />
             <p className="guide-diagram-note">
-              The chain is not one-directional: a Manifestation points
-              <em> up</em> to its Expression and a Source <em>up</em> to its Manifestation.
+              Every WEMI link points the same way — <em>child → parent (up)</em>: a Source points up
+              to its Manifestation, a Manifestation up to its Expression, and an Expression up to its Work.
               Performance links to two levels — the Work and the Manifestation.
               Supporting entities (Place, Person → Agent Role, Subject) feed these forms via
               their dropdowns.
