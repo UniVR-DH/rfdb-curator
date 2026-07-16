@@ -120,3 +120,4 @@ The initial version does not aim to:
 - [x] check closely in README.md the Repository Structure
 - [x] pre-commit hook configuration (.pre-commit-config.yaml) — ruff lint + format, opt-in via `pre-commit install`
 - [ ] make a pre-flight check for the backend to ensure that the SHACL shapes are valid and consistent before starting the server and that they do not contain unsupported features or paradgims (e.g., shapes without a targetClass)
+- [ ] **prefix-map sanity check (manual)** — the CURIE map served by `GET /api/meta/prefixes` is a curated list in `backend/core/prefixes.py` (`PREFIXES`); it must be updated whenever a new `@prefix` is added to any TTL file (schema / data / vocab / glottolog). Run `cd backend && uv run python scripts/check_prefixes.py` to verify `PREFIXES` covers every declared prefix (reports missing / mismatched). Consider promoting this to an automated pre-flight/CI check later.

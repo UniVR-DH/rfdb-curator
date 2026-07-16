@@ -1,7 +1,7 @@
 """Meta routes: schema-level information not tied to individual shapes or entities.
 
 Currently exposes:
-  GET /api/meta/prefixes — namespace prefix map derived from schema.ttl at runtime.
+  GET /api/meta/prefixes — curated CURIE prefix map (core/prefixes.py).
   GET /api/meta/graphs   — active/named graphs, triple counts, config warnings.
 
 These back the read-only Data Context Panel (see TODO.md).
@@ -10,31 +10,29 @@ These back the read-only Data Context Panel (see TODO.md).
 from fastapi import APIRouter, HTTPException, Request
 
 from core.config import settings
+from core.prefixes import PREFIXES
 
 router = APIRouter()
 
 
 @router.get("/meta/prefixes")
-def get_prefixes(request: Request):
-    """Return the complete prefix-to-namespace map read from the active SHACL schema.
+def get_prefixes():
+    """Return the curated CURIE prefix→namespace map.
 
-    Derived directly from the rdflib graph already cached by ``SchemaExtractor``,
-    so no extra file I/O occurs after startup.  Empty-string prefixes (the base IRI
-    convention used by rdflib) are excluded — they have no useful CURIE form.
+    Served from the hand-maintained ``core.prefixes.PREFIXES`` (the union of the
+    ``@prefix`` declarations across schema/data/vocab/glottolog), **not** the rdflib
+    schema graph — the latter also carries ~29 unrelated well-known vocabularies
+    (``brick``, ``dcat``, …) that rdflib pre-binds into every ``Graph`` and would
+    otherwise leak into the map. See ``core/prefixes.py`` for the maintenance note
+    and the manual sanity check.
 
     Returns:
         ``{"prefixes": {"cidoc": "http://…", "xsd": "http://…", …}}``
 
-    The frontend consumes this response at startup to hydrate its prefix map,
-    replacing the two previously hardcoded dictionaries in ``utils/prefixes.js``
-    and ``utils/jsonld.js``.
+    The frontend consumes this at startup to hydrate its prefix map for IRI
+    compaction and the Data Context Panel.
     """
-    prefixes = {
-        prefix: str(ns)
-        for prefix, ns in request.app.state.schema_extractor.graph.namespaces()
-        if prefix  # skip the empty base-IRI entry rdflib always includes
-    }
-    return {"prefixes": prefixes}
+    return {"prefixes": dict(PREFIXES)}
 
 
 def _count(rows: list[dict], key: str = "count") -> int:
