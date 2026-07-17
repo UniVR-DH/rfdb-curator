@@ -17,7 +17,8 @@ RossijskijFeatrDB (rfdb-curator) is a standalone SHACL-driven RDF curation proje
 3. **Frontend editor** (`frontend/`) renders dynamic forms and record workflows.
 4. **RDF data** (`data/vocab.ttl`, `data/data.ttl`) seeds vocabulary and optional fixtures.
 5. **Validation pipeline** (pySHACL + merged validation graph) enforces schema constraints.
-6. **Docker runtime** (`docker-compose.yml`) runs frontend, backend, and Oxigraph together.
+6. **Object storage** (Garage, S3-compatible) holds source digital copies (PDF scans); metadata lives in RDF, bytes in Garage.
+7. **Docker runtime** (`docker-compose.yml`) runs frontend, backend, Oxigraph, and Garage together.
 
 ## Business Goals
 
@@ -32,6 +33,7 @@ RossijskijFeatrDB (rfdb-curator) is a standalone SHACL-driven RDF curation proje
 | Backend | FastAPI, uvicorn, pydantic-settings, rdflib, pyshacl |
 | Frontend | React, Vite |
 | RDF store | Oxigraph |
+| Object storage | Garage (S3-compatible), boto3 client |
 | Runtime | Docker Compose |
 | Testing | pytest |
 | CI/CD | GitHub Actions |

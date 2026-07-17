@@ -59,6 +59,30 @@ Never open, launch, or drive a browser (Playwright, Puppeteer, headless Chrome, 
 
 Instead: verify what is verifiable without a browser (API responses via `curl`, backend tests, lint/build), then tell the user the change is ready for them to test manually in their own browser and report back what they see.
 
+## Previewing an inline SVG (e.g. the WelcomeGuide WEMI diagram)
+
+To eyeball an SVG that lives inside a React component (no browser needed), render
+it to PNG with macOS Quick Look and Read the PNG:
+
+```bash
+qlmanage -t -s 1000 -o <scratchpad-dir> diagram.svg   # writes diagram.svg.png
+```
+
+Two gotchas, both one-time:
+
+- **Quick Look emits a square `s×s` thumbnail.** Portrait content fit to width
+  overflows and the bottom is cropped. Fix: pad the standalone SVG's `viewBox`
+  (and `width`/`height`) to roughly square/landscape so nothing is cut — this is
+  preview-only; leave the real component's viewBox alone.
+- **Component SVGs use CSS classes from a stylesheet**, so a standalone copy
+  renders unstyled (lines have no stroke → invisible). Inline a `<style>` block
+  with concrete values (copy from the component's `.css`), and add a dark
+  background `<rect>` when the UI is dark-themed. Then paste the component's
+  `<g>/<line>/<text>` markup verbatim.
+
+No install needed (`qlmanage` ships with macOS). Do NOT rasterize via a headless
+browser — same rule as Browser Verification above.
+
 ## Troubleshooting Tips
 
 - **Frontend proxy errors (`/api` 502/504):** inspect backend health and logs.

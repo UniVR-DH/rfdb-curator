@@ -75,22 +75,24 @@ The initial version does not aim to:
 - [ ] Dropdown selections should display both label and comment (not just label) with ellipsis if longer than a certain length, e.g., 100 characters, when available 
 - [x] For shapes using `sh:or` with alternative `sh:class` constraints, render a class-selection dropdown so users can explicitly choose which class branch they are filling
 - [x] READ_ONLY FLAG: add a flag to make the editor read-only and refuse with a message if the user tries to edit (for demo or presentation mode)
-- [ ] File upload of digital copy (PDF) for Source entities — **planned**, design & implementation plan: `.temp/temp-source-pdf-upload-20260716.md`. Decided: Garage (S3-compatible) storage service, multiple PDFs per Source, PDF-only/no size cap, open access, RDF digital-copy node via `cidoc:P138i_has_representation` → `schema:DigitalDocument` (filename, sha256, byte size, page count). Milestones:
-  - [ ] Garage service in Docker Compose (dev + prod)
-  - [ ] Storage client + config (`core/file_storage.py`)
-  - [ ] Schema `DigitalCopyShape` + `SourceShape` link property
-  - [ ] Backend upload/list/download/delete routes (`api/files.py`)
-  - [ ] Delete-lifecycle cleanup (purge files on Source delete)
-  - [ ] Frontend `SourceFilesPanel` + client methods
-  - [ ] Tests + docs
+- [ ] File upload of digital copy (PDF) — **upload-first redesign implemented; live verify + prod pending**. Plans: `.temp/temp-upload-first-files-20260717.md` (current) supersedes the route design in `.temp/temp-source-pdf-upload-20260716.md`. Design: a digital copy is a bridge node whose fields are machine-filled — stage PDF (`POST /api/files/staged`) → prefilled node in the form (works on unsaved records) → travels in the JSON-LD payload under the schema-declared predicate (any shape with `sh:node rfdbs:DigitalCopyShape` gets the widget; multi-parent native) → server re-derives metadata + promotes `staged/`→`registered/` on persist. RDF is the source of truth; storage reconciled against it.
+  - [x] Garage service (dev compose) + `garage.toml` + `scripts/garage-init.sh` (idempotent, host-side). Prod notes: `.temp/temp-garage-prod-bootstrap-20260716.md`.
+  - [x] Storage seam (`core/file_storage.py`: staged/registered prefixes, move, list; in-memory fake)
+  - [x] Schema `DigitalCopyShape` + `SourceShape` link (+ `schema:` prefix); extractor `file-list` field type
+  - [x] Staging/download routes; write-path re-derivation + promotion (`api/data.py`)
+  - [x] `backend/scripts/cleanup_files.py` reconciler + `GET /api/meta/files` + Data Context Panel file stats
+  - [x] Frontend `FileField` in the schema-driven form loop (jsonld emission, edit hydration)
+  - [x] Tests `tests/test_digital_copies.py` (16 cases)
+  - [ ] Live end-to-end verification (API + frontend smoke) — Docker was down at implementation time
+  - [ ] Prod: `garage` in `docker-compose.prod.yml` (internal-only, hardened) + Caddy `request_body max_size` + DEV/DEPLOY/README docs
+- [ ] **OPERATIONAL — run the file-storage cleanup periodically**: `docker compose exec backend python scripts/cleanup_files.py` (add `--dry-run` to preview). Purges abandoned staged uploads (>24h), unreferenced registered files (>24h grace), and orphaned digital-copy nodes. The Data Context Panel "File storage" section shows when counts grow.
 - [x] mapping from xsd language acronym (EN, IT...) to the name — `frontend/src/utils/languages.js` (fe848de)
 - [ ] for a Performance we need to select also the Venue not only the place, but keep the place because we not always know, and for venues consider coordinates
 - [ ] from the inspector sidebar link directly to record view for that entity
 
 ### b. Advanced Features (from roadmap)
-- [~] Welcome / onboarding guide with simple guide on how to use the editor (should be possible to re-open again)
+- [x] Welcome / onboarding guide with simple guide on how to use the editor (should be possible to re-open again)
   - [x] First-time curator **WEMI overlay** — dismissible modal with a WEMI graph diagram (Work→Expression→Manifestation→Source, + Performance branch) and the ordered insertion steps; auto-opens on first visit (localStorage `rfdb.guideSeen`), re-openable via the "Getting started" button in the nav. Component: `frontend/src/components/WelcomeGuide.{jsx,css}`, wired in `frontend/src/App.jsx`. Plan: `.temp/temp-curator-welcome-guide-20260716.md`.
-  - [ ] Optional follow-up: full field-level editor tour / bilingual (IT) copy.
 - [ ] Real-time validation (debounced SHACL checking on blur/change)
 - [ ] Bulk import (Excel/CSV → RDF)
 - [ ] Data export (RDF, JSON-LD, CSV)
@@ -104,6 +106,7 @@ The initial version does not aim to:
 - [ ] support ruoli vocali, personaggi as AgentRoles a part
 - [ ]  for performances we need: scenografo, coreografo, ballerini, cantani/attori, musicisti 
 - [ ] for performances we need to know the "source" that is telling us about the performance, and the source should be linked to the performance, not to the work or expression. Sometimes a manifestation is the source, sometimes is another source like an anthology 
+- [ ] FUTURE / **multi-user editing** — the editor assumes a single concurrent curator. No optimistic locking or transactions: concurrent edits to the same entity can interleave (delete-then-insert update flow in `api/data.py`), and cross-store operations (Oxigraph triples + Garage objects) are not atomic. Needed before multiple curators work simultaneously: conflict detection (e.g. ETag/version triple per entity), and a saga/compensation pattern for file-upload + triple-write. File-id minting is already race-safe (random 8-hex suffixes, never reused).
 - [ ] FUTURE / storage — evaluate LanceDB for digital-copy storage once basic PDF upload (Garage) ships. Idea: store PDF text + page embeddings alongside blobs to make scanned sources semantically searchable, not just downloadable.
   - Pros: embedded (no separate S3 service); metadata + vectors in one columnar store; unlocks semantic/full-text search & RAG over libretti; could unify "store file" + "make searchable".
   - Cons: not blob-first (large PDFs sit awkwardly next to vectors); no S3 API (backend still proxies downloads); needs an OCR/embedding pipeline (scope creep beyond storing a PDF); S3 is more operationally familiar for pure serving.

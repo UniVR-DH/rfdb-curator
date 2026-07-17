@@ -28,6 +28,12 @@ docker compose down
 docker compose down -v
 ```
 
+**Never start or restart the Docker daemon / Docker Desktop yourself** (no
+`open -a Docker`, no `systemctl start docker`, no launchd tricks). If the
+daemon is unreachable, stop and ask the user to start it. Managing `docker
+compose` services is fine; managing the Docker engine itself is the user's
+prerogative.
+
 ## Validation and Tests
 
 ```bash

@@ -9,6 +9,7 @@ Agent instructions for RossijskijFeatrDB (rfdb-curator) development, including c
 3. **Stop before producing long outputs**: If a long output is required, ask whether the user prefers a short answer and to produce long details in a temporary file in `.temp/`.
 4. **Reduce confirmation outputs**: When the user confirms or asks to execute a task, respond briefly and list files edited.
 5. **Do not perform broad Git operations**: Never stage, commit, reset, clean, or discard changes unless explicitly instructed and scoped by the user.
+6. **Never start the Docker daemon/Desktop yourself**: If the Docker engine is down, ask the user to start it. Running `docker compose` against a live daemon is fine; launching or restarting the engine is the user's prerogative.
 
 Instructions are split into this root file plus specialized modules in `.agent-defs/`.
 Before any non-trivial task, read this file plus the relevant files in `.agent-defs/`. Do not load irrelevant modules unless needed for the task.
