@@ -29,9 +29,7 @@ def main() -> int:
 
     missing = {p: ns for p, ns in declared.items() if p not in PREFIXES}
     mismatched = {
-        p: (ns, PREFIXES[p])
-        for p, ns in declared.items()
-        if p in PREFIXES and PREFIXES[p] != ns
+        p: (ns, PREFIXES[p]) for p, ns in declared.items() if p in PREFIXES and PREFIXES[p] != ns
     }
     extra = sorted(set(PREFIXES) - set(declared))
 

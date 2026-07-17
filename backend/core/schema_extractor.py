@@ -84,6 +84,8 @@ from rdflib import BNode, Graph, Literal, URIRef
 from rdflib.collection import Collection
 from rdflib.namespace import RDF, RDFS, SH, XSD
 
+from models.files import SCHEMA_DIGITAL_DOCUMENT as _SCHEMA_DIGITAL_DOCUMENT
+
 # Predicates whose values are free-form prose and should render as a multi-line
 # textarea rather than a single-line input. SHACL has no native "long text" hint,
 # so we derive it from the property's sh:path: these are the description / note /
@@ -128,6 +130,10 @@ class SchemaExtractor:
     def __init__(self, schema_path: str) -> None:
         self.graph = Graph()
         self.graph.parse(schema_path, format="turtle")
+        # rdflib pre-binds 'schema' to https://schema.org/ (TLS variant), which
+        # collides with the schema.ttl @prefix (http://) and mangles CURIEs to
+        # 'schema1:'. Rebind explicitly so compaction matches the schema file.
+        self.graph.bind("schema", "http://schema.org/", override=True, replace=True)
         self._cache: dict[str, dict[str, Any]] | None = None
 
     # ------------------------------------------------------------------
@@ -141,6 +147,30 @@ class SchemaExtractor:
     def get_shape(self, shape_id: str) -> dict[str, Any] | None:
         """Return the descriptor for a single NodeShape by its full URI string, or None."""
         return self._shapes().get(shape_id)
+
+    def find_links_to_shape(self, nested_shape_id: str) -> list[tuple[str, str]]:
+        """Find every shape that links to ``nested_shape_id`` and via which predicate.
+
+        Scans all NodeShape properties for ``sh:node`` references to the given
+        shape, so the *schema* stays the single source of truth for how entities
+        are connected — callers never hardcode parent classes or predicates.
+        Multiple parents are first-class: any shape may declare the link.
+
+        Args:
+            nested_shape_id: Full URI of the linked NodeShape
+                (e.g. ``…/schema/DigitalCopyShape``).
+
+        Returns:
+            Sorted, deduplicated ``[(parent_target_class_uri, link_predicate_uri), …]``;
+            empty when no shape links to it.
+        """
+        links = {
+            (shape["targetClassUri"], prop["pathUri"])
+            for shape in self.get_all_shapes()
+            for prop in shape.get("properties", [])
+            if prop.get("nestedShape") == nested_shape_id and shape.get("targetClassUri")
+        }
+        return sorted(links)
 
     # ------------------------------------------------------------------
     # Internal parsing
@@ -289,6 +319,16 @@ class SchemaExtractor:
             and nested_shape_role is None
         ):
             field_type = "lang-string-list"
+
+        # Step 3: properties whose nested shape targets schema:DigitalDocument are
+        # file uploads — the node is machine-filled by the upload-first flow
+        # (api/files.py), not hand-edited, so the frontend renders a file widget
+        # instead of a bridge-node editor. Schema-driven: ANY shape declaring such
+        # a property gets the widget with no code change.
+        if node is not None and str(g.value(node, SH.targetClass) or "") == str(
+            _SCHEMA_DIGITAL_DOCUMENT
+        ):
+            field_type = "file-list"
 
         datatype_uris = [str(datatype)] if datatype else []
         datatype_uris.extend(str(dt) for dt in datatype_options)

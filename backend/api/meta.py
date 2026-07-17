@@ -3,6 +3,7 @@
 Currently exposes:
   GET /api/meta/prefixes — curated CURIE prefix map (core/prefixes.py).
   GET /api/meta/graphs   — active/named graphs, triple counts, config warnings.
+  GET /api/meta/files    — digital-copy storage stats (staged/registered/orphans).
 
 These back the read-only Data Context Panel (see TODO.md).
 """
@@ -10,6 +11,7 @@ These back the read-only Data Context Panel (see TODO.md).
 from fastapi import APIRouter, HTTPException, Request
 
 from core.config import settings
+from core.file_storage import REGISTERED_PREFIX, STAGED_PREFIX, StorageError
 from core.prefixes import PREFIXES
 
 router = APIRouter()
@@ -79,9 +81,7 @@ def get_graphs(request: Request):
             "SELECT ?g (COUNT(DISTINCT ?o) AS ?literals) "
             "WHERE { GRAPH ?g { ?s ?p ?o } FILTER(isLiteral(?o)) } GROUP BY ?g"
         )
-        default_count = _count(
-            oxigraph.query("SELECT (COUNT(*) AS ?count) WHERE { ?s ?p ?o }")
-        )
+        default_count = _count(oxigraph.query("SELECT (COUNT(*) AS ?count) WHERE { ?s ?p ?o }"))
         # Store-wide distinct totals for the footer. The UNION spans the default
         # graph and every named graph, deduplicating terms shared across graphs —
         # so these can be smaller than the sum of the per-graph columns.
@@ -119,15 +119,11 @@ def get_graphs(request: Request):
     # Lightweight, advisory-only consistency hints (no severity/codes).
     warnings: list[str] = []
     if active_graph is None:
-        warnings.append(
-            "No DATA_GRAPH_URI configured; reads and writes target the default graph."
-        )
+        warnings.append("No DATA_GRAPH_URI configured; reads and writes target the default graph.")
     else:
         active_row = next((g for g in graphs if g["uri"] == active_graph), None)
         if active_row is None or active_row["count"] == 0:
-            warnings.append(
-                f"Active data graph <{active_graph}> is empty or absent in the store."
-            )
+            warnings.append(f"Active data graph <{active_graph}> is empty or absent in the store.")
     if default_count > 0:
         scope = f"<{active_graph}>" if active_graph else "the default graph"
         warnings.append(
@@ -143,4 +139,73 @@ def get_graphs(request: Request):
         "totalObjects": _count(total_distinct_rows, "objects"),
         "totalLiterals": _count(total_literal_rows, "literals"),
         "warnings": warnings,
+    }
+
+
+@router.get("/meta/files")
+def get_file_stats(request: Request):
+    """Return digital-copy storage stats for the Data Context Panel.
+
+    Mirrors the reconciler's view (``scripts/cleanup_files.py``): RDF is the
+    source of truth, storage is compared against it. Orphan counts > 0 signal
+    it is time to run the cleanup script.
+
+    Returns:
+        ``{"configured": bool,
+           "staged":     {"count", "bytes", "oldestAgeS"},
+           "registered": {"count", "bytes"},
+           "linkedNodes": int,          # file nodes reachable from a parent
+           "orphanedNodes": int,        # typed but unlinked (entity deleted)
+           "unreferencedStaged": int,   # abandoned uploads awaiting TTL
+           "unreferencedRegistered": int}``
+
+    ``configured: false`` (storage credentials absent) returns zeroed stats
+    instead of an error so the panel renders in storage-less deployments.
+    """
+    import time
+
+    from api.files import collect_file_state, key_file_id
+
+    if not settings.s3_endpoint:
+        empty = {"count": 0, "bytes": 0}
+        return {
+            "configured": False,
+            "staged": {**empty, "oldestAgeS": None},
+            "registered": empty,
+            "linkedNodes": 0,
+            "orphanedNodes": 0,
+            "unreferencedStaged": 0,
+            "unreferencedRegistered": 0,
+        }
+
+    try:
+        state = collect_file_state(
+            request.app.state.storage,
+            request.app.state.oxigraph,
+            request.app.state.schema_extractor,
+        )
+    except StorageError:
+        raise  # → app-level storage handler (clean 503 + logged cause)
+    except Exception as exc:  # Oxigraph unreachable / malformed response
+        raise HTTPException(status_code=503, detail="Store unavailable") from exc
+
+    now = time.time()
+    staged, registered, linked = state["staged"], state["registered"], state["linked"]
+    staged_ids = {key_file_id(o.key, STAGED_PREFIX) for o in staged}
+    registered_ids = {key_file_id(o.key, REGISTERED_PREFIX) for o in registered}
+    return {
+        "configured": True,
+        "staged": {
+            "count": len(staged),
+            "bytes": sum(o.size for o in staged),
+            "oldestAgeS": round(now - min(o.last_modified for o in staged)) if staged else None,
+        },
+        "registered": {
+            "count": len(registered),
+            "bytes": sum(o.size for o in registered),
+        },
+        "linkedNodes": len(linked),
+        "orphanedNodes": len(state["typed"] - linked),
+        "unreferencedStaged": len(staged_ids - linked),
+        "unreferencedRegistered": len(registered_ids - linked),
     }

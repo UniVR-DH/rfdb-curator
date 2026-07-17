@@ -7,18 +7,30 @@ This module keeps the route handlers and the small request-scoped helpers they n
 import json
 import logging
 import re
+import tempfile
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
-from rdflib import Graph, Literal, URIRef
+from rdflib import XSD, Graph, Literal, URIRef
 
-from core.blank_node_handler import assign_entity_id, skolemize
+from core.blank_node_handler import RFDB_BASE, assign_entity_id, skolemize
 from core.config import settings
+from core.file_storage import registered_key, staged_key
 from core.validation_merge import _build_validation_construct
 from models.data import (
     DataCreateResponse,
     DataListResponse,
     EntityData,
     ValidationResult,
+)
+from models.files import (
+    SCHEMA_CONTENT_SIZE,
+    SCHEMA_CONTENT_URL,
+    SCHEMA_DERIVED_TERMS,
+    SCHEMA_DIGITAL_DOCUMENT,
+    SCHEMA_ENCODING_FORMAT,
+    SCHEMA_NAME,
+    SCHEMA_NUMBER_OF_PAGES,
+    SCHEMA_SHA256,
 )
 
 router = APIRouter()
@@ -97,6 +109,104 @@ def _assert_shape_writable(shape_id: str) -> None:
                 "Write operations are disabled for this shape."
             ),
         )
+
+
+# ---------------------------------------------------------------------------
+# Digital copies (upload-first flow)
+# ---------------------------------------------------------------------------
+
+
+def _reconcile_digital_copies(data_graph: Graph, request: Request) -> list[str]:
+    """Make the server the metadata authority for digital-copy nodes in a payload.
+
+    For every ``schema:DigitalDocument`` subject in ``data_graph``:
+
+    - **registered** object exists → strip the round-tripped metadata triples
+      (store values are authoritative; also avoids duplicate-literal SHACL
+      violations on update);
+    - **staged** object exists → re-derive size/sha256/pages/contentUrl from the
+      actual bytes and replace the payload's values (client prefill is UI-only);
+    - neither → 422 (the staged file expired or was never uploaded).
+
+    Runs BEFORE validation so what is validated is exactly what will be stored.
+
+    Returns:
+        The staged file ids to promote to ``registered/`` after a successful
+        persist.
+
+    Raises:
+        HTTPException 422: malformed node IRI or missing staged object.
+        HTTPException 503: storage not configured.
+    """
+    nodes = list(data_graph.subjects(_RDF_TYPE, URIRef(SCHEMA_DIGITAL_DOCUMENT)))
+    if not nodes:
+        return []
+
+    # Lazy import: api.files imports this module at load time, so importing it
+    # back at module level would be a circular import.
+    from api.files import FILE_ID_RE, derive_metadata, file_content_url
+
+    storage = request.app.state.storage
+    to_promote: list[str] = []
+    for node in nodes:
+        iri = str(node)
+        file_id = iri[len(RFDB_BASE) :] if iri.startswith(RFDB_BASE) else ""
+        if not FILE_ID_RE.match(file_id):
+            raise HTTPException(status_code=422, detail=f"Invalid digital-copy node IRI: {iri}")
+
+        # A StorageError from exists()/open_stream() propagates to the app-level
+        # handler (clean 503). Only "file genuinely absent" is a 422 here.
+        if storage.exists(registered_key(file_id)):
+            for term in (*SCHEMA_DERIVED_TERMS, SCHEMA_NAME):
+                data_graph.remove((node, URIRef(term), None))
+            continue
+        if not storage.exists(staged_key(file_id)):
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Staged file '{file_id}' not found — it may have been "
+                    "cleaned up. Re-upload the file and retry."
+                ),
+            )
+
+        # Staged: spool the object back and re-derive the metadata server-side.
+        with tempfile.TemporaryFile() as spool:
+            for chunk in storage.open_stream(staged_key(file_id)):
+                spool.write(chunk)
+            size, sha256, pages = derive_metadata(spool)
+
+        for term in SCHEMA_DERIVED_TERMS:
+            data_graph.remove((node, URIRef(term), None))
+        data_graph.add((node, URIRef(SCHEMA_ENCODING_FORMAT), Literal("application/pdf")))
+        data_graph.add(
+            (
+                node,
+                URIRef(SCHEMA_CONTENT_URL),
+                Literal(file_content_url(file_id), datatype=XSD.anyURI),
+            )
+        )
+        data_graph.add((node, URIRef(SCHEMA_CONTENT_SIZE), Literal(size)))  # int → xsd:integer
+        data_graph.add((node, URIRef(SCHEMA_SHA256), Literal(sha256)))
+        if pages is not None:
+            data_graph.add((node, URIRef(SCHEMA_NUMBER_OF_PAGES), Literal(pages)))
+        to_promote.append(file_id)
+    return to_promote
+
+
+def _promote_staged_files(request: Request, file_ids: list[str]) -> None:
+    """Move staged objects to ``registered/`` after a successful persist.
+
+    A failed move is logged, not raised: the triples are already persisted, so
+    the file is referenced-but-staged — exactly the state the cleanup script
+    promotes on its next run (crash-safe by design).
+    """
+    for file_id in file_ids:
+        try:
+            request.app.state.storage.move(staged_key(file_id), registered_key(file_id))
+        except Exception:
+            logger.warning(
+                "Failed to promote staged file '%s' — cleanup_files.py will retry", file_id
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -367,6 +477,12 @@ def create_or_update_entity(payload: EntityData, request: Request):
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Invalid JSON-LD: {exc}") from exc
 
+    # Digital copies (upload-first flow): the server is the metadata authority.
+    # Re-derives staged-node metadata / strips registered-node metadata BEFORE
+    # validation, so what is validated is exactly what will be stored. Returns
+    # the staged file ids to promote after a successful persist.
+    files_to_promote = _reconcile_digital_copies(data_graph, request)
+
     entity_uri = URIRef(entity_id) if entity_id.startswith("http") else None
 
     # Collect seed IRIs for shape-driven merge planning.
@@ -484,6 +600,9 @@ def create_or_update_entity(payload: EntityData, request: Request):
                 ) from restore_exc
         raise HTTPException(status_code=503, detail=f"Store write failed: {exc}") from exc
 
+    # Triples are persisted — promote any newly staged digital copies.
+    _promote_staged_files(request, files_to_promote)
+
     return DataCreateResponse(
         success=True,
         entityId=entity_id,
@@ -510,6 +629,11 @@ def delete_entity(
         _assert_shape_writable(shapeId)
     _validate_iri(entity_id)
     oxigraph = request.app.state.oxigraph
+
+    # Digital copies attached to this entity are NOT purged here: their node
+    # triples become orphans (no inbound link) and scripts/cleanup_files.py
+    # collects both the triples and the stored objects. One cleanup mechanism,
+    # no cross-store transaction in the request path.
 
     # TODO: Delete also triples where this entity is the object and related
     #   blank/helper nodes (e.g. skolemized AgentRole nodes exclusively owned

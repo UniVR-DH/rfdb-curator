@@ -183,6 +183,35 @@ class Settings(BaseSettings):
     """
 
     # ------------------------------------------------------------------ #
+    # Object storage (Garage / S3) — source digital copies                 #
+    # ------------------------------------------------------------------ #
+
+    s3_endpoint: str = ""
+    """S3 API endpoint of the Garage service, e.g. ``http://garage:3900``
+    (Docker-internal) or ``http://localhost:3900`` (host). Empty disables
+    file storage; the upload routes then return 503."""
+
+    s3_region: str = "garage"
+    """S3 region name. Garage uses a fixed pseudo-region (``garage`` by
+    default, matching ``s3_region`` in ``garage.toml``)."""
+
+    s3_bucket: str = "sources"
+    """Bucket that holds all source PDF objects. Bootstrapped by
+    ``scripts/garage-init.sh``."""
+
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = ""
+    """Predefined S3 credentials (same values Garage imports via
+    ``garage key import``). Empty by default so non-storage deployments and
+    the test suite start without them; the storage client validates presence
+    lazily on first use."""
+
+    max_upload_mb: int = 500
+    """Per-file upload ceiling in megabytes. Uploads exceeding this are
+    rejected with HTTP 413 (checked while streaming, so an oversize body is
+    never fully buffered). Set to ``0`` to disable the cap entirely."""
+
+    # ------------------------------------------------------------------ #
     # Validators                                                           #
     # ------------------------------------------------------------------ #
 

@@ -37,14 +37,17 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from rdflib.plugins.parsers.notation3 import BadSyntax
 
 from api.data import router as data_router
 from api.entities import router as entities_router
+from api.files import router as files_router
 from api.meta import router as meta_router
 from api.shapes import router as shapes_router
 from api.validate import router as validate_router
 from core.config import settings
+from core.file_storage import StorageError, StorageNotInitialized, build_storage
 from core.logging_config import configure_logging
 from core.oxigraph_client import OxigraphClient
 from core.schema_extractor import SchemaExtractor
@@ -144,6 +147,11 @@ async def lifespan(app: FastAPI):
     )
     logger.info("OxigraphClient initialised (base_url='%s').", settings.oxigraph_url)
 
+    # Object storage for source PDFs. The boto3 client connects lazily on first
+    # use, so this never blocks startup or fails on an unreachable endpoint.
+    app.state.storage = build_storage()
+    logger.info("File storage initialised (endpoint='%s').", settings.s3_endpoint or "<unset>")
+
     # Docker's `depends_on: condition: service_healthy` only proves the
     # Oxigraph process is alive (its healthcheck runs `oxigraph --help`,
     # which never touches the network) — it does not prove the HTTP port
@@ -203,9 +211,66 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Client-facing 503 details, one per StorageError family. Deliberately generic
+# (no internals); the operator hint goes to the backend log only.
+_NOT_INITIALIZED_DETAIL = (
+    "The document-storage component is not correctly initialized. Please consult the backend logs."
+)
+_UNAVAILABLE_DETAIL = (
+    "The document-storage service is temporarily unavailable. Please try again; "
+    "if it persists, consult the backend logs."
+)
+
+# Operator hints (backend log only) — the obvious first thing to try per family.
+_NOT_INITIALIZED_HINT = (
+    "Most common cause: the Garage bucket/access key are not initialized on this "
+    "volume (e.g. a fresh volume or `docker compose down -v`).\n"
+    "  Obvious fix to try first — (re)run the idempotent bootstrap:\n"
+    "      ./scripts/garage-init.sh        (dev, from the repo root)\n"
+    "  It imports the predefined S3 key from .env and grants it on the bucket."
+)
+_UNAVAILABLE_HINT = (
+    "Storage endpoint unreachable or erroring. Check the Garage service is up and "
+    "reachable at S3_ENDPOINT:\n"
+    "      docker compose ps garage && docker compose logs --tail=50 garage"
+)
+
+
+@app.exception_handler(StorageError)
+async def _storage_error_handler(request: Request, exc: StorageError) -> JSONResponse:
+    """Turn any object-storage failure into a clean 503, branched by family.
+
+    The seam (``core.file_storage``) raises a ``StorageError`` subclass — never a
+    raw boto exception — so the curator sees one clear message while the full
+    cause plus the family-specific first-fix hint go to the backend log. Two
+    families need different action:
+
+    * :class:`StorageNotInitialized` — bucket/key/creds not set up → (re)run the
+      bootstrap; retrying won't help.
+    * everything else (:class:`StorageUnavailable`) — endpoint down / transient →
+      check the service is running; may succeed on retry.
+
+    Covers every route that touches storage (upload/stage, download, and the
+    write-path promotion in ``POST /api/data``).
+    """
+    not_initialized = isinstance(exc, StorageNotInitialized)
+    detail = _NOT_INITIALIZED_DETAIL if not_initialized else _UNAVAILABLE_DETAIL
+    hint = _NOT_INITIALIZED_HINT if not_initialized else _UNAVAILABLE_HINT
+    logger.error(
+        "Object storage error on %s %s: %s\n  %s",
+        request.method,
+        request.url.path,
+        exc,
+        hint,
+        exc_info=exc,
+    )
+    return JSONResponse(status_code=503, content={"detail": detail})
+
+
 app.include_router(shapes_router, prefix="/api", tags=["shapes"])
 app.include_router(data_router, prefix="/api", tags=["data"])
 app.include_router(entities_router, prefix="/api", tags=["entities"])
+app.include_router(files_router, prefix="/api", tags=["files"])
 app.include_router(validate_router, prefix="/api", tags=["validation"])
 app.include_router(meta_router, prefix="/api", tags=["meta"])
 
