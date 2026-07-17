@@ -11,6 +11,7 @@
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix rfdb:    <https://rosfeatr.eu/rdf/data/> .
 @prefix rfdbs:   <https://rosfeatr.eu/rdf/schema/> .
+@prefix schema:  <http://schema.org/> .
 @prefix sh:      <http://www.w3.org/ns/shacl#> .
 @prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
 @prefix source:  <https://w3id.org/polifonia/ontology/source/> .
@@ -367,7 +368,72 @@ rfdbs:SourceShape
     sh:nodeKind sh:IRI ;
     sh:node rfdbs:ContributorShape ;
     sh:description "Donor/provider of the digital copy of this source, when distinct from its physical owner (P51_has_former_or_current_owner)." ;
-] .
+  ] ;
+
+  sh:property [
+    sh:path cidoc:P138i_has_representation ;
+    sh:minCount 0 ;
+    sh:nodeKind sh:IRI ;
+    sh:class schema:DigitalDocument ;
+    sh:node rfdbs:DigitalCopyShape ;
+    rdfs:label "Digital copies"@en, "Copie digitali"@it ;
+    sh:description "Digitised copies (PDF scans) of this source (Copie digitali). Managed via the file-upload panel, not the generic form." ;
+  ] .
+
+
+# ================================
+# Shape for Digital Copy (source PDF scan)
+# ================================
+# Written by the file-upload endpoint (api/files.py), NOT the generic form:
+# the PDF bytes are out-of-band.  The shape exists so the resulting triples
+# validate under the same pySHACL pipeline and render in list/context views.
+rfdbs:DigitalCopyShape
+  a sh:NodeShape ;
+  sh:targetClass schema:DigitalDocument ;
+  rdfs:label "Digital copy"@en, "Copia digitale"@it ;
+  sh:description "A digitised copy (PDF scan) of a source, with integrity and provenance metadata."@en ;
+  sh:property [
+    sh:path schema:name ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string ;
+    sh:description "Original filename of the uploaded PDF" ;
+  ] ;
+  sh:property [
+    sh:path schema:encodingFormat ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:hasValue "application/pdf" ;
+    sh:description "MIME type; always application/pdf" ;
+  ] ;
+  sh:property [
+    sh:path schema:contentUrl ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:anyURI ;
+    sh:description "Stable backend-relative download path (/api/sources/{id}/files/{fileId})" ;
+  ] ;
+  sh:property [
+    sh:path schema:contentSize ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:integer ;
+    sh:description "File size in bytes" ;
+  ] ;
+  sh:property [
+    sh:path schema:sha256 ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string ;
+    sh:description "SHA-256 checksum of the file content (integrity / dedup)" ;
+  ] ;
+  sh:property [
+    sh:path schema:numberOfPages ;
+    sh:minCount 0 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:integer ;
+    sh:description "Page count (from pypdf); absent if the PDF could not be parsed" ;
+  ] .
 
 
 # ================================
