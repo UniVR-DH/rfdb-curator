@@ -47,6 +47,7 @@ PREFIXES: dict[str, str] = {
     "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
     "rfdb": "https://rosfeatr.eu/rdf/data/",
     "rfdbs": "https://rosfeatr.eu/rdf/schema/",
+    "schema": "http://schema.org/",
     "sh": "http://www.w3.org/ns/shacl#",
     "skos": "http://www.w3.org/2004/02/skos/core#",
     "source": "https://w3id.org/polifonia/ontology/source/",
