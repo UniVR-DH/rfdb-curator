@@ -1,0 +1,18 @@
+# garage.toml — Garage object-storage config (committed; contains NO secrets).
+#
+# The RPC secret is provided at runtime via the GARAGE_RPC_SECRET env var
+# (Garage reads it when `rpc_secret` is absent here), so this file is safe to
+# commit — same discipline as never committing .env.
+#
+# Single-node dev layout. replication_factor = 1 because there is one node.
+
+metadata_dir       = "/var/lib/garage/meta"
+data_dir           = "/var/lib/garage/data"
+db_engine          = "sqlite"
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+
+[s3_api]
+s3_region     = "garage"
+api_bind_addr = "[::]:3900"

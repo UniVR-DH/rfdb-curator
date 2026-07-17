@@ -46,6 +46,43 @@ services:
       start_period: 5s
 
   # --------------------------------------------------------------------------
+  # Garage — S3-compatible object storage (source PDF scans)
+  # --------------------------------------------------------------------------
+  # A fresh volume comes up empty: no layout, bucket, or key exist yet, and
+  # none can be declared in garage.toml. Run `scripts/garage-init.sh` ONCE
+  # after the first `up` (or after `down -v`) to bootstrap them — it is
+  # idempotent. See that script's header for the why and when.
+  garage:
+    # Pinned like oxigraph:0.5.7 so `docker compose pull` can't shift the S3
+    # API out from under the backend. This image is distroless (only the
+    # /garage binary, no shell) — that's why bootstrap runs from the host.
+    image: dxflrs/garage:v1.0.1
+    container_name: rfdb-garage
+    restart: unless-stopped
+    environment:
+      # Read by Garage because garage.toml omits `rpc_secret` (no secret in git).
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?Set GARAGE_RPC_SECRET in .env}
+    volumes:
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+      - ./garage.toml:/etc/garage.toml:ro
+    ports:
+      # S3 API published on localhost for dev REPL / curl round-trips.
+      # RPC (3901) stays internal — never published.
+      - "3900:3900"
+    healthcheck:
+      # Distroless image: no shell/curl. `garage status` execs the binary
+      # directly (exec form, no shell), reads /etc/garage.toml + the RPC
+      # secret, and exits 0 once the local node's RPC is serving. Liveness
+      # for the RPC layer; the init script re-checks `status` itself before
+      # bootstrapping.
+      test: ["CMD", "/garage", "status"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # --------------------------------------------------------------------------
   # Backend — FastAPI + uvicorn
   # --------------------------------------------------------------------------
   backend:
@@ -61,6 +98,11 @@ services:
         # retry loop (see lifespan in app.py) then waits for the HTTP
         # port to be ready before seeding, giving a two-layer readiness
         # guarantee without needing tools inside the Oxigraph image.
+        condition: service_healthy
+      garage:
+        # Wait for Garage's RPC to be up. The backend's boto3 client connects
+        # lazily, so this only orders startup — a fresh volume still needs a
+        # one-time `scripts/garage-init.sh` before uploads work.
         condition: service_healthy
     environment:
       # Docker-internal hostname — only used inside the container network.
@@ -82,6 +124,15 @@ services:
       SEED_VOCAB_ON_STARTUP: "true"
       # Test fixture data — dev/test only, must be false in production.
       SEED_TEST_DATA_ON_STARTUP: "false"
+      # Object storage (Garage) for source PDF scans. garage-internal hostname;
+      # creds are the predefined key imported by scripts/garage-init.sh.
+      S3_ENDPOINT: "http://garage:3900"
+      S3_REGION: garage
+      S3_BUCKET: "${S3_BUCKET:-sources}"
+      S3_ACCESS_KEY_ID: "${S3_ACCESS_KEY_ID:-}"
+      S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY:-}"
+      # Per-file upload ceiling (MB); 0 disables the cap.
+      MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-500}"
       # Demo mode: block all write/delete API routes when true.
       READ_ONLY: "${READ_ONLY:-false}"
       # Per-shape read-only: JSON array of shape URIs whose records cannot be edited.
@@ -196,3 +247,8 @@ volumes:
     # Run `docker compose down -v` to destroy it along with all containers.
   backend_logs:
     # Persists backend JSON-lines logs across container restarts.
+  garage_meta:
+    # Garage cluster metadata (layout, buckets, keys). Destroyed by
+    # `down -v` — after which you must re-run scripts/garage-init.sh.
+  garage_data:
+    # Garage object data (the stored PDF bytes).
