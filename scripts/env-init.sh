@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# scripts/env-init.sh — generate the DEV .env on first setup (runs on the HOST).
+#
+# WHEN TO RUN
+#   Once, on a fresh checkout before the first `docker compose up`. It writes
+#   the repo-root .env with freshly generated dev secrets.
+#   Idempotent-ish: it REFUSES to clobber an existing .env unless you pass
+#   --force (dev data is disposable, but an accidental regenerate would
+#   invalidate the Garage key already imported into the cluster metadata).
+#
+# WHY IT EXISTS
+#   .env is gitignored (it holds secrets), so a fresh checkout has none. The
+#   dev stack needs the Garage RPC secret and the predefined S3 creds shared by
+#   Garage (key import) and the backend. This mints them with openssl in the
+#   exact format garage-init.sh and the backend expect.
+#
+# NEXT STEP
+#   After this: `docker compose up -d`, then `scripts/garage-init.sh` once to
+#   apply the layout, create the bucket, and import the key.
+#
+# PROD: do not use this file. See .env.prod.example + the prod bootstrap note.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."          # repo root — where .env lives
+
+FORCE=0
+[ "${1-}" = "--force" ] && FORCE=1
+
+if [ -e .env ] && [ "$FORCE" -ne 1 ]; then
+  echo "✗ .env already exists — refusing to overwrite."
+  echo "  Regenerating invalidates the S3 key already imported into Garage."
+  echo "  Re-run with --force if you really want fresh dev secrets (then"
+  echo "  'docker compose down -v' + scripts/garage-init.sh to re-bootstrap)."
+  exit 1
+fi
+
+command -v openssl >/dev/null 2>&1 || { echo "✗ openssl not found on PATH"; exit 1; }
+
+GARAGE_RPC_SECRET="$(openssl rand -hex 32)"          # 64 hex
+S3_ACCESS_KEY_ID="GK$(openssl rand -hex 12)"         # GK + 24 hex
+S3_SECRET_ACCESS_KEY="$(openssl rand -hex 32)"       # 64 hex
+
+cat > .env <<EOF
+# Dev-only secrets. Gitignored (.gitignore line 13). Generated $(date +%F).
+# Regenerate freely — dev data is disposable.
+
+# Garage inter-node RPC secret (openssl rand -hex 32)
+GARAGE_RPC_SECRET=$GARAGE_RPC_SECRET
+
+# Predefined S3 creds shared by Garage (key import) and the backend.
+# ID format: GK + 24 hex. Secret: 64 hex.
+S3_ACCESS_KEY_ID=$S3_ACCESS_KEY_ID
+S3_SECRET_ACCESS_KEY=$S3_SECRET_ACCESS_KEY
+S3_BUCKET=sources
+EOF
+
+chmod 600 .env
+
+echo "✓ wrote .env with fresh dev secrets"
+echo "  next: docker compose up -d  &&  scripts/garage-init.sh"
