@@ -16,6 +16,7 @@
 import { useState } from 'react'
 import { Controller } from 'react-hook-form'
 import { apiClient } from '../api/client.js'
+import Icon from './Icon.jsx'
 import './FileField.css'
 
 function humanSize(bytes) {
@@ -74,11 +75,13 @@ export default function FileField({ field, control }) {
               <ul className="file-field-list">
                 {entries.map((entry) => (
                   <li key={entryId(entry)} className="file-field-item">
+                    <Icon name="FileText" size={15} className="file-field-icon" />
                     <a
                       className="file-field-name"
                       href={apiClient.fileDownloadUrl(entryFileId(entry))}
                       target="_blank"
                       rel="noreferrer"
+                      title={`Download ${entry.name || entryFileId(entry)}`}
                     >
                       {entry.name || entryFileId(entry)}
                     </a>
@@ -99,6 +102,7 @@ export default function FileField({ field, control }) {
               </ul>
             )}
             <label className="btn btn-secondary file-field-upload">
+              <Icon name="Upload" size={14} />
               {busy ? 'Uploading…' : 'Upload PDF'}
               <input type="file" accept="application/pdf" onChange={onUpload} disabled={busy} hidden />
             </label>

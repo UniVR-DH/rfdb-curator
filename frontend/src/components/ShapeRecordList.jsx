@@ -77,7 +77,10 @@ export default function ShapeRecordList({
     }
   }
 
-  const isReadOnly = shape?.readOnly === true
+  // Hide edit/delete for read-only reference vocab AND for helper-bridge shapes
+  // (AgentRole, DigitalCopy) — those are managed only from their parent's form,
+  // so the Records list is browse/view-only.
+  const isReadOnly = shape?.readOnly === true || shape?.shapeRole === 'helper-bridge'
 
   return (
     <div className="record-list">

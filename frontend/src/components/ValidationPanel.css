@@ -75,3 +75,20 @@
   font-family: var(--font-mono);
   font-size: 11px;
 }
+
+/* Linked internal records: an inline, clickable button styled as a link. */
+.triple-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  color: var(--color-ambient-1);
+  text-decoration: none;
+}
+
+.triple-link:hover {
+  color: var(--color-focus);
+  text-decoration: underline;
+}

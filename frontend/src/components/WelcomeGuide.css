@@ -266,6 +266,12 @@
   color: var(--color-focus);
 }
 
+/* Active state for the Data context toggle (rendered as a .nav-help button). */
+.nav-help--active {
+  background: var(--color-focus-glow);
+  color: var(--color-focus);
+}
+
 @keyframes guide-fade {
   from {
     opacity: 0;

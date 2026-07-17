@@ -10,13 +10,20 @@
  *                Both values are compacted to CURIEs via compactIri().
  *
  * Props:
- *   validation  {object|null}  - ValidationResult from the last POST /api/data
- *   record      {object|null}  - The currently selected record {id, label}
+ *   validation  {object|null}   - ValidationResult from the last POST /api/data
+ *   record      {object|null}   - The currently selected record {id, label}
+ *   onNavigate  {function}      - Called with an IRI when a linked internal
+ *                                 record is clicked, to bring up its view.
  */
 import { useEffect, useState } from 'react'
 import { apiClient } from '../api/client.js'
 import { compactIri } from '../utils/prefixes.js'
 import './ValidationPanel.css'
+
+// Instance-data namespace: objects under it are our own records (navigable);
+// everything else (classes, external IRIs, vocab) is shown as plain text.
+const RFDB_BASE = 'https://rosfeatr.eu/rdf/data/'
+const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label'
 
 function renderObjectLabel(triple) {
   if (triple.objectType === 'literal') {
@@ -32,7 +39,7 @@ function renderObjectAnnotation(triple) {
   return null
 }
 
-export default function ValidationPanel({ validation, record }) {
+export default function ValidationPanel({ validation, record, onNavigate }) {
   const [entity, setEntity] = useState(null)
 
   useEffect(() => {
@@ -64,9 +71,22 @@ export default function ValidationPanel({ validation, record }) {
             <span className="triple-object">
               {triples.map((triple, i) => {
                 const annotation = renderObjectAnnotation(triple)
+                const isRecordLink =
+                  triple.objectType !== 'literal' && triple.object.startsWith(RFDB_BASE)
                 return (
                   <span key={i}>
-                    {renderObjectLabel(triple)}
+                    {isRecordLink ? (
+                      <button
+                        type="button"
+                        className="triple-link"
+                        onClick={() => onNavigate?.(triple.object)}
+                        title={`View ${compactIri(triple.object)}`}
+                      >
+                        {compactIri(triple.object)}
+                      </button>
+                    ) : (
+                      renderObjectLabel(triple)
+                    )}
                     {annotation ? (
                       <span className="triple-object-annotation"> {annotation}</span>
                     ) : null}
@@ -88,7 +108,11 @@ export default function ValidationPanel({ validation, record }) {
         {record ? (
           <>
             <p className="inspector-id mono">{compactIri(record.id)}</p>
-            <p className="inspector-label">{record.label ?? 'Untitled record'}</p>
+            <p className="inspector-label">
+              {record.label ??
+                entity?.triples?.find((t) => t.predicate === RDFS_LABEL)?.object ??
+                'Untitled record'}
+            </p>
             {summary}
           </>
         ) : (

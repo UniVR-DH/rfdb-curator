@@ -67,6 +67,7 @@ export default function App() {
   const [recordLoading, setRecordLoading] = useState(false) // true while fetching entity data for editing
   const [guideOpen, setGuideOpen] = useState(false) // first-time curator welcome guide (WEMI overlay)
   const [showContext, setShowContext] = useState(false) // read-only Data Context Panel in the main area
+  const [toast, setToast] = useState('') // transient bottom-right confirmation (e.g. after save)
   // In-memory, same-session draft cache keyed by `shape::<shapeId>`. Single slot per
   // shape form (last state wins), so unsaved input survives shape/record navigation
   // even though ShapeForm re-hydrates via reset() on every shape/record change.
@@ -180,13 +181,30 @@ export default function App() {
     }
   }
 
+  // Auto-dismiss the toast a few seconds after it appears.
+  useEffect(() => {
+    if (!toast) return undefined
+    const timer = setTimeout(() => setToast(''), 3000)
+    return () => clearTimeout(timer)
+  }, [toast])
+
+  // --- Handler: view a record in the inspector (from the list or an inspector link) ---
+  function handleViewRecord(record) {
+    setSelectedRecord(record)
+    setActiveView('records') // view mode — never clobbers an in-progress form edit
+    setShowContext(false)
+  }
+
   // --- Handler: user selects a shape in the sidebar ---
   function handleShapeSelect(shape) {
     setActiveShape(shape)
     setSelectedRecord(null)
     setLoadedRecord(null)
     setValidation(null)
-    setActiveView('form')
+    // Helper-bridge shapes (AgentRole, DigitalCopy) are never edited directly —
+    // they are created/edited from their parent's form. Land on the browse-only
+    // Records view; the Form tab is hidden for them below.
+    setActiveView(shape.shapeRole === 'helper-bridge' ? 'records' : 'form')
     setShowContext(false) // picking a shape leaves the Data Context Panel
   }
 
@@ -211,6 +229,34 @@ export default function App() {
       })
   }, [selectedRecord])
 
+  // Helper-bridge shapes (no rdfs:label — e.g. AgentRole, DigitalCopy) are set
+  // aside at the bottom of the nav and are browse-only; everything else is a
+  // directly-editable entity.
+  const helperShapes = shapes.filter((s) => s.shapeRole === 'helper-bridge')
+  const mainShapes = shapes.filter((s) => s.shapeRole !== 'helper-bridge')
+  const isHelperShape = activeShape?.shapeRole === 'helper-bridge'
+  // Helpers force the Records (browse) view regardless of any stale activeView.
+  const effectiveView = isHelperShape ? 'records' : activeView
+
+  const renderNavItem = (shape) => (
+    <li key={shape.id}>
+      <button
+        className={`nav-item ${activeShape?.id === shape.id ? 'active' : ''} ${
+          shape.readOnly ? 'nav-item--readonly' : ''
+        } ${shape.shapeRole === 'helper-bridge' ? 'nav-item--helper' : ''}`}
+        onClick={() => handleShapeSelect(shape)}
+      >
+        <span className="nav-item-label">{shape.label}</span>
+        <span className="nav-item-right">
+          {shape.readOnly && (
+            <Icon name="Lock" size={11} className="nav-lock-icon" aria-label="Read-only" />
+          )}
+          <span className="nav-count-pill">{formatCount(shapeCounts[shape.id])}</span>
+        </span>
+      </button>
+    </li>
+  )
+
   return (
     <div className="app-layout">
       {/* ── Left navigation ── */}
@@ -218,14 +264,24 @@ export default function App() {
         <div>
           <p className="app-title">RossijskijFeatrDB</p>
           <p className="app-subtitle">Data Editor</p>
-          <button
-            className="nav-help"
-            onClick={() => setGuideOpen(true)}
-            title="How records fit together (WEMI guide)"
-          >
-            <Icon name="CircleHelp" size={14} />
-            Getting started
-          </button>
+          <div className="nav-actions">
+            <button
+              className="nav-help"
+              onClick={() => setGuideOpen(true)}
+              title="How records fit together (WEMI guide)"
+            >
+              <Icon name="CircleHelp" size={14} />
+              Getting started
+            </button>
+            <button
+              className={`nav-help ${showContext ? 'nav-help--active' : ''}`}
+              onClick={() => setShowContext(true)}
+              title="Runtime graph configuration (read-only)"
+            >
+              <Icon name="Database" size={14} />
+              Data context
+            </button>
+          </div>
         </div>
         {loadingShapes ? (
           <p className="nav-loading">Loading shapes…</p>
@@ -237,33 +293,19 @@ export default function App() {
             </button>
           </div>
         ) : (
-          <ul className="shape-nav">
-            {shapes.map((shape) => (
-              <li key={shape.id}>
-                <button
-                  className={`nav-item ${activeShape?.id === shape.id ? 'active' : ''} ${shape.readOnly ? 'nav-item--readonly' : ''}`}
-                  onClick={() => handleShapeSelect(shape)}
-                >
-                  <span className="nav-item-label">{shape.label}</span>
-                  <span className="nav-item-right">
-                    {shape.readOnly && (
-                      <Icon name="Lock" size={11} className="nav-lock-icon" aria-label="Read-only" />
-                    )}
-                    <span className="nav-count-pill">{formatCount(shapeCounts[shape.id])}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="shape-nav">{mainShapes.map(renderNavItem)}</ul>
+            {helperShapes.length > 0 && (
+              <>
+                <div className="nav-divider" role="separator" />
+                <p className="nav-section-label">Managed within records</p>
+                <ul className="shape-nav shape-nav--helpers">
+                  {helperShapes.map(renderNavItem)}
+                </ul>
+              </>
+            )}
+          </>
         )}
-        <button
-          className={`nav-context ${showContext ? 'active' : ''}`}
-          onClick={() => setShowContext(true)}
-          title="Runtime graph configuration (read-only)"
-        >
-          <Icon name="Database" size={14} />
-          Data context
-        </button>
       </nav>
 
       {/* ── Main area with tabbed content + inspector ── */}
@@ -274,25 +316,28 @@ export default function App() {
           <>
             <section className="panel-content">
               <div className="view-tabs" role="tablist" aria-label="Shape view tabs">
+                {/* Helper-bridge shapes are not editable here → no Form tab. */}
+                {!isHelperShape && (
+                  <button
+                    className={`view-tab ${effectiveView === 'form' ? 'active' : ''}`}
+                    role="tab"
+                    aria-selected={effectiveView === 'form'}
+                    onClick={() => setActiveView('form')}
+                  >
+                    Form
+                  </button>
+                )}
                 <button
-                  className={`view-tab ${activeView === 'form' ? 'active' : ''}`}
+                  className={`view-tab ${effectiveView === 'records' ? 'active' : ''}`}
                   role="tab"
-                  aria-selected={activeView === 'form'}
-                  onClick={() => setActiveView('form')}
-                >
-                  Form
-                </button>
-                <button
-                  className={`view-tab ${activeView === 'records' ? 'active' : ''}`}
-                  role="tab"
-                  aria-selected={activeView === 'records'}
+                  aria-selected={effectiveView === 'records'}
                   onClick={() => setActiveView('records')}
                 >
                   Records
                 </button>
               </div>
 
-              {activeView === 'form' ? (
+              {effectiveView === 'form' ? (
                 <div className="panel-form">
                   {/*
                     If editing an existing record, show a loading message until the full entity data is fetched.
@@ -316,12 +361,14 @@ export default function App() {
                       draftValue={draftKey ? drafts[draftKey] : undefined}
                       onDraftChange={handleDraftChange}
                       onValidation={setValidation}
-                      onSaved={() => {
+                      onSaved={(message) => {
+                        // Stay on the form: ShapeForm blanks itself, and a toast
+                        // confirms — no jarring jump to the record list.
                         handleDraftClear(draftKey)
                         setSelectedRecord(null)
                         setLoadedRecord(null)
-                        setRecordsRefreshKey((k) => k + 1)
-                        setActiveView('records')
+                        setRecordsRefreshKey((k) => k + 1) // refresh list + sidebar counts
+                        setToast(message || 'Record saved')
                       }}
                       onReset={() => {
                         handleDraftClear(draftKey)
@@ -343,10 +390,7 @@ export default function App() {
                       setActiveView('form') // Switch to form for editing
                     }}
                     // --- Handler: user clicks eye (see details) button ---
-                    onView={(record) => {
-                      setSelectedRecord(record)
-                      setActiveView('records') // Stay on records tab, just show details
-                    }}
+                    onView={handleViewRecord}
                     onDelete={() => {
                       setRecordsRefreshKey((k) => k + 1)
                     }}
@@ -356,7 +400,11 @@ export default function App() {
             </section>
 
             <aside className="panel-inspector">
-              <ValidationPanel validation={validation} record={selectedRecord} />
+              <ValidationPanel
+                validation={validation}
+                record={selectedRecord}
+                onNavigate={(iri) => handleViewRecord({ id: iri })}
+              />
             </aside>
           </>
         ) : (
@@ -367,6 +415,12 @@ export default function App() {
       </main>
 
       <WelcomeGuide open={guideOpen} onClose={closeGuide} />
+
+      {toast && (
+        <div className="toast" role="status" aria-live="polite">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }

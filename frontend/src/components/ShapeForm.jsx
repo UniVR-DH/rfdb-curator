@@ -352,9 +352,12 @@ export default function ShapeForm({
     let ignore = false
 
     if (!record || !record.id) {
-      // New record: seed lang-string-list fields with one empty row so the
-      // list widget is never blank on a fresh form.
-      const defaults = {}
+      // New/blank record. Seed EVERY field with its empty value (not just the
+      // list widgets) so reset() clears all fields. This matters after editing:
+      // react-hook-form's defaultValues are then the edited record's values, so
+      // a partial reset would leave omitted fields (and a stale @id) populated —
+      // the "edited values linger after save" bug.
+      const defaults = { '@id': undefined }
       for (const field of formSchema.fields) {
         if (field.type === 'lang-string-list') {
           defaults[field.path] = [{ __value: '', __lang: 'en' }]
@@ -363,8 +366,15 @@ export default function ShapeForm({
             __value: '',
             __lang: field.languageTagPolicy === 'required' ? 'en' : '',
           }
-        } else if (field.type === 'uri' && field.maxCount !== 1) {
-          defaults[field.path] = ['']
+        } else if (field.type === 'uri') {
+          defaults[field.path] = field.maxCount !== 1 ? [''] : ''
+        } else if (field.type === 'entity-search') {
+          defaults[field.path] = null
+        } else if (field.type === 'nested' || field.type === 'file-list') {
+          defaults[field.path] = []
+        } else {
+          // text, number, year, temporal, enum, default
+          defaults[field.path] = ''
         }
       }
       if (formSchema.shape.typeOptions?.length > 0) {
@@ -620,7 +630,13 @@ export default function ShapeForm({
 
       const result = await apiClient.createEntity(payload)
       onValidation?.(result.validationReport)
-      if (result.success) onSaved?.()
+      if (result.success) {
+        // Report create vs update before the parent clears the record, then
+        // blank the form in place (resetNonce re-seeds defaults) so the curator
+        // can keep entering records without a jump to the list.
+        onSaved?.(record?.id ? 'Record updated' : 'Record created')
+        setResetNonce((n) => n + 1)
+      }
     } catch (err) {
       setSubmitError(formatApiError(err))
     } finally {
