@@ -51,7 +51,7 @@ const WEMI_STEPS = [
     tag: 'F5 · Item',
     title: 'Source',
     detail:
-      'A physical copy of a printed work held by a library or archive; it exemplifies a Manifestation (lrmoo:R7_exemplifies) and requires a document Type and a holding Organization. One Manifestation can be exemplified by many Sources. To record a staging, add a Performance (F31), which links to two levels: the Work it performed (lrmoo:R80_performed) and the Manifestation used at / made for it (cidoc:P16_used_specific_object / P19_was_intended_use_of).',
+      'A physical copy of a printed work held by a library or archive; it exemplifies a Manifestation (lrmoo:R7_exemplifies) and requires a document Type and a holding Organization. One Manifestation can be exemplified by many Sources. You can attach a digital copy — a scanned PDF — directly from the Source form (cidoc:P138i_has_representation); each is stored as a schema:DigitalDocument. To record a staging, add a Performance (F31), which links to two levels: the Work it performed (lrmoo:R80_performed) and the Manifestation used at / made for it (cidoc:P16_used_specific_object / P19_was_intended_use_of).',
   },
 ]
 
@@ -94,7 +94,7 @@ function WemiDiagram() {
       className="guide-diagram"
       viewBox="0 0 400 416"
       role="img"
-      aria-label="WEMI model with SHACL predicate directions. Every link points child to parent: Expression (F2) points up to its Musical Work (F1) via cidoc P148i is_component_of; Manifestation (F3) points up to Expression via lrmoo R4 embodies; Source/Item (F5) points up to Manifestation via lrmoo R7 exemplifies. Performance (F31) links to two levels: to the Work via lrmoo R80 performed, and to the Manifestation via cidoc P16 used_specific_object or P19 was_intended_use_of."
+      aria-label="WEMI model with SHACL predicate directions. Every WEMI link points child to parent: Expression (F2) points up to its Musical Work (F1) via cidoc P148i is_component_of; Manifestation (F3) points up to Expression via lrmoo R4 embodies; Source/Item (F5) points up to Manifestation via lrmoo R7 exemplifies. Performance (F31) links to two levels: to the Work via lrmoo R80 performed, and to the Manifestation via cidoc P16 used_specific_object or P19 was_intended_use_of. An optional Digital copy (a schema DigitalDocument, i.e. a scanned PDF), shown at right under Performance, attaches to the Source via cidoc P138i has_representation, drawn as a dotted line to mark it as a stored surrogate rather than a WEMI relation."
     >
       <defs>
         <marker
@@ -120,6 +120,16 @@ function WemiDiagram() {
       {/* Source → Manifestation (up): lrmoo:R7_exemplifies */}
       <line x1="78" y1="368" x2="78" y2="296" className="guide-edge" markerEnd="url(#guide-arrow)" />
       {edgeLabel(86, 320, 'lrmoo:', 'R7_exemplifies')}
+      {/* Source → Digital copy: cidoc:P138i_has_representation. Dotted (not the
+          branch dashes, not the spine solid) — a stored surrogate, not a WEMI
+          relation. Right-angle connector into the node's bottom edge. */}
+      <polyline
+        points="148,392 318,392 318,368"
+        className="guide-edge guide-edge--rep"
+        fill="none"
+        markerEnd="url(#guide-arrow)"
+      />
+      {edgeLabel(160, 378, 'cidoc:', 'P138i_has_representation')}
 
       {/* Performance → Work (up): lrmoo:R80_performed — right-angle connector */}
       <polyline
@@ -143,6 +153,7 @@ function WemiDiagram() {
       {box(8, 248, 'F3 · Manifestation', 'Manifestation')}
       {box(8, 368, 'F5 · Item', 'Source / Item')}
       {box(248, 176, 'F31 · Performance', 'Performance')}
+      {box(248, 320, 'schema · Document', 'Digital copy (PDF)')}
     </svg>
   )
 }
@@ -207,6 +218,9 @@ export default function WelcomeGuide({ open, onClose }) {
               Every WEMI link points the same way — <em>child → parent (up)</em>: a Source points up
               to its Manifestation, a Manifestation up to its Expression, and an Expression up to its Work.
               Performance links to two levels — the Work and the Manifestation.
+              A Source may also carry a <em>Digital copy</em> — a scanned PDF attached via
+              cidoc:P138i_has_representation (upload it from the Source form); it is drawn with a
+              dotted line to mark it as a stored surrogate, not a WEMI relation.
               Supporting entities (Place, Person → Agent Role, Subject) feed these forms via
               their dropdowns.
             </p>
