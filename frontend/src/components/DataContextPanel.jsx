@@ -10,6 +10,9 @@
  * Data sources:
  *   - Graphs / counts / warnings: GET /api/meta/graphs (fetched lazily on open,
  *     refetched via the Refresh button).
+ *   - File storage: GET /api/meta/files (same lazy fetch/refresh) — digital-copy
+ *     staged/registered counts and orphan indicators; orphans > 0 means it is
+ *     time to run scripts/cleanup_files.py.
  *   - Prefixes: the already-hydrated prefixMap from utils/prefixes.js (no fetch).
  */
 import { useCallback, useEffect, useState } from 'react'
@@ -24,14 +27,38 @@ function fmt(n) {
   return Number.isFinite(value) ? value.toLocaleString('en-US') : '0'
 }
 
+/** Human-readable byte size for the file-storage stats. */
+function fmtBytes(bytes) {
+  const n = Number(bytes ?? 0)
+  if (!n) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)))
+  const value = n / 1024 ** i
+  return `${i === 0 ? value : value.toFixed(1)} ${units[i]}`
+}
+
+/** Rough age label (e.g. "3 h", "2 d") for the oldest staged file. */
+function fmtAge(seconds) {
+  if (seconds == null) return '—'
+  if (seconds < 3600) return `${Math.max(1, Math.round(seconds / 60))} min`
+  if (seconds < 86400) return `${Math.round(seconds / 3600)} h`
+  return `${Math.round(seconds / 86400)} d`
+}
+
 export default function DataContextPanel() {
   const [context, setContext] = useState(null)
+  const [fileStats, setFileStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   const load = useCallback(() => {
     setLoading(true)
     setError(null)
+    // File stats are auxiliary: a failure there must not blank the graph panel.
+    apiClient
+      .getFileStats()
+      .then(setFileStats)
+      .catch(() => setFileStats(null))
     apiClient
       .getGraphs()
       .then(setContext)
@@ -149,6 +176,56 @@ export default function DataContextPanel() {
           )}
         </section>
       )}
+
+      <section className="dc-section">
+        <h3 className="dc-section-title">File storage</h3>
+        {fileStats == null ? (
+          <p className="dc-muted">File stats unavailable.</p>
+        ) : !fileStats.configured ? (
+          <p className="dc-muted">Object storage not configured (S3_ENDPOINT unset).</p>
+        ) : (
+          <>
+            <table className="dc-table">
+              <thead>
+                <tr>
+                  <th>Area</th>
+                  <th className="dc-num">Files</th>
+                  <th className="dc-num">Size</th>
+                  <th className="dc-num">Unreferenced</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    Staged{' '}
+                    <span className="dc-muted">
+                      (awaiting submit · oldest {fmtAge(fileStats.staged.oldestAgeS)})
+                    </span>
+                  </td>
+                  <td className="dc-num">{fmt(fileStats.staged.count)}</td>
+                  <td className="dc-num">{fmtBytes(fileStats.staged.bytes)}</td>
+                  <td className="dc-num">{fmt(fileStats.unreferencedStaged)}</td>
+                </tr>
+                <tr>
+                  <td>Registered</td>
+                  <td className="dc-num">{fmt(fileStats.registered.count)}</td>
+                  <td className="dc-num">{fmtBytes(fileStats.registered.bytes)}</td>
+                  <td className="dc-num">{fmt(fileStats.unreferencedRegistered)}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p className="dc-muted dc-table-note">
+              {fmt(fileStats.linkedNodes)} digital copies linked in RDF
+              {fileStats.orphanedNodes > 0 && (
+                <> · {fmt(fileStats.orphanedNodes)} orphaned file nodes</>
+              )}
+              . Unreferenced or orphaned entries are collected by{' '}
+              <span className="mono">scripts/cleanup_files.py</span> — run it when these
+              counts grow.
+            </p>
+          </>
+        )}
+      </section>
 
       <section className="dc-section">
         <h3 className="dc-section-title">Prefixes</h3>

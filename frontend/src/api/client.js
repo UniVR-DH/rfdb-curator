@@ -64,6 +64,29 @@ export const apiClient = {
   getPrefixes: () => http.get('/api/meta/prefixes').then((r) => r.data.prefixes),
 
   /**
+   * Stage a PDF (upload-first flow). Returns the prefilled digital-copy node
+   * ({id, fileId, name, contentUrl, contentSize, sha256, numberOfPages}) that
+   * the FileField appends to form state; it becomes a bridge node in the
+   * JSON-LD payload on submit. `file` is a browser File object.
+   */
+  stageFile: (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return http
+      .post('/api/files/staged', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+      .then((r) => r.data)
+  },
+
+  /**
+   * Direct download URL for a stored PDF (for an <a href>).
+   * In dev BASE_URL is '' so it routes through the Vite proxy.
+   */
+  fileDownloadUrl: (fileId) => `${BASE_URL}/api/files/${encodeURIComponent(fileId)}`,
+
+  /** Digital-copy storage stats (staged/registered/orphans) for the Data Context Panel. */
+  getFileStats: () => http.get('/api/meta/files').then((r) => r.data),
+
+  /**
    * Fetch the runtime graph context for the read-only Data Context Panel:
    * active graph URI, named graphs with triple counts, a store-wide total,
    * and advisory config warnings. Store-wide (unscoped) — fetched lazily on

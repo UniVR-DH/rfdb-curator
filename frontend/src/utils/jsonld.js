@@ -221,6 +221,30 @@ function normalizeNestedValue(value) {
 }
 
 /**
+ * Convert a FileField entry (staged-upload response or edit-mode hydration)
+ * into an inline schema:DigitalDocument node. The values are a UI prefill —
+ * the backend re-derives (staged) or ignores (registered) them at write time —
+ * but they must be present and typed so pre-write SHACL validation conforms.
+ */
+function toDigitalCopyNode(entry) {
+  const id = entry?.['@id'] ?? entry?.id
+  if (!id) return undefined
+  const node = {
+    '@id': id,
+    '@type': 'schema:DigitalDocument',
+    'schema:name': String(entry.name ?? ''),
+    'schema:encodingFormat': 'application/pdf',
+    'schema:contentUrl': { '@value': String(entry.contentUrl ?? ''), '@type': 'xsd:anyURI' },
+    'schema:contentSize': { '@value': String(entry.contentSize ?? 0), '@type': 'xsd:integer' },
+    'schema:sha256': String(entry.sha256 ?? ''),
+  }
+  if (entry.numberOfPages != null) {
+    node['schema:numberOfPages'] = { '@value': String(entry.numberOfPages), '@type': 'xsd:integer' }
+  }
+  return node
+}
+
+/**
  * Dispatch a raw form field value to the correct normalisation function based
  * on the field schema `type`.
  *
@@ -230,6 +254,12 @@ function normalizeNestedValue(value) {
  */
 function normalizeFieldValue(field, value) {
   if (isBlank(value)) return undefined
+
+  if (field.type === 'file-list') {
+    const entries = Array.isArray(value) ? value : [value]
+    const items = entries.map((entry) => toDigitalCopyNode(entry)).filter(Boolean)
+    return items.length ? items : undefined
+  }
 
   if (field.type === 'uri' && Array.isArray(value)) {
     const items = value.map((entry) => toTypedLiteral(field, entry)).filter((entry) => !isBlank(entry))

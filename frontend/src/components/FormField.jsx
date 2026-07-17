@@ -34,6 +34,7 @@ import EntitySearch from './EntitySearch.jsx'
  
 import { Controller } from 'react-hook-form'
 
+import FileField from './FileField.jsx'
 import LangStringList from './LangStringList.jsx'
 import UriList from './UriList.jsx'
 import '../components/ShapeForm.css'
@@ -87,6 +88,16 @@ export default function FormField({ field, allShapes, register, control }) {
       <div className="field-group">
         {label}
         <EntitySearch field={field} control={control} />
+      </div>
+    )
+  }
+
+  // ── File upload (digital copies — machine-filled bridge nodes) ─────
+  if (type === 'file-list') {
+    return (
+      <div className="field-group">
+        {label}
+        <FileField field={field} control={control} />
       </div>
     )
   }

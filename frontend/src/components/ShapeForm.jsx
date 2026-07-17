@@ -304,6 +304,13 @@ export default function ShapeForm({
         formData[field.path] = []
       }
 
+      // --- Digital copies (file-list) ---
+      // Same pattern as nested: entries are hydrated asynchronously from the
+      // linked schema:DigitalDocument nodes' own triples.
+      else if (field.type === 'file-list') {
+        formData[field.path] = []
+      }
+
       // --- Temporal (xsd:date / xsd:gYear / xsd:gYearMonth) ---
       else if (field.type === 'temporal') {
         formData[field.path] = tripleToFieldScalarValue(val, field.type, field.languageTagPolicy)
@@ -381,8 +388,9 @@ export default function ShapeForm({
 
     const nestedFields = formSchema.fields.filter((f) => f.type === 'nested')
     const entitySearchFields = formSchema.fields.filter((f) => f.type === 'entity-search')
+    const fileFields = formSchema.fields.filter((f) => f.type === 'file-list')
 
-    if (nestedFields.length === 0 && entitySearchFields.length === 0) {
+    if (nestedFields.length === 0 && entitySearchFields.length === 0 && fileFields.length === 0) {
       // Nothing async needed — reset straight away
       if (!ignore) hydrateReset(mapped)
       return () => {
@@ -450,6 +458,44 @@ export default function ShapeForm({
       mapped[field.path] = entries.filter(Boolean)
     })
 
+    // Step 2b — hydrate file-list entries from the linked digital-copy nodes.
+    // Same fetch pattern as nested bridge entities; each entry becomes the
+    // plain object shape FileField renders and jsonld.js re-emits on submit.
+    const filePromises = fileFields.map(async (field) => {
+      const val = flat[field.path]
+      const rawVals = Array.isArray(val) ? val : val ? [val] : []
+      const iris = rawVals.map((t) => (t?.objectType === 'iri' ? t.object : null)).filter(Boolean)
+
+      const entries = await Promise.all(
+        iris.map(async (iri) => {
+          try {
+            const entity = await apiClient.getEntity(iri)
+            const fileFlat = triplesToFlatObject(entity.triples)
+            const scalar = (key) => {
+              const t = fileFlat[key]
+              const first = Array.isArray(t) ? t[0] : t
+              return first?.object
+            }
+            const fileId = iri.split('/').pop()
+            const pages = scalar('schema:numberOfPages')
+            return {
+              '@id': iri,
+              fileId,
+              name: scalar('schema:name') ?? fileId,
+              contentUrl: scalar('schema:contentUrl') ?? '',
+              contentSize: Number(scalar('schema:contentSize') ?? 0),
+              sha256: scalar('schema:sha256') ?? '',
+              numberOfPages: pages != null ? Number(pages) : null,
+            }
+          } catch {
+            // Skip a broken node rather than blocking the whole form load.
+            return null
+          }
+        })
+      )
+      mapped[field.path] = entries.filter(Boolean)
+    })
+
     // Step 3 — resolve labels for top-level entity-search fields
     const entitySearchPromises = entitySearchFields.map(async (field) => {
       const val = flat[field.path]
@@ -480,7 +526,7 @@ export default function ShapeForm({
       mapped[field.path] = await resolveEntityLabel(iri, field)
     })
 
-    Promise.all([...nestedPromises, ...entitySearchPromises]).then(() => {
+    Promise.all([...nestedPromises, ...filePromises, ...entitySearchPromises]).then(() => {
       if (ignore) return
       hydrateReset(mapped)
     })
