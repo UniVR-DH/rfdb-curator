@@ -1,181 +1,18 @@
-# RFDB CURATOR PROJECT NOTES
+# RFDB Curator — Data Model
 
-This document collects implementation details, modeling notes, operational plans, and roadmap items that are useful for `rfdb-curator` (package names `rfdb-editor-backend` / `rfdb-editor` internally in `backend/pyproject.toml` and `frontend/package.json`) but intentionally kept out of the main `README.md` to keep that file concise.
+This is the RDF/SHACL modeling reference for `rfdb-curator`: the prefix map, the
+ontologies and vocabularies in use, per-shape field definitions, the WEMI layering,
+the bridge-node pattern, and the policies governing literals, language tags, dates,
+and IRIs.
 
-The main README should remain the entry point for setup, core architecture, and daily development. This file can be used as a reference for contributors working on schema extraction, validation behavior, linked-record modeling, metadata panels, and future backend or frontend extensions.
-
-Status of this document:
-
-- it is a technical reference for contributors
-- it complements, but does not replace, `README.md`
-- when behavior in notes and implementation diverges, implementation and README take precedence
-
----
-
-## 1. Purpose of This Document
-
-The main README focuses on the essential project information:
-
-- what the app does
-- how to run it
-- the core architecture
-- the main API endpoints
-- the SHACL-driven form-generation principle
-- the primary data model
-
-This document keeps the remaining useful project-specific information:
-
-- detailed ontology usage
-- shape-specific behavior
-- richer form-generation rules
-- validation nuances
-- planned metadata APIs
-- graph and prefix console design
-- operational constraints
-- known gaps and follow-up work
+The active SHACL schema at `schema/schema.ttl` is the single source of truth. Where
+this document and the schema diverge, the schema (and the implementation) take
+precedence. For how these shapes become forms and how validation runs, see
+[architecture.md](architecture.md).
 
 ---
 
-## 2. Core Architectural Principle
-
-`rfdb-curator` should remain schema-driven.
-
-The frontend should not contain hard-coded assumptions about the current RossijskijFeatrDB entity model unless those assumptions are necessary for usability and are clearly isolated.
-
-The preferred flow is:
-
-```text
-schema/schema.ttl
-    ↓
-backend schema extractor
-    ↓
-normalized form schema
-    ↓
-React dynamic form rendering
-    ↓
-JSON-LD payload
-    ↓
-RDF graph generation
-    ↓
-SHACL validation
-    ↓
-Oxigraph persistence
-```
-
-This separation is important because the RFDB schema may evolve. The editor must remain adaptable when shapes, properties, labels, target classes, or ontology alignments change.
-
----
-
-## 3. Detailed Backend Responsibilities
-
-The backend is responsible for turning RDF and SHACL semantics into stable API structures usable by the frontend.
-
-Expected backend responsibilities include:
-
-- loading the active SHACL schema from `schema/schema.ttl`
-- extracting all `sh:NodeShape` definitions
-- extracting field descriptors from `sh:property` blocks
-- preserving shape labels and descriptions
-- resolving prefixes and compact IRIs
-- detecting target classes
-- detecting field value kind: literal, IRI, linked entity, fixed value
-- detecting cardinality
-- detecting repeatability
-- detecting datatype alternatives from `sh:or`
-- detecting linked shapes from `sh:node`
-- detecting expected target classes from `sh:class`
-- validating submitted payloads with pySHACL
-- merging referenced entities into validation graphs when needed
-- loading RDF data into Oxigraph
-- querying entities by shape
-- providing autocomplete for linked-resource fields
-- returning human-readable validation errors where possible
-- exposing operational metadata, such as prefix maps and named graph status
-
----
-
-## 4. Detailed Frontend Responsibilities
-
-The frontend is responsible for rendering usable editorial workflows from backend-provided shape metadata.
-
-Expected frontend responsibilities include:
-
-- listing available shapes in the navigation
-- showing per-shape entity counts
-- rendering dynamic forms from `/api/forms`
-- showing required fields clearly
-- distinguishing single-valued and repeatable fields
-- supporting language-tagged literal inputs
-- supporting date precision choices
-- supporting IRI inputs and linked-record selectors
-- supporting autocomplete for relation fields
-- preserving `@id` and `@type` during editing
-- showing compact IRIs alongside labels
-- showing form-level and field-level validation errors
-- supporting dry-run validation before save
-- showing RDF triples for record inspection
-- avoiding accidental regeneration of helper-node IRIs on update
-
----
-
-## 5. SHACL Extraction Details
-
-The schema extractor should treat `sh:NodeShape` as the primary source for form definitions.
-
-Important SHACL terms and expected behavior:
-
-```text
-sh:NodeShape
-    Defines a record/form type.
-
-sh:targetClass
-    Defines the RDF class or classes targeted by a shape.
-
-sh:class
-    Defines the expected class of a linked resource or an additional class constraint.
-
-sh:property
-    Defines a form field.
-
-sh:path
-    Defines the RDF predicate for the field.
-
-sh:minCount
-    Defines required cardinality.
-
-sh:maxCount
-    Defines maximum cardinality. `sh:maxCount 1` means single-valued.
-
-sh:datatype
-    Defines literal datatype.
-
-sh:nodeKind sh:IRI
-    Defines IRI-valued fields.
-
-sh:or
-    Defines alternative constraints, often used for alternative literal datatypes.
-
-sh:node
-    Points to another shape, useful for generating linked-record selectors.
-
-sh:description
-    Provides field-level or shape-level help text.
-
-sh:uniqueLang
-    Prevents duplicate language tags for values of the same property.
-
-sh:closed true
-    Indicates that records should not contain properties outside the shape definition.
-
-sh:hasValue
-    Defines a fixed required value, for example a required `rdf:type`.
-```
-
-The extractor should preserve enough information for both rendering and validation feedback.
-
----
-
-## 6. Current Prefix Map
+## Current Prefix Map
 
 The active schema currently declares these prefixes:
 
@@ -210,9 +47,9 @@ The editor should use this prefix map for:
 
 ---
 
-## 7. Ontologies and Vocabularies Used
+## Ontologies and Vocabularies Used
 
-### 7.1 RFDB Namespace
+### RFDB Namespace
 
 ```text
 rfdb: <https://rosfeatr.eu/rdf/data/>
@@ -236,7 +73,7 @@ The current schema does not define custom `rfdb:` predicates.
 
 ---
 
-### 7.2 LRMoo
+### LRMoo
 
 ```text
 lrmoo: <http://iflastandards.info/ns/lrm/lrmoo/>
@@ -269,7 +106,7 @@ Usage:
 
 ---
 
-### 7.3 CIDOC CRM
+### CIDOC CRM
 
 ```text
 cidoc: <http://www.cidoc-crm.org/cidoc-crm/>
@@ -296,7 +133,7 @@ Usage:
 
 ---
 
-### 7.4 Polifonia Core
+### Polifonia Core
 
 ```text
 core: <https://w3id.org/polifonia/ontology/core/>
@@ -342,7 +179,7 @@ Usage:
 
 ---
 
-### 7.5 Polifonia Music Meta
+### Polifonia Music Meta
 
 ```text
 mm: <https://w3id.org/polifonia/ontology/music-meta/>
@@ -361,7 +198,7 @@ Usage:
 
 ---
 
-### 7.6 Polifonia Source
+### Polifonia Source
 
 ```text
 source: <https://w3id.org/polifonia/ontology/source/>
@@ -380,7 +217,7 @@ Usage:
 
 ---
 
-### 7.7 Dublin Core Terms
+### Dublin Core Terms
 
 ```text
 dcterms: <http://purl.org/dc/terms/>
@@ -408,7 +245,7 @@ https://glottolog.org/resource/languoid/id/russ1263
 
 ---
 
-### 7.8 PRISM
+### PRISM
 
 ```text
 prism: <http://prismstandard.org/namespaces/basic/2.0/>
@@ -435,7 +272,7 @@ xsd:gYearMonth
 
 ---
 
-### 7.9 RDF, RDFS, OWL, SKOS, WDT, XSD
+### RDF, RDFS, OWL, SKOS, WDT, XSD
 
 RDF terms:
 
@@ -481,9 +318,9 @@ xsd:gYearMonth
 
 ---
 
-## 8. Shape-Specific Notes
+## Shape-Specific Notes
 
-### 8.1 Place
+### Place
 
 Shape:
 
@@ -505,7 +342,7 @@ Main fields:
 
 ---
 
-### 8.2 Subject
+### Subject
 
 Shape:
 
@@ -528,7 +365,7 @@ Subjects can represent themes, stories, plots, characters, narrative elements, o
 
 ---
 
-### 8.3 Source Type
+### Source Type
 
 Shape:
 
@@ -550,7 +387,7 @@ Main fields:
 
 ---
 
-### 8.4 Musical Work
+### Musical Work
 
 Shape:
 
@@ -581,7 +418,7 @@ Main fields:
 
 ---
 
-### 8.5 Expression
+### Expression
 
 Shape:
 
@@ -605,7 +442,7 @@ Main fields:
 
 ---
 
-### 8.6 Manifestation
+### Manifestation
 
 Shape:
 
@@ -628,7 +465,7 @@ Main fields:
 
 ---
 
-### 8.7 Source / Item
+### Source / Item
 
 Shape:
 
@@ -660,7 +497,7 @@ Main fields:
 
 ---
 
-### 8.8 Person
+### Person
 
 Shape:
 
@@ -683,7 +520,7 @@ Main fields:
 
 ---
 
-### 8.9 Role
+### Role
 
 Shape:
 
@@ -706,7 +543,7 @@ Roles are usually controlled records, for example composer, librettist, translat
 
 ---
 
-### 8.10 Agent Role
+### Agent Role
 
 Shape:
 
@@ -730,7 +567,7 @@ This shape is closed. The editor must avoid adding unsupported properties unless
 
 ---
 
-### 8.11 Holding Organization
+### Holding Organization
 
 Shape:
 
@@ -754,7 +591,7 @@ Main fields:
 
 ---
 
-## 9. Linked-Entity Fields
+## Linked-Entity Fields
 
 Important linked fields and expected UI behavior:
 
@@ -800,7 +637,7 @@ The frontend should support:
 
 ---
 
-## 10. Literal Field Handling
+## Literal Field Handling
 
 Common literal field patterns:
 
@@ -838,7 +675,7 @@ The frontend should distinguish:
 
 ---
 
-## 11. Language-Tagged Values
+## Language-Tagged Values
 
 Fields such as `rdfs:label`, `skos:altLabel`, and `core:text` may require or allow language-tagged strings.
 
@@ -858,7 +695,7 @@ The UI should support:
 
 ---
 
-## 12. Date Precision
+## Date Precision
 
 The schema supports multiple date precisions:
 
@@ -880,7 +717,7 @@ The UI should allow users to preserve the intended precision. Avoid converting a
 
 ---
 
-## 13. IRI Policy
+## IRI Policy
 
 Every persisted RDF resource must have a stable subject IRI.
 
@@ -896,30 +733,7 @@ Requirements:
 
 ---
 
-## 14. Validation Merge Behavior
-
-`POST /api/data` should validate against a graph that includes:
-
-- the submitted payload
-- relevant referenced entities already present in the store
-- transitively linked helper nodes up to a bounded depth
-
-This is necessary for incremental top-down editing.
-
-Example:
-
-```text
-Work
-    → AgentRole
-        → Person
-        → Role
-```
-
-If a later payload references the Work but does not repeat the AgentRole, Person, and Role nodes, validation should still have enough context to avoid false negatives.
-
----
-
-## 15. Class-Targeted Shape Nuance
+## Class-Targeted Shape Nuance
 
 Many shapes use `sh:targetClass`.
 
@@ -932,290 +746,23 @@ Important consequence:
 
 For example, AgentRole payloads should include `core:AgentRole` among their `@type` values.
 
----
-
-## 16. Delete Behavior and Orphaned Helper Nodes
-
-Current planned behavior:
-
-```text
-DELETE /api/data/{entityId}
-```
-
-removes triples where the entity is the subject.
-
-Known issue:
-
-- bridge/helper nodes linked only from the deleted entity may remain orphaned
-- common example: `AgentRole` nodes
-
-Future options:
-
-- cascade delete for helper nodes
-- explicit cleanup endpoint
-- orphan detection job
-- UI warning before delete
-- shape-role policy distinguishing external entities from helper bridges
+For the validation-graph merge behavior that makes incremental top-down editing work,
+see [architecture.md](architecture.md).
 
 ---
 
-## 17. Shape-Role Policy
+## Performance and Contributor Modeling
 
-The editor needs a policy for nested shapes.
+Two modeling choices in `schema/schema.ttl` are intentional and should be preserved unless there is an explicit migration plan:
 
-Important distinction:
+- Performance links use both `cidoc:P19_was_intended_use_of` (strong: the manifestation was made for this performance) and `cidoc:P16_used_specific_object` (weak: the manifestation was merely present or used there). Do not merge these into one property; they encode different evidentiary strength and exact CIDOC-CRM domain/range fit.
+- Source donor/provenance uses `dcterms:contributor`, not `cidoc:P51_has_former_or_current_owner` and not `core:hasAgentRole`. This keeps digital-copy contributor attribution separate from legal ownership and from the open Role vocabulary used for creative/performance attribution. CIDOC-CRM has no simple donor shortcut outside the full acquisition event, so `dcterms:contributor` is the chosen reuse point.
 
-```text
-external entity
-    A reusable entity with independent meaning and lifecycle.
-
-helper bridge
-    A structural node mainly meaningful in relation to another entity.
-```
-
-Examples:
-
-- Person: external entity
-- Role: external entity
-- Place: external entity
-- Holding Organization: external entity
-- AgentRole: likely helper bridge
-
-This distinction affects:
-
-- creation UI
-- deletion behavior
-- update behavior
-- autocomplete
-- cascade cleanup
-- validation graph expansion
+Contributor nodes are constrained via `rfdbs:ContributorShape` to `foaf:Person` or `foaf:Organization`. This is a schema-level guardrail against accidental reuse of `core:Person`/`core:Organization` entities in donor/provenance assertions.
 
 ---
 
-## 18. Planned Data Context Panel
-
-A future read-only UI panel should expose operational context for curators and developers.
-
-Suggested name:
-
-```text
-Data Context
-```
-
-Suggested placement:
-
-```text
-Left sidebar, below shape navigation
-```
-
-The panel should include two tabs:
-
-1. Prefixes
-2. Named Graphs
-
----
-
-## 19. Prefixes Tab
-
-The Prefixes tab should show the complete namespace map used by the editor.
-
-Columns:
-
-- Prefix
-- Namespace IRI
-- Source
-
-Possible sources:
-
-- `schema`
-- `jsonld-context`
-- `runtime`
-
-Features:
-
-- search by prefix
-- search by namespace substring
-- copy namespace IRI
-- copy Turtle prefix declaration
-- warn when prefix mappings differ between schema, JSON-LD context, and runtime configuration
-
-
----
-
-## 20. Named Graphs Tab
-
-The Named Graphs tab should show graph-level operational status.
-
-Header card:
-
-- active graph from `DATA_GRAPH_URI`
-
-Columns:
-
-- Graph IRI
-- Triple count
-- Status
-
-Possible statuses:
-
-- `active`
-- `non-empty`
-- `empty`
-
-The first version should be read-only. It must not expose delete, clear, or destructive graph actions.
-
----
-
-## 21. Metadata API
-
-Read-only metadata endpoints:
-
-```text
-GET /api/meta/prefixes   — shipped
-GET /api/meta/graphs     — planned
-```
-
-### 21.1 Prefix Metadata — Shipped
-
-Endpoint:
-
-```text
-GET /api/meta/prefixes
-```
-
-Implemented in `backend/api/meta.py`, registered in `backend/app.py`, tested in
-`tests/test_api_meta.py`. This was the first milestone of the Data Context Panel
-(§18 below) and also resolved the prefix-map duplication gap between
-`utils/prefixes.js` and `utils/jsonld.js` on the frontend — both now hydrate from
-this single endpoint at app startup (`frontend/src/App.jsx`).
-
-Actual response shape (flatter than originally sketched — a plain object, not an
-array with per-entry `source`/`warnings`):
-
-```json
-{
-  "prefixes": {
-    "rfdb": "https://rosfeatr.eu/rdf/data/",
-    "xsd": "http://www.w3.org/2001/XMLSchema#"
-  }
-}
-```
-
-Derived directly from `request.app.state.schema_extractor.graph.namespaces()` —
-i.e. the schema graph's namespace manager only. The richer shape below (merging
-JSON-LD context and runtime config per-entry, with drift `warnings`) remains a
-possible future enhancement for the Prefixes tab (§19), not yet implemented:
-
-```json
-{
-  "prefixes": [
-    {
-      "prefix": "rfdb",
-      "namespace": "https://rosfeatr.eu/rdf/data/",
-      "source": "schema"
-    }
-  ],
-  "warnings": []
-}
-```
-
-### 21.2 Graph Metadata
-
-Endpoint:
-
-```text
-GET /api/meta/graphs
-```
-
-Example response:
-
-```json
-{
-  "activeGraph": "https://rosfeatr.eu/rdf/graph/",
-  "graphs": [
-    {
-      "graph": "https://rosfeatr.eu/rdf/graph/",
-      "tripleCount": 1234,
-      "status": "active"
-    }
-  ]
-}
-```
-
-Graph list should be computed through SPARQL over named graphs, including per-graph counts.
-
----
-
-## 22. Planned Frontend Components for Data Context
-
-Suggested components:
-
-```text
-DataContextPanel.jsx
-PrefixesTable.jsx
-GraphsTable.jsx
-```
-
-Suggested API client methods:
-
-```text
-getPrefixesMeta()
-getGraphsMeta()
-```
-
-UI principles:
-
-- read-only by default
-- compact monospace IRI display
-- copy buttons for IRIs and prefix declarations
-- visible warning messages for prefix drift
-- no side effects on form state
-- no destructive actions in baseline deployment
-
----
-
-## 23. Data Context Rollout Phases
-
-### Phase 1: Read-Only Visibility
-
-- show prefix table
-- show active data graph
-- show graph counts
-- show prefix consistency warnings
-
-### Phase 2: Operational Guardrails
-
-- show store health indicators
-- show metadata freshness timestamp
-- show schema/context mismatch diagnostics
-- include actionable hints when possible
-
-### Phase 3: Advanced Operations
-
-Optional and gated.
-
-Possible additions:
-
-- graph snapshot export
-- non-destructive graph diagnostics
-- controlled operational utilities
-
-Do not add delete or clear actions unless separately designed and approved.
-
----
-
-## 24. Data Context Acceptance Criteria
-
-- Users can inspect the complete prefix mapping without leaving the editor UI.
-- Users can see exactly which named graph is active.
-- Users can see whether other named graphs contain data.
-- Prefix drift between schema, JSON-LD context, and runtime is surfaced as an explicit warning.
-- The panel remains read-only in baseline deployment.
-- The panel does not affect save, edit, validation, or export flows.
-
----
-
-## 25. Model Alignment Policy
+## Model Alignment Policy
 
 The active model is SHACL-driven and aligned with current schema definitions.
 
@@ -1228,7 +775,7 @@ Project policy:
 
 ---
 
-## 26. Documentation Policy
+## Naming Conventions Across Layers
 
 Documentation should distinguish three levels:
 
@@ -1267,20 +814,3 @@ cidoc:P51_has_former_or_current_owner
 ```
 
 This separation keeps the UI understandable while preserving precise RDF semantics in validation and export.
-
----
-
-## 27. Implementation Priorities
-
-Recommended short-term priorities:
-
-1. Keep the README concise and operational.
-2. Keep this file as a deeper technical reference.
-3. Stabilize the SHACL schema extraction format exposed by `/api/forms`.
-4. Ensure every saved entity preserves stable `@id` and required `@type` values.
-5. Define shape-role policy for helper bridges versus reusable external entities.
-6. Add tests for class-targeted validation behavior.
-7. Add tests for date datatype preservation.
-8. Add tests for language-tagged literals and `sh:uniqueLang`.
-9. Add tests for nested AgentRole editing and update preservation.
-10. Add safe diagnostics before implementing any graph operations.

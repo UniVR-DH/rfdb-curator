@@ -79,8 +79,14 @@ rfdb-curator/
 ├── AGENTS.md                    # Root agent instructions
 ├── .agent-defs/                 # Project-specific agent instructions
 ├── tests/                       # Backend/API validation and integration tests
-├── DEV.md
-├── PROJECT_NOTES.md
+├── docs/                        # Project documentation (see docs/README.md)
+│   ├── README.md                # Documentation index
+│   ├── getting-started.md       # Scope, data model in brief, run local & prod
+│   ├── data-model.md            # RDF/SHACL modeling reference
+│   ├── architecture.md          # System design & storage stack
+│   ├── development.md           # Development workflow
+│   ├── deployment.md            # Production deployment guide
+│   └── roadmap.md               # Planned work & priorities
 ├── TODO.md
 └── README.md
 ```

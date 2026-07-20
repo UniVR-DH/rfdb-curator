@@ -137,26 +137,10 @@ GET /api/shapes
 GET /api/forms?shapeId=...
 ```
 
-### Helper/bridge shapes
+Two behaviors matter when adding or changing a shape, and both are documented elsewhere:
 
-Shape behavior in the UI is schema-driven, not hardcoded per class name.
-
-- If a shape declares a `sh:property` with `sh:path rdfs:label`, the backend classifies it as a standalone `external-entity`.
-- If a shape has no `rdfs:label` property, the backend classifies it as a `helper-bridge` shape.
-- If a parent property uses `sh:node` to point at a `helper-bridge` shape, the form generator exposes that field as a nested inline editor instead of a normal top-level linked entity form.
-
-`rfdbs:AgentRoleShape` is the current example of this pattern. It is referenced from `core:hasAgentRole`, defines no `sh:property` whose `sh:path` is `rdfs:label`, and is therefore edited inline as a bridge between the parent Work/Expression and the linked `Person`/`Role` records.
-
-When changing this behavior, check both the SHACL shape and the resulting `/api/shapes` metadata before changing frontend code. A shape can look label-like because it has a shape-level `rdfs:label` for display, but the classifier only cares whether the shape defines an RDF property with `sh:path rdfs:label`.
-
-### Performance and contributor semantics
-
-Two modeling choices in `schema/schema.ttl` are intentional and should be preserved unless there is an explicit migration plan:
-
-- Performance links use both `cidoc:P19_was_intended_use_of` (strong: the manifestation was made for this performance) and `cidoc:P16_used_specific_object` (weak: the manifestation was merely present or used there). Do not merge these into one property; they encode different evidentiary strength and exact CIDOC-CRM domain/range fit.
-- Source donor/provenance uses `dcterms:contributor`, not `cidoc:P51_has_former_or_current_owner` and not `core:hasAgentRole`. This keeps digital-copy contributor attribution separate from legal ownership and from the open Role vocabulary used for creative/performance attribution. CIDOC-CRM has no simple donor shortcut outside the full acquisition event, so `dcterms:contributor` is the chosen reuse point.
-
-Contributor nodes are constrained via `rfdbs:ContributorShape` to `foaf:Person` or `foaf:Organization`. This is a schema-level guardrail against accidental reuse of `core:Person`/`core:Organization` entities in donor/provenance assertions.
+- **Helper/bridge vs. external-entity classification** — whether a shape renders as a top-level record or as a nested inline editor is derived from the schema (whether it declares an `rdfs:label` property), not hardcoded per class name. Check both the SHACL shape and the resulting `/api/shapes` metadata before changing frontend code. See [architecture.md](architecture.md#helperbridge-shape-classification).
+- **Performance and contributor modeling rationale** — the deliberate use of `cidoc:P19_was_intended_use_of` vs `cidoc:P16_used_specific_object`, and of `dcterms:contributor` with `rfdbs:ContributorShape`, should be preserved unless there is an explicit migration plan. See [data-model.md](data-model.md#performance-and-contributor-modeling).
 
 ---
 
@@ -178,7 +162,7 @@ When the RFDB namespaces change, update these locations together:
 Quick check from repo root:
 
 ```bash
-rg -n 'https://rosfeatr\.eu/rdf/|https://rfdb\.it/data/' schema data backend tests DEV.md AGENTS.md .agent-defs
+rg -n 'https://rosfeatr\.eu/rdf/|https://rfdb\.it/data/' schema data backend tests docs AGENTS.md .agent-defs
 ```
 
 ---
