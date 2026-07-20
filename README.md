@@ -19,6 +19,7 @@ This repository is self-contained: backend, frontend, schema, data, and Docker C
 - Autocomplete for linked RDF resources
 - Record inspection through RDF triples
 - Controlled-vocabulary seeding from Turtle files
+- Digital-copy uploads (e.g. PDF scans) held in S3-compatible object storage, with RDF as the source of truth
 - Docker Compose deployment
 
 ---
@@ -28,6 +29,7 @@ This repository is self-contained: backend, frontend, schema, data, and Docker C
 - **Backend:** FastAPI + uvicorn
 - **Frontend:** React + Vite
 - **RDF Store:** Oxigraph, using SPARQL and Graph Store Protocol
+- **Object Storage:** Garage (S3-compatible), via boto3 — holds digital-copy files
 - **Validation:** pySHACL
 - **RDF/Data Model:** rdflib, Turtle, JSON-LD
 - **Runtime:** Docker Compose
@@ -39,7 +41,7 @@ This repository is self-contained: backend, frontend, schema, data, and Docker C
 ```text
 rfdb-curator/
 ├── backend/
-│   ├── api/                      # Route handlers (data, entities, shapes, validate, meta)
+│   ├── api/                      # Route handlers (data, entities, files, shapes, validate, meta)
 │   ├── core/                     # Core services
 │   │   ├── config.py             # Pydantic settings (env var loading)
 │   │   ├── logging_config.py     # Structured JSON-lines + console logger
@@ -48,7 +50,8 @@ rfdb-curator/
 │   │   ├── shacl_validator.py    # SHACL validation wrapper
 │   │   ├── validation_merge.py   # Shape dependency graph + merged validation
 │   │   ├── blank_node_handler.py # Blank-node skolemization (stable IRIs)
-│   │   └── seeder.py             # Startup data seeder (vocab + optional test data)
+│   │   ├── seeder.py             # Startup data seeder (vocab + optional test data)
+│   │   └── file_storage.py       # S3-compatible object store client (digital copies)
 │   ├── models/                   # Pydantic request/response schemas
 │   │   ├── shapes.py             # Shape and field descriptors
 │   │   └── data.py               # Entity list, counts, and single-entity payloads
@@ -76,6 +79,8 @@ rfdb-curator/
 ├── package.json                  # Root npm scripts/metadata
 ├── requirements.txt              # Documentation only — deps live in backend/pyproject.toml
 ├── docker-compose.yml
+├── garage.toml                  # Object-storage (Garage) configuration
+├── scripts/                     # Host-side helpers (garage-init.sh, env-init.sh)
 ├── AGENTS.md                    # Root agent instructions
 ├── .agent-defs/                 # Project-specific agent instructions
 ├── tests/                       # Backend/API validation and integration tests
@@ -236,7 +241,11 @@ Default policy: seed vocabulary on, seed test data off, preserve existing data o
 | `DELETE` | `/api/data/{entityId}` | Delete triples where the entity is subject |
 | `GET` | `/api/entities/search` | Autocomplete for linked-resource fields |
 | `POST` | `/api/validate` | Dry-run SHACL validation without persisting |
-| `GET` | `/api/meta/prefixes` | Prefix-to-namespace map derived from the parsed schema graph |
+| `POST` | `/api/files/staged` | Stage an uploaded digital copy (e.g. a PDF) before it is attached to a record |
+| `GET` | `/api/files/{fileId}` | Fetch a staged or registered digital-copy file |
+| `GET` | `/api/meta/prefixes` | Curated CURIE prefix-to-namespace map (from `core/prefixes.py`) |
+| `GET` | `/api/meta/graphs` | Named graphs with triple/term counts and advisory config warnings |
+| `GET` | `/api/meta/files` | Digital-copy storage stats (staged/registered/orphans) |
 
 ### Health Check Response
 

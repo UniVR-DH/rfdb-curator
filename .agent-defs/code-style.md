@@ -43,6 +43,6 @@ Introduce new predicates/classes only when existing vocabularies do not cover th
 | Python modules | `snake_case.py` | `validation_merge.py` |
 | Python classes | `PascalCase` | `ShaclValidator` |
 | Python functions / variables | `snake_case` | `merge_related_entities` |
-| RDF resources | `rfdb:PascalCase` | `rfdb:MusicalWorkShape` |
-| SHACL shapes | suffix `Shape` | `rfdb:SourceShape` |
+| RDF data resources | `rfdb:PascalCase` | `rfdb:SanPietroburgo` |
+| SHACL shapes | `rfdbs:` + suffix `Shape` | `rfdbs:SourceShape` |
 | Git branches | `feature/<short-description>` | `feature/add-shape-filter` |

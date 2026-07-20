@@ -2,11 +2,12 @@
 
 ## Purpose
 
-Procedures for diagnosing, starting, and monitoring the standalone runtime stack (backend + frontend + Oxigraph) via Docker Compose.
+Procedures for diagnosing, starting, and monitoring the standalone runtime stack (backend + frontend + Oxigraph + Garage) via Docker Compose.
 
 ## Scope
 
-- Focus on `backend`, `frontend`, and `oxigraph` services.
+- Focus on `backend`, `frontend`, `oxigraph`, and `garage` services.
+- `garage` is the S3-compatible object store for digital copies; the backend depends on it only when file-upload features are exercised.
 - Include additional services only when they are direct dependencies.
 - Use Docker Compose as the primary runtime interface.
 

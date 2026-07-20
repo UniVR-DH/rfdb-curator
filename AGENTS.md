@@ -106,8 +106,8 @@ Full command reference: [.agent-defs/build-commands.md](.agent-defs/build-comman
 - **Python docstrings:** brief purpose + concise variables + optional Example block
 - **Turtle prefixes:** declare all prefixes at the top of every `.ttl` file
 - **Ontology preference:** use terms present in active schema first (LRMoo/CIDOC/Polifonia stack)
-- **SHACL shapes:** suffix with `Shape` (example: `rfdb:MusicalWorkShape`)
-- **RDF resources:** `rfdb:PascalCase` (example: `rfdb:T2`)
+- **SHACL shapes:** `rfdbs:` (schema namespace) + suffix `Shape` (example: `rfdbs:MusicalWorkShape`)
+- **RDF data resources:** `rfdb:PascalCase` (data namespace; example: `rfdb:SanPietroburgo`)
 - **Python modules:** `snake_case.py`
 - **Git branches:** `feature/<short-description>` or `fix/<short-description>`
 

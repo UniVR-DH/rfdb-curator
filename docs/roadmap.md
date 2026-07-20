@@ -1,152 +1,34 @@
 # RFDB Curator — Roadmap
 
 Planned and not-yet-shipped work, kept separate from the descriptions of current
-behavior in [architecture.md](architecture.md). The largest planned effort is the
-**Data Context Panel**; the shipped first milestone of it (the prefix metadata
-endpoint) is documented in [architecture.md](architecture.md). For the live task list
-see the root `TODO.md`.
+behavior in [architecture.md](architecture.md). For the live task list see the root
+`TODO.md`.
 
 ---
 
-## Planned Data Context Panel
+## Data Context Panel
 
-A future read-only UI panel should expose operational context for curators and developers.
+**Status: Phase 1 is shipped.** The read-only Data Context Panel
+(`frontend/src/components/DataContextPanel.jsx`) is live, backed by the three
+`/api/meta/*` endpoints (prefixes, graphs, files) documented in
+[architecture.md](architecture.md). It surfaces the prefix map, the active and named
+graphs with per-graph triple/subject/object/literal counts, digital-copy storage
+stats, and advisory config warnings — all read-only, with no destructive graph
+actions. The remaining phases below are enhancements on top of that baseline.
 
-Suggested name:
+### Remaining enhancements
 
-```text
-Data Context
-```
+Prefixes:
 
-Suggested placement:
+- per-entry `source` attribution (`schema` / `jsonld-context` / `runtime`)
+- explicit prefix-drift warnings when mappings differ between schema, JSON-LD context,
+  and runtime configuration
+- copy Turtle prefix declaration / copy namespace IRI, and search by prefix or
+  namespace substring
 
-```text
-Left sidebar, below shape navigation
-```
+Named graphs:
 
-The panel should include two tabs:
-
-1. Prefixes
-2. Named Graphs
-
----
-
-## Prefixes Tab
-
-The Prefixes tab should show the complete namespace map used by the editor.
-
-Columns:
-
-- Prefix
-- Namespace IRI
-- Source
-
-Possible sources:
-
-- `schema`
-- `jsonld-context`
-- `runtime`
-
-Features:
-
-- search by prefix
-- search by namespace substring
-- copy namespace IRI
-- copy Turtle prefix declaration
-- warn when prefix mappings differ between schema, JSON-LD context, and runtime configuration
-
----
-
-## Named Graphs Tab
-
-The Named Graphs tab should show graph-level operational status.
-
-Header card:
-
-- active graph from `DATA_GRAPH_URI`
-
-Columns:
-
-- Graph IRI
-- Triple count
-- Status
-
-Possible statuses:
-
-- `active`
-- `non-empty`
-- `empty`
-
-The first version should be read-only. It must not expose delete, clear, or destructive graph actions.
-
----
-
-## Graph Metadata — Planned
-
-Endpoint:
-
-```text
-GET /api/meta/graphs
-```
-
-Example response:
-
-```json
-{
-  "activeGraph": "https://rosfeatr.eu/rdf/graph/",
-  "graphs": [
-    {
-      "graph": "https://rosfeatr.eu/rdf/graph/",
-      "tripleCount": 1234,
-      "status": "active"
-    }
-  ]
-}
-```
-
-Graph list should be computed through SPARQL over named graphs, including per-graph counts.
-
-(The already-shipped `GET /api/meta/prefixes` endpoint is documented in
-[architecture.md](architecture.md).)
-
----
-
-## Planned Frontend Components for Data Context
-
-Suggested components:
-
-```text
-DataContextPanel.jsx
-PrefixesTable.jsx
-GraphsTable.jsx
-```
-
-Suggested API client methods:
-
-```text
-getPrefixesMeta()
-getGraphsMeta()
-```
-
-UI principles:
-
-- read-only by default
-- compact monospace IRI display
-- copy buttons for IRIs and prefix declarations
-- visible warning messages for prefix drift
-- no side effects on form state
-- no destructive actions in baseline deployment
-
----
-
-## Data Context Rollout Phases
-
-### Phase 1: Read-Only Visibility
-
-- show prefix table
-- show active data graph
-- show graph counts
-- show prefix consistency warnings
+- richer per-graph status labels beyond the current active/count view
 
 ### Phase 2: Operational Guardrails
 

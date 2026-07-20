@@ -20,47 +20,9 @@
 
 ---
 
-## Planned Feature: Data Context Panel
+## Backlog
 
-A read-only panel exposing the runtime data context. Design and implementation plan:
-`.temp/temp-data-context-panel-20260715.md`. The baseline version remains read-only and
-must not expose destructive graph operations.
-
-Exposed information:
-
-- [x] active prefix mapping — served by `GET /api/meta/prefixes`, hydrated at startup
-- [x] active data graph from `DATA_GRAPH_URI` — via `GET /api/meta/graphs`
-- [x] available named graphs in Oxigraph — via `GET /api/meta/graphs`
-- [x] lightweight graph statistics (triple counts) — via `GET /api/meta/graphs`
-- [x] per-graph distinct subjects / objects / literals (columns in the graphs table) — via `GET /api/meta/graphs`
-- [x] prefix / config consistency warnings — via `GET /api/meta/graphs`
-
-Milestones:
-
-- [x] Backend `GET /api/meta/prefixes` — **shipped** (resolved the prefix-map duplication gap above; `.temp/temp-DONE-prefix-consolidation-20260713.md`)
-- [x] Backend `GET /api/meta/graphs` — **shipped** (`backend/api/meta.py`; 6 tests in `tests/test_api_meta.py`)
-- [x] Frontend read-only `DataContextPanel` — **shipped** (`frontend/src/components/DataContextPanel.{jsx,css}`, wired in `App.jsx`). Live interactive smoke pending the stack run. Plan: `.temp/temp-data-context-panel-20260715.md`.
-
----
-
-## Non-Goals
-
-The initial version does not aim to:
-
-- implement a full ontology editor
-- replace SHACL authoring tools
-- provide complex graph visualization
-- automate ontology migration
-- infer inverse relations unless required by the schema
-- enforce constraints not present in SHACL
-- replace expert data curation
-
-
----
-
-## Editor Features
-
-### a. Core features and bug fixes (from current development)
+### Core features and bug fixes (from current development)
 - [x] `RESET_DATA_ON_STARTUP=true` does not actually reset data when starting via Docker Compose
 - [x] the `owl:sameAs` field allows multiple values (e.g. linking to multiple external authority records)
 - [x] Allow `rdfs:label` / `rdfs:comment` without language tags for generic untranslated values
@@ -90,7 +52,7 @@ The initial version does not aim to:
 - [ ] for a Performance we need to select also the Venue not only the place, but keep the place because we not always know, and for venues consider coordinates
 - [ ] from the inspector sidebar link directly to record view for that entity
 
-### b. Advanced Features (from roadmap)
+### Advanced Features (from roadmap)
 - [x] Welcome / onboarding guide with simple guide on how to use the editor (should be possible to re-open again)
   - [x] First-time curator **WEMI overlay** — dismissible modal with a WEMI graph diagram (Work→Expression→Manifestation→Source, + Performance branch) and the ordered insertion steps; auto-opens on first visit (localStorage `rfdb.guideSeen`), re-openable via the "Getting started" button in the nav. Component: `frontend/src/components/WelcomeGuide.{jsx,css}`, wired in `frontend/src/App.jsx`. Plan: `.temp/temp-curator-welcome-guide-20260716.md`.
 - [ ] Real-time validation (debounced SHACL checking on blur/change)
@@ -113,8 +75,28 @@ The initial version does not aim to:
   - Kept low-risk by the `core/file_storage.py` seam introduced in the upload plan — a later, isolated swap.
 - [ ] model as in corago "Fonte Per" meaning a work is derived from another work
 
+### Data Context Panel (read-only)
 
-### c. Development and Deployment
+A read-only panel exposing the runtime data context. Design and implementation plan:
+`.temp/temp-data-context-panel-20260715.md`. The baseline version remains read-only and
+must not expose destructive graph operations.
+
+Exposed information:
+
+- [x] active prefix mapping — served by `GET /api/meta/prefixes`, hydrated at startup
+- [x] active data graph from `DATA_GRAPH_URI` — via `GET /api/meta/graphs`
+- [x] available named graphs in Oxigraph — via `GET /api/meta/graphs`
+- [x] lightweight graph statistics (triple counts) — via `GET /api/meta/graphs`
+- [x] per-graph distinct subjects / objects / literals (columns in the graphs table) — via `GET /api/meta/graphs`
+- [x] prefix / config consistency warnings — via `GET /api/meta/graphs`
+
+Milestones:
+
+- [x] Backend `GET /api/meta/prefixes` — **shipped** (resolved the prefix-map duplication gap above; `.temp/temp-DONE-prefix-consolidation-20260713.md`)
+- [x] Backend `GET /api/meta/graphs` — **shipped** (`backend/api/meta.py`; 6 tests in `tests/test_api_meta.py`)
+- [x] Frontend read-only `DataContextPanel` — **shipped** (`frontend/src/components/DataContextPanel.{jsx,css}`, wired in `App.jsx`). Live interactive smoke pending the stack run. Plan: `.temp/temp-data-context-panel-20260715.md`.
+
+### Development and Deployment
 - [ ] verify why what is hogging the build and deploy time, especially in the backend, and if it is possible to speed up the build and deploy time
 - [x] fix  warning  Unused eslint-disable directive 
 - [ ] setup auto release to GitHub releases and github package registry
@@ -124,3 +106,17 @@ The initial version does not aim to:
 - [x] pre-commit hook configuration (.pre-commit-config.yaml) — ruff lint + format, opt-in via `pre-commit install`
 - [ ] make a pre-flight check for the backend to ensure that the SHACL shapes are valid and consistent before starting the server and that they do not contain unsupported features or paradgims (e.g., shapes without a targetClass)
 - [ ] **prefix-map sanity check (manual)** — the CURIE map served by `GET /api/meta/prefixes` is a curated list in `backend/core/prefixes.py` (`PREFIXES`); it must be updated whenever a new `@prefix` is added to any TTL file (schema / data / vocab / glottolog). Run `cd backend && uv run python scripts/check_prefixes.py` to verify `PREFIXES` covers every declared prefix (reports missing / mismatched). Consider promoting this to an automated pre-flight/CI check later.
+
+---
+
+## Non-Goals
+
+The initial version does not aim to:
+
+- implement a full ontology editor
+- replace SHACL authoring tools
+- provide complex graph visualization
+- automate ontology migration
+- infer inverse relations unless required by the schema
+- enforce constraints not present in SHACL
+- replace expert data curation

@@ -244,29 +244,20 @@ This distinction affects:
 
 ## Metadata API
 
-Read-only metadata endpoints:
+Three read-only metadata endpoints back the Data Context Panel
+(`frontend/src/components/DataContextPanel.jsx`). All are implemented in
+`backend/api/meta.py`, registered in `backend/app.py`, and covered by
+`tests/test_api_meta.py`.
 
 ```text
-GET /api/meta/prefixes   — shipped
-GET /api/meta/graphs     — planned
+GET /api/meta/prefixes   — curated CURIE prefix map
+GET /api/meta/graphs     — named graphs, triple counts, config warnings
+GET /api/meta/files      — digital-copy storage stats
 ```
 
-### Prefix Metadata — Shipped
+### Prefix Metadata
 
-Endpoint:
-
-```text
-GET /api/meta/prefixes
-```
-
-Implemented in `backend/api/meta.py`, registered in `backend/app.py`, tested in
-`tests/test_api_meta.py`. This was the first milestone of the Data Context Panel
-(see [roadmap.md](roadmap.md)) and also resolved the prefix-map duplication gap between
-`utils/prefixes.js` and `utils/jsonld.js` on the frontend — both now hydrate from
-this single endpoint at app startup (`frontend/src/App.jsx`).
-
-Actual response shape (flatter than originally sketched — a plain object, not an
-array with per-entry `source`/`warnings`):
+`GET /api/meta/prefixes` returns the curated CURIE prefix→namespace map:
 
 ```json
 {
@@ -277,25 +268,66 @@ array with per-entry `source`/`warnings`):
 }
 ```
 
-Derived directly from `request.app.state.schema_extractor.graph.namespaces()` —
-i.e. the schema graph's namespace manager only. The richer shape below (merging
-JSON-LD context and runtime config per-entry, with drift `warnings`) remains a
-possible future enhancement for the [Prefixes tab](roadmap.md), not yet implemented:
+The map is served from the hand-maintained `core.prefixes.PREFIXES` — the union of the
+`@prefix` declarations across the schema, vocab, data, and Glottolog Turtle files —
+**not** from the rdflib schema graph's `namespaces()`. rdflib pre-binds ~29 unrelated
+well-known vocabularies (`brick`, `dcat`, …) into every `Graph`, which would otherwise
+leak into the map; `core/prefixes.py` carries the maintenance note and a sanity check.
+
+This endpoint resolved the prefix-map duplication gap between `utils/prefixes.js` and
+`utils/jsonld.js` on the frontend — both now hydrate from it at app startup
+(`frontend/src/App.jsx`). A richer per-entry shape (merging JSON-LD context and runtime
+config with drift `warnings`) remains a possible future enhancement — see
+[roadmap.md](roadmap.md).
+
+### Graph Metadata
+
+`GET /api/meta/graphs` returns the runtime graph context, read store-wide (its SPARQL
+queries run unscoped, so the panel sees every named graph, not just `DATA_GRAPH_URI`):
 
 ```json
 {
-  "prefixes": [
-    {
-      "prefix": "rfdb",
-      "namespace": "https://rosfeatr.eu/rdf/data/",
-      "source": "schema"
-    }
+  "activeGraph": "https://rosfeatr.eu/rdf/graph/",
+  "graphs": [
+    { "uri": "...", "count": 1234, "subjects": 200, "objects": 800, "literals": 300, "active": true }
   ],
+  "totalTriples": 1234,
+  "totalSubjects": 200,
+  "totalObjects": 800,
+  "totalLiterals": 300,
   "warnings": []
 }
 ```
 
-The planned `GET /api/meta/graphs` endpoint is described in [roadmap.md](roadmap.md).
+Per-graph `subjects`/`objects`/`literals` are distinct-term counts within that graph;
+the store-wide `total*` distinct fields are counted once across all graphs, so they can
+be smaller than the sum of the per-graph columns. `warnings` are advisory-only hints
+(no `DATA_GRAPH_URI` configured, active graph empty or absent, or triples stranded in
+the default graph outside the editor's scoped reads). Returns HTTP 503 if Oxigraph is
+unreachable.
+
+### File Storage Metadata
+
+`GET /api/meta/files` returns digital-copy storage stats, mirroring the reconciler's
+view (`scripts/cleanup_files.py`): RDF is the source of truth, object storage is
+compared against it.
+
+```json
+{
+  "configured": true,
+  "staged":     { "count": 0, "bytes": 0, "oldestAgeS": null },
+  "registered": { "count": 0, "bytes": 0 },
+  "linkedNodes": 0,
+  "orphanedNodes": 0,
+  "unreferencedStaged": 0,
+  "unreferencedRegistered": 0
+}
+```
+
+Non-zero `orphanedNodes`/`unreferenced*` counts signal it is time to run the cleanup
+script. When storage credentials are absent (`S3_ENDPOINT` unset) the endpoint returns
+zeroed stats with `configured: false` instead of erroring, so the panel renders in
+storage-less deployments.
 
 ---
 
@@ -314,10 +346,12 @@ The application runs as a small set of Docker Compose services.
 - **Garage** — an S3-compatible object store for digital copies (uploaded PDFs and
   similar). A digital copy is modeled as a bridge node whose fields are machine-filled:
   a file is staged first (`POST /api/files/staged`), travels in the JSON-LD payload
-  under its schema-declared predicate, and is promoted from `staged/` to `registered/`
-  when the record is persisted. RDF remains the source of truth; object storage is
-  reconciled against it. Garage is wired into dev Compose via `garage.toml` and the
-  host-side `scripts/garage-init.sh`; production hardening lives in the deployment notes.
+  under its schema-declared predicate, is promoted from `staged/` to `registered/`
+  when the record is persisted, and is served back through `GET /api/files/{fileId}`.
+  RDF remains the source of truth; object storage is reconciled against it (see the
+  File Storage Metadata endpoint above and `scripts/cleanup_files.py`). Garage is wired
+  into dev Compose via `garage.toml` and the host-side `scripts/garage-init.sh`;
+  production hardening lives in the deployment notes.
 
 In production a reverse proxy (Caddy) terminates TLS and routes `/` to the frontend and
 `/api` to the backend; Oxigraph and Garage stay internal-only. See

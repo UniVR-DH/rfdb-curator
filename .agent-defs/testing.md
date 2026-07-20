@@ -31,5 +31,4 @@ Test functions should include concise docstrings describing the intent and expec
 
 ## Hook Notes
 
-No repository-managed hook configuration is currently present (no committed `.pre-commit-config.yaml` or `.githooks/`).
-If hook automation is reintroduced, keep this file aligned with the tracked configuration.
+The repo tracks `.pre-commit-config.yaml` (ruff lint + format, scoped to `backend/*.py`). It is **opt-in**: run `pre-commit install` once per clone to activate the git hook, and `pre-commit run --all-files` to run it manually — it is not enforced automatically. See `git-workflow.md` → "Hook Notes" for why the hook runs from `backend/`.
