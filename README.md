@@ -316,6 +316,7 @@ The current schema includes these primary record types:
 - `rfdbs:ExpressionShape`: expression, targeting `lrmoo:F2_Expression`
 - `rfdbs:ManifestationShape`: manifestation, targeting `lrmoo:F3_Manifestation`
 - `rfdbs:SourceShape`: source/item, targeting `source:Source` and `lrmoo:F5_Item`
+- `rfdbs:DigitalCopyShape`: digital copy (PDF scan) of a source, targeting `schema:DigitalDocument` (helper shape, managed via the file-upload panel)
 - `rfdbs:PersonShape`: person, targeting `core:Person`
 - `rfdbs:RoleShape`: role, targeting `core:Role`
 - `rfdbs:AgentRoleShape`: agent-role assignment, targeting `core:AgentRole`

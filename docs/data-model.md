@@ -20,6 +20,8 @@ The active schema currently declares these prefixes:
 @prefix cidoc:   <http://www.cidoc-crm.org/cidoc-crm/> .
 @prefix core:    <https://w3id.org/polifonia/ontology/core/> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix foaf:    <http://xmlns.com/foaf/0.1/> .
+@prefix glottolog: <http://glottolog.org/resource/languoid/id/> .
 @prefix lrmoo:   <http://iflastandards.info/ns/lrm/lrmoo/> .
 @prefix mm:      <https://w3id.org/polifonia/ontology/music-meta/> .
 @prefix owl:     <http://www.w3.org/2002/07/owl#> .
@@ -28,6 +30,7 @@ The active schema currently declares these prefixes:
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix rfdb:    <https://rosfeatr.eu/rdf/data/> .
 @prefix rfdbs:   <https://rosfeatr.eu/rdf/schema/> .
+@prefix schema:  <http://schema.org/> .
 @prefix sh:      <http://www.w3.org/ns/shacl#> .
 @prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
 @prefix source:  <https://w3id.org/polifonia/ontology/source/> .
@@ -86,6 +89,7 @@ lrmoo:F1_Work
 lrmoo:F2_Expression
 lrmoo:F3_Manifestation
 lrmoo:F5_Item
+lrmoo:F31_Performance
 ```
 
 Properties used:
@@ -93,6 +97,7 @@ Properties used:
 ```text
 lrmoo:R4_embodies
 lrmoo:R7_exemplifies
+lrmoo:R80_performed
 ```
 
 Usage:
@@ -103,6 +108,8 @@ Usage:
 - Sources/Items target `lrmoo:F5_Item`.
 - Manifestations embody Expressions through `lrmoo:R4_embodies`.
 - Sources/Items exemplify Manifestations through `lrmoo:R7_exemplifies`.
+- Performances target `lrmoo:F31_Performance`.
+- Performances reference the performed Work through `lrmoo:R80_performed`.
 
 ---
 
@@ -123,6 +130,9 @@ Properties used:
 ```text
 cidoc:P129_is_about
 cidoc:P51_has_former_or_current_owner
+cidoc:P138i_has_representation
+cidoc:P19_was_intended_use_of
+cidoc:P16_used_specific_object
 ```
 
 Usage:
@@ -130,6 +140,8 @@ Usage:
 - Subjects are modeled as `cidoc:E89_Propositional_Object`.
 - Musical Works can point to subjects through `cidoc:P129_is_about`.
 - Sources point to holding organizations through `cidoc:P51_has_former_or_current_owner`.
+- Sources point to their digital copies through `cidoc:P138i_has_representation`.
+- Performances link to manifestations through `cidoc:P19_was_intended_use_of` (strong claim) and `cidoc:P16_used_specific_object` (weak claim).
 
 ---
 
@@ -223,19 +235,28 @@ Usage:
 dcterms: <http://purl.org/dc/terms/>
 ```
 
+Class used:
+
+```text
+dcterms:LinguisticSystem
+```
+
 Properties used:
 
 ```text
 dcterms:date
 dcterms:language
 dcterms:identifier
+dcterms:contributor
 ```
 
 Usage:
 
+- `dcterms:LinguisticSystem` is the target class for controlled-vocabulary Language records (from Glottolog).
 - `dcterms:date` is used for Work dates.
 - `dcterms:language` is used for Source/Item language IRIs.
 - `dcterms:identifier` is used for shelfmarks or call numbers.
+- `dcterms:contributor` records the donor/provider of a Source's digital copy.
 
 The schema suggests Glottolog IRIs for language values, for example:
 
@@ -272,6 +293,76 @@ xsd:gYearMonth
 
 ---
 
+### FOAF
+
+```text
+foaf: <http://xmlns.com/foaf/0.1/>
+```
+
+Classes used:
+
+```text
+foaf:Agent
+foaf:Person
+foaf:Organization
+```
+
+Property used:
+
+```text
+foaf:name
+```
+
+Usage:
+
+- `foaf:Agent` is the Contributor target class; a Contributor is further constrained to `foaf:Person` or `foaf:Organization`.
+- `foaf:name` holds the contributor's full name.
+- FOAF is used deliberately in place of `core:Person`/`core:Organization` to keep donor/provenance identities separate from creative/editorial agents.
+
+---
+
+### Schema.org
+
+```text
+schema: <http://schema.org/>
+```
+
+Class used:
+
+```text
+schema:DigitalDocument
+```
+
+Properties used:
+
+```text
+schema:name
+schema:encodingFormat
+schema:contentUrl
+schema:contentSize
+schema:sha256
+schema:numberOfPages
+```
+
+Usage:
+
+- `schema:DigitalDocument` is the Digital Copy target class (a PDF scan of a Source).
+- `schema:name`, `schema:encodingFormat`, `schema:contentUrl`, `schema:contentSize`, `schema:sha256`, and `schema:numberOfPages` carry the digital copy's filename, MIME type, download path, byte size, checksum, and page count.
+
+---
+
+### Glottolog
+
+```text
+glottolog: <http://glottolog.org/resource/languoid/id/>
+```
+
+Usage:
+
+- Provides the language-identifier IRIs used as `dcterms:language` values on Sources/Items (e.g. `glottolog:russ1263`), seeded into `dcterms:LinguisticSystem` Language records.
+
+---
+
 ### RDF, RDFS, OWL, SKOS, WDT, XSD
 
 RDF terms:
@@ -295,10 +386,11 @@ OWL property:
 owl:sameAs
 ```
 
-SKOS property:
+SKOS properties:
 
 ```text
 skos:altLabel
+skos:prefLabel
 ```
 
 Wikidata direct property:
@@ -311,6 +403,8 @@ XSD datatypes:
 
 ```text
 xsd:string
+xsd:integer
+xsd:anyURI
 xsd:date
 xsd:gYear
 xsd:gYearMonth
@@ -384,6 +478,29 @@ Main fields:
 - `rdfs:label`: required, exactly one
 - `skos:altLabel`: repeatable language-tagged alternate labels
 - `rdfs:comment`: optional, at most one plain string
+
+---
+
+### Language
+
+Shape:
+
+```text
+rfdbs:LanguageShape
+```
+
+Target class:
+
+```text
+dcterms:LinguisticSystem
+```
+
+Main fields:
+
+- `rdfs:label`: required, at least one language-tagged label (`rdf:langString`)
+- `skos:prefLabel`: repeatable language-tagged preferred labels (`rdf:langString`)
+
+Controlled-vocabulary reference data (browse and select only), seeded from Glottolog. Language records are typically locked against create/update/delete via `READ_ONLY_SHAPES`.
 
 ---
 
@@ -494,6 +611,64 @@ Main fields:
 - `rdfs:seeAlso`: repeatable external reference IRIs
 - `rdfs:comment`: optional, at most one note
 - `lrmoo:R7_exemplifies`: optional, at most one Manifestation
+- `dcterms:contributor`: optional, at most one link to a Contributor (donor/provider of the digital copy, when distinct from the physical owner)
+- `cidoc:P138i_has_representation`: repeatable links to Digital Copy records (managed via the file-upload panel, not the generic form)
+
+---
+
+### Digital Copy
+
+Shape:
+
+```text
+rfdbs:DigitalCopyShape
+```
+
+Target class:
+
+```text
+schema:DigitalDocument
+```
+
+Main fields:
+
+- `schema:name`: required, exactly one plain string — original filename of the uploaded PDF
+- `schema:encodingFormat`: required, exactly one, fixed to `application/pdf` (via `sh:hasValue`)
+- `schema:contentUrl`: required, exactly one `xsd:anyURI` — stable backend-relative download path
+- `schema:contentSize`: required, exactly one `xsd:integer` — file size in bytes
+- `schema:sha256`: required, exactly one `xsd:string` — SHA-256 checksum for integrity and dedup
+- `schema:numberOfPages`: optional, at most one `xsd:integer` — page count from pypdf
+
+This is a helper/bridge shape: it has no `rdfs:label` property, so it is edited inline rather than as a standalone record. It is referenced from `rfdbs:SourceShape` via `sh:node` on `cidoc:P138i_has_representation`, and its fields are machine-filled by the upload flow. For how the PDF bytes are staged and stored, see the [Storage and Runtime Stack](architecture.md#storage-and-runtime-stack) and [File Storage Metadata](architecture.md#file-storage-metadata) sections of architecture.md.
+
+---
+
+### Performance
+
+Shape:
+
+```text
+rfdbs:PerformanceShape
+```
+
+Target class:
+
+```text
+lrmoo:F31_Performance
+```
+
+Main fields:
+
+- `rdfs:label`: required, exactly one
+- `lrmoo:R80_performed`: required, one or more links to the performed Musical Work
+- `dcterms:date`: optional, at most one date (`xsd:date`, `xsd:gYear`, or `xsd:gYearMonth`)
+- `core:hasPlace`: optional, at most one Place (performance venue)
+- `core:hasAgentRole`: repeatable links to Agent Role records (conductor, director, cast, etc.)
+- `cidoc:P19_was_intended_use_of`: repeatable links to Manifestation records — STRONG claim, the manifestation was created specifically for this performance
+- `cidoc:P16_used_specific_object`: repeatable links to Manifestation records — WEAK claim, the manifestation was merely present or used at this performance
+- `owl:sameAs`: repeatable external event identifiers (e.g. Corago ID)
+
+The two Manifestation links encode different evidentiary strength and must be kept distinct; see [Performance and Contributor Modeling](#performance-and-contributor-modeling) for the P19-vs-P16 rationale.
 
 ---
 
@@ -591,6 +766,29 @@ Main fields:
 
 ---
 
+### Contributor
+
+Shape:
+
+```text
+rfdbs:ContributorShape
+```
+
+Target class:
+
+```text
+foaf:Agent
+```
+
+Main fields:
+
+- `rdfs:label`: required, exactly one
+- `foaf:name`: required, exactly one
+
+The shape is constrained at the shape level by `sh:or ( [ sh:class foaf:Person ] [ sh:class foaf:Organization ] )`, which surfaces a `typeOptions` dropdown in the UI so the curator picks the concrete class at creation time. It deliberately uses `foaf:*` rather than `core:*` to keep donor/provenance identities structurally separate from composers, librettists, and holding institutions; see [Performance and Contributor Modeling](#performance-and-contributor-modeling) for the rationale.
+
+---
+
 ## Linked-Entity Fields
 
 Important linked fields and expected UI behavior:
@@ -625,6 +823,15 @@ cidoc:P51_has_former_or_current_owner
 
 cidoc:P129_is_about
     Musical Work → Subject
+
+dcterms:language
+    Source / Item → Language
+
+dcterms:contributor
+    Source / Item → Contributor
+
+cidoc:P138i_has_representation
+    Source / Item → Digital Copy
 ```
 
 The frontend should support:
