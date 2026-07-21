@@ -32,7 +32,7 @@
 - [ ] Auto-refresh entity lists (e.g. "has place" relations) when backend data changes behind the scenes
 - [ ] Implement records pagination with default page size 20
 - [ ] Implement smarter search ranking that favors edit distance without relying on server-side cap or limit
-- [ ] Preserve current form/page state on browser reload (survive refresh)
+- [x] Preserve current form/page state on browser reload (survive refresh) — create-form drafts persist to `sessionStorage` with a 1h TTL and survive reload; cleared on submit / Reset or once the TTL lapses (`App.jsx` `loadPersistedDrafts` + persist effect). Note: the active shape/view is not persisted — the form reopens on the first shape, but the saved draft re-applies when you return to that shape.
 - [x] Comment / description fields use a larger textarea instead of single-line input — `longText` derived from SHACL in `schema_extractor.py`, rendered in `FormField.jsx` (fe848de)
 - [ ] Dropdown selections should display both label and comment (not just label) with ellipsis if longer than a certain length, e.g., 100 characters, when available 
 - [x] For shapes using `sh:or` with alternative `sh:class` constraints, render a class-selection dropdown so users can explicitly choose which class branch they are filling
@@ -44,13 +44,13 @@
   - [x] Staging/download routes; write-path re-derivation + promotion (`api/data.py`)
   - [x] `backend/scripts/cleanup_files.py` reconciler + `GET /api/meta/files` + Data Context Panel file stats
   - [x] Frontend `FileField` in the schema-driven form loop (jsonld emission, edit hydration)
-  - [x] Tests `tests/test_digital_copies.py` (16 cases)
-  - [ ] Live end-to-end verification (API + frontend smoke) — Docker was down at implementation time
+  - [x] Tests `tests/test_digital_copies.py` (18 cases)
+  - [x] Live end-to-end verification (API + frontend smoke) — verified working by the user (2026-07-21)
   - [ ] Prod: `garage` in `docker-compose.prod.yml` (internal-only, hardened) + Caddy `request_body max_size` + DEV/DEPLOY/README docs
 - [ ] **OPERATIONAL — run the file-storage cleanup periodically**: `docker compose exec backend python scripts/cleanup_files.py` (add `--dry-run` to preview). Purges abandoned staged uploads (>24h), unreferenced registered files (>24h grace), and orphaned digital-copy nodes. The Data Context Panel "File storage" section shows when counts grow.
 - [x] mapping from xsd language acronym (EN, IT...) to the name — `frontend/src/utils/languages.js` (fe848de)
 - [ ] for a Performance we need to select also the Venue not only the place, but keep the place because we not always know, and for venues consider coordinates
-- [ ] from the inspector sidebar link directly to record view for that entity
+- [x] from the inspector sidebar link directly to record view for that entity — shipped (47e3c4d): inspector IRI objects under the `rfdb:` namespace are clickable to open that record
 
 ### Advanced Features (from roadmap)
 - [x] Welcome / onboarding guide with simple guide on how to use the editor (should be possible to re-open again)

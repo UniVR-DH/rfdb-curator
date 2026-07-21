@@ -38,7 +38,7 @@
  *   3. ValidationPanel shows details for selectedRecord in inspector sidebar.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 import { apiClient } from './api/client.js'
 import Icon from './components/Icon.jsx'
@@ -51,6 +51,32 @@ import { hydratePrefixes } from './utils/prefixes.js'
 
 // localStorage flag: once a curator dismisses the welcome guide it stays closed on reload.
 const GUIDE_SEEN_KEY = 'rfdb.guideSeen'
+
+// sessionStorage key + TTL for create-form drafts (see the `drafts` state below). Drafts let
+// an in-progress *new* form survive both in-app navigation and a browser reload; the TTL
+// drops a stale cache on reload so an abandoned draft can't resurface an hour later.
+const DRAFTS_KEY = 'rfdb.formDrafts'
+const DRAFTS_TTL_MS = 60 * 60 * 1000 // 1 hour
+
+/**
+ * Read persisted create-form drafts from sessionStorage, discarding the whole cache if it
+ * is older than DRAFTS_TTL_MS. sessionStorage can throw (private mode / disabled storage)
+ * and must never block the editor, so every access is guarded and degrades to `{}`.
+ */
+function loadPersistedDrafts() {
+  try {
+    const raw = sessionStorage.getItem(DRAFTS_KEY)
+    if (!raw) return {}
+    const { savedAt, drafts } = JSON.parse(raw)
+    if (!savedAt || Date.now() - savedAt > DRAFTS_TTL_MS) {
+      sessionStorage.removeItem(DRAFTS_KEY)
+      return {}
+    }
+    return drafts && typeof drafts === 'object' ? drafts : {}
+  } catch {
+    return {}
+  }
+}
 
 export default function App() {
   // --- Application state ---
@@ -68,10 +94,11 @@ export default function App() {
   const [guideOpen, setGuideOpen] = useState(false) // first-time curator welcome guide (WEMI overlay)
   const [showContext, setShowContext] = useState(false) // read-only Data Context Panel in the main area
   const [toast, setToast] = useState('') // transient bottom-right confirmation (e.g. after save)
-  // In-memory, same-session draft cache keyed by `shape::<shapeId>`. Single slot per
-  // shape form (last state wins), so unsaved input survives shape/record navigation
-  // even though ShapeForm re-hydrates via reset() on every shape/record change.
-  const [drafts, setDrafts] = useState({})
+  // Draft cache keyed by `shape::<shapeId>`. Single slot per shape form (last state wins),
+  // so unsaved input survives shape/record navigation even though ShapeForm re-hydrates
+  // via reset() on every shape/record change. Seeded from sessionStorage (with a 1h TTL)
+  // so a create form also survives a browser reload; kept in sync by the effect below.
+  const [drafts, setDrafts] = useState(loadPersistedDrafts)
 
   // Draft key for the active shape form. Keyed by shape only (not record) so a draft
   // survives switching away and back; ShapeForm rebinds @id from the live record.
@@ -93,6 +120,32 @@ export default function App() {
       return next
     })
   }, [])
+
+  // Mirror the draft cache into sessionStorage so an in-progress create form survives a
+  // reload. Stamped with `savedAt` for the TTL checked in loadPersistedDrafts(); cleared
+  // outright when the cache empties — which is what onSaved/onReset do via handleDraftClear,
+  // so submitting or clicking Reset also wipes the persisted copy. Guarded because storage
+  // can throw; a failure just means drafts won't outlive the reload.
+  //
+  // The mount run is skipped: loadPersistedDrafts() already seeded state from storage, and
+  // re-stamping here would reset the TTL on every reload. Only genuine edits/clears re-stamp,
+  // so the 1h expiry is measured from the last edit and a bare reload never extends it.
+  const draftsMounted = useRef(false)
+  useEffect(() => {
+    if (!draftsMounted.current) {
+      draftsMounted.current = true
+      return
+    }
+    try {
+      if (Object.keys(drafts).length === 0) {
+        sessionStorage.removeItem(DRAFTS_KEY)
+      } else {
+        sessionStorage.setItem(DRAFTS_KEY, JSON.stringify({ savedAt: Date.now(), drafts }))
+      }
+    } catch {
+      // sessionStorage unavailable (private mode / disabled) — non-fatal.
+    }
+  }, [drafts])
 
   /** Pull per-shape record counts from the backend and sync `shapeCounts`. */
   function refreshShapeCounts() {
