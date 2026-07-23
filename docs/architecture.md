@@ -167,7 +167,7 @@ When changing this behavior, check both the SHACL shape and the resulting `/api/
 
 - the submitted payload
 - relevant referenced entities already present in the store
-- transitively linked helper nodes up to a bounded depth
+- transitively linked helper nodes, bounded by shape connectivity (the shape dependency graph is followed fully, with per-path cycle prevention rather than a fixed depth limit)
 
 This is necessary for incremental top-down editing.
 

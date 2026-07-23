@@ -1,12 +1,12 @@
 # RFDB Curator
 
-Standalone SHACL-driven curation application for RossijskijFeatrDB. 
-[SHACL shapes](https://www.w3.org/TR/shacl12-core/) are aligned with the Polifonia Core Ontology and LRMoo, and the application is designed to support the FRBR-based work-expression-manifestation-item hierarchy.
+Standalone SHACL-driven curation application for RossijskijFeatrDB.
+[SHACL shapes](https://www.w3.org/TR/shacl12-core/) are aligned with the Polifonia Core Ontology and LRMoo to support the FRBR-based work–expression–manifestation–item (WEMI) hierarchy.
 The web application provides shape-aware CRUD, validation, autocomplete, and record inspection for RDF instance data.
 
-Forms are generated dynamically and automatically from the active SHACL schema, so the schema is the source of truth for record types, fields, constraints, datatypes, and relations.
+Forms are generated dynamically and automatically from the active SHACL schema, so **the schema is the source of truth** for record types, fields, constraints, datatypes, and relations. Swap the schema and the whole editor follows — see [The Schema](#the-schema).
 
-This repository is self-contained: backend, frontend, schema, data, and Docker Compose runtime are all maintained at the repository root.
+This repository is self-contained: backend, frontend, schema, data, and the Docker Compose runtime are all maintained at the repository root. For deeper topic guides, see the [documentation](#documentation).
 
 ---
 
@@ -22,8 +22,6 @@ This repository is self-contained: backend, frontend, schema, data, and Docker C
 - Digital-copy uploads (e.g. PDF scans) held in S3-compatible object storage, with RDF as the source of truth
 - Docker Compose deployment
 
----
-
 ## Tech Stack
 
 - **Backend:** FastAPI + uvicorn
@@ -33,68 +31,6 @@ This repository is self-contained: backend, frontend, schema, data, and Docker C
 - **Validation:** pySHACL
 - **RDF/Data Model:** rdflib, Turtle, JSON-LD
 - **Runtime:** Docker Compose
-
----
-
-## Repository Structure
-
-```text
-rfdb-curator/
-├── backend/
-│   ├── api/                      # Route handlers (data, entities, files, shapes, validate, meta)
-│   ├── core/                     # Core services
-│   │   ├── config.py             # Pydantic settings (env var loading)
-│   │   ├── logging_config.py     # Structured JSON-lines + console logger
-│   │   ├── oxigraph_client.py    # Oxigraph HTTP client (SPARQL + bulk load)
-│   │   ├── schema_extractor.py   # SHACL schema index (fields, shape roles, ordering)
-│   │   ├── shacl_validator.py    # SHACL validation wrapper
-│   │   ├── validation_merge.py   # Shape dependency graph + merged validation
-│   │   ├── blank_node_handler.py # Blank-node skolemization (stable IRIs)
-│   │   ├── seeder.py             # Startup data seeder (vocab + optional test data)
-│   │   └── file_storage.py       # S3-compatible object store client (digital copies)
-│   ├── models/                   # Pydantic request/response schemas
-│   │   ├── shapes.py             # Shape and field descriptors
-│   │   └── data.py               # Entity list, counts, and single-entity payloads
-│   ├── app.py                    # FastAPI app + lifespan (startup seeding + settings init)
-│   ├── Dockerfile
-│   ├── .env.example
-│   └── pyproject.toml
-│
-├── frontend/
-│   ├── src/
-│   │   ├── components/           # React UI components (ShapeForm, ShapeRecordList, etc.)
-│   │   ├── api/                  # API client methods
-│   │   └── utils/                # JSON-LD and prefix helpers
-│   ├── Dockerfile
-│   ├── vite.config.js            # Dev server + proxy config (/api → backend:8000)
-│   └── package.json
-│
-├── schema/
-│   └── schema.ttl                # Active SHACL schema
-│
-├── data/
-│   ├── vocab.ttl                 # Controlled-vocabulary seed data
-│   └── data.ttl                  # Optional test fixture data
-│
-├── package.json                  # Root npm scripts/metadata
-├── requirements.txt              # Documentation only — deps live in backend/pyproject.toml
-├── docker-compose.yml
-├── garage.toml                  # Object-storage (Garage) configuration
-├── scripts/                     # Host-side helpers (garage-init.sh, env-init.sh)
-├── AGENTS.md                    # Root agent instructions
-├── .agent-defs/                 # Project-specific agent instructions
-├── tests/                       # Backend/API validation and integration tests
-├── docs/                        # Project documentation (see docs/README.md)
-│   ├── README.md                # Documentation index
-│   ├── getting-started.md       # Scope, data model in brief, run local & prod
-│   ├── data-model.md            # RDF/SHACL modeling reference
-│   ├── architecture.md          # System design & storage stack
-│   ├── development.md           # Development workflow
-│   ├── deployment.md            # Production deployment guide
-│   └── roadmap.md               # Planned work & priorities
-├── TODO.md
-└── README.md
-```
 
 ---
 
@@ -145,12 +81,12 @@ RESET_DATA_ON_STARTUP=true docker compose up --build
 docker compose up --build
 ```
 
-In both modes, the controlled vocabulary from `data/vocab.ttl` is loaded on every startup (idempotent) when `SEED_VOCAB_ON_STARTUP=true`. 
+In both modes, the controlled vocabulary from `data/vocab.ttl` is loaded on every startup (idempotent) when `SEED_VOCAB_ON_STARTUP=true`.
 Test fixture data from `data/data.ttl` is loaded only when `SEED_TEST_DATA_ON_STARTUP=true` (off by default outside test environments).
 
----
+These and all other startup settings are listed under [Configuration](#configuration); seed sources are detailed under [Data Seeding](#data-seeding).
 
-## Service URLs
+### Service URLs
 
 | Service | URL |
 |---|---|
@@ -160,9 +96,49 @@ Test fixture data from `data/data.ttl` is loaded only when `SEED_TEST_DATA_ON_ST
 
 ---
 
+## The Schema
+
+The active SHACL schema lives in `schema/schema.ttl` and is the single source of truth: every record type, form field, constraint, datatype, and relation is derived from it at runtime. **To experiment with a different model, replace `schema/schema.ttl`** (or repoint `SCHEMA_PATH`) — forms, validation, and the record-type list all follow automatically, with no code changes.
+
+### Data Model
+
+The active model uses LRMoo (rather than the older FRBR/FaBiO model) and draws on LRMoo, CIDOC CRM, the Polifonia Core / Music Meta / Source ontologies, Dublin Core Terms, PRISM, SKOS, FOAF, Schema.org, Wikidata direct properties, and RDF/RDFS/OWL/XSD.
+
+LRMoo hierarchy: a **Musical Work** is the abstract work; an **Expression** is an intellectual realization (e.g. a libretto); a **Manifestation** is an edition or product type; a **Source / Item** is a specific physical or documentary copy. Each level refines the one above it, from Work through Expression and Manifestation to Source/Item, and every WEMI link points from the more concrete record up to its parent — so create parents before children.
+
+### Main SHACL Shapes
+
+The current schema includes these primary record types:
+
+- `rfdbs:MusicalWorkShape`: musical work, targeting `mm:MusicEntity`, constrained as `lrmoo:F1_Work`
+- `rfdbs:ExpressionShape`: expression, targeting `lrmoo:F2_Expression`
+- `rfdbs:ManifestationShape`: manifestation, targeting `lrmoo:F3_Manifestation`
+- `rfdbs:SourceShape`: source/item, targeting `source:Source` and `lrmoo:F5_Item`
+- `rfdbs:DigitalCopyShape`: digital copy (PDF scan) of a source, targeting `schema:DigitalDocument` (helper shape, managed via the file-upload panel)
+- `rfdbs:PersonShape`: person, targeting `core:Person`
+- `rfdbs:RoleShape`: role, targeting `core:Role`
+- `rfdbs:AgentRoleShape`: agent-role assignment, targeting `core:AgentRole`
+- `rfdbs:PlaceShape`: place, targeting `core:Place`
+- `rfdbs:SubjectShape`: subject, targeting `cidoc:E89_Propositional_Object`
+- `rfdbs:SourceTypeShape`: source type, targeting `core:Type`
+- `rfdbs:HoldingOrganizationShape`: holding organization, targeting `core:Organization`
+- `rfdbs:ContributorShape`: donor/contributor record for digital-copy provenance
+- `rfdbs:PerformanceShape`: staged performance, targeting `lrmoo:F31_Performance`
+- `rfdbs:LanguageShape`: controlled-vocabulary language record, targeting `dcterms:LinguisticSystem` (seeded from Glottolog, see [Data Seeding](#data-seeding))
+
+### Form Generation
+
+Each `sh:NodeShape` becomes a form type and each `sh:property` becomes a form field. The generator derives required fields from `sh:minCount`, cardinality from `sh:maxCount`, datatypes from `sh:datatype`, IRI-valued fields from `sh:nodeKind`, linked target classes from `sh:class`, nested forms from `sh:node`, alternatives from `sh:or`, fixed values from `sh:hasValue`, help text from `sh:description`, and closed-shape behavior from `sh:closed`.
+
+Shapes with a `sh:property` on `rdfs:label` are treated as standalone entities; shapes without one are helper/bridge nodes rendered inline when referenced by a parent (e.g. `rfdbs:AgentRoleShape`). Shapes whose shape-level `sh:or` branches into multiple `sh:class` alternatives (e.g. `rfdbs:ContributorShape`, `foaf:Person` or `foaf:Organization`) surface a type-selection dropdown at creation time.
+
+> Full modeling reference — per-shape fields, the prefix map, literal/language/date/IRI policies, and modeling patterns (WEMI editorial order, Agent Role, Performance, Donor/Contributor) — is in [docs/data-model.md](docs/data-model.md). The schema-driven extraction and validation pipeline is described in [docs/architecture.md](docs/architecture.md).
+
+---
+
 ## Configuration
 
-All backend settings are loaded from environment variables. No defaults are hardcoded in the Python source. The backend fails fast with a clear validation error if a required variable is missing or has the wrong type.
+All backend settings are loaded from environment variables. No defaults are hardcoded in the Python source; the backend fails fast with a clear validation error if a required variable is missing or has the wrong type.
 
 Configuration source of truth:
 
@@ -170,26 +146,7 @@ Configuration source of truth:
 - Backend settings model: `backend/core/config.py`
 - Backend dependency set: `backend/pyproject.toml`
 
-### Docker Compose (recommended)
-
-Edit the `environment:` block in `docker-compose.yml`. 
-`OXIGRAPH_URL` uses the Docker-internal hostname since backend and store are separate Compose services. 
-`SCHEMA_PATH`/`VOCAB_PATH`/`DATA_PATH` are container paths backed by the `volumes:` mounts — change both together. 
-`RESET_DATA_ON_STARTUP` wipes the store irreversibly; must stay `false` outside dev/test. `SEED_VOCAB_ON_STARTUP` should stay `true` or the store has no schema. 
-`SEED_TEST_DATA_ON_STARTUP` is dev/test only. `READ_ONLY` turns the API into demo mode by rejecting create/update/delete requests with HTTP 403. 
-`TRUNCATE_LOG_ON_STARTUP` clears logs on every restart (off by default, preserves crash history); `TRUNCATE_LOG_ON_FRESH_CONTAINER_START` clears logs only when a new container is created (on by default, avoids inheriting stale logs in the Docker volume).
-
-Inspect backend file logs (Docker volume):
-
-```bash
-docker run --rm -v rfdb_backend_logs:/logs alpine ls -l /logs
-docker run --rm -v rfdb_backend_logs:/logs alpine tail -n 200 /logs/app.jsonl
-```
-
-Use `docker compose logs -f backend` for stdout/stderr logs.
-
-
-### Environment Variables
+For Docker Compose, edit the `environment:` block in `docker-compose.yml`. `OXIGRAPH_URL` uses the Docker-internal hostname since backend and store are separate services; `SCHEMA_PATH`/`VOCAB_PATH`/`DATA_PATH` are container paths backed by the `volumes:` mounts (change both together).
 
 | Variable | Required | Description |
 |---|---|---|
@@ -202,28 +159,27 @@ Use `docker compose logs -f backend` for stdout/stderr logs.
 | `SEED_VOCAB_ON_STARTUP` | Yes | `true`/`false`. Load `VOCAB_PATH` on every startup. Should be `true` in all environments. |
 | `SEED_TEST_DATA_ON_STARTUP` | Yes | `true`/`false`. Load `DATA_PATH` on startup. `true` in dev/test only. |
 | `READ_ONLY` | No | `true`/`false`. When `true`, rejects `POST /api/data` and `DELETE /api/data/{entityId}` with HTTP 403 while keeping read endpoints available. Default: `false`. |
-| `READ_ONLY_SHAPES` | No | JSON array string of shape IRIs to protect from create/update/delete even when `READ_ONLY` is `false`, e.g. `["https://rosfeatr.eu/rdf/schema/LanguageShape"]`. Used to lock down controlled-vocabulary shapes such as `rfdbs:LanguageShape`. Default: `[]`. |
+| `READ_ONLY_SHAPES` | No | JSON array string of shape IRIs to protect from create/update/delete even when `READ_ONLY` is `false`, e.g. `["https://rosfeatr.eu/rdf/schema/LanguageShape"]`. Default: `[]`. |
 | `CORS_ORIGINS` | Yes | JSON array string of allowed CORS origins, e.g. `["http://localhost:5173"]`. |
 | `LOG_FILE` | No | Path to the JSON-lines log file. Default: `logs/app.jsonl`. Parent directory created automatically. |
 | `LOG_LEVEL` | No | Minimum log level for file and console handlers. Default: `INFO`. One of `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. |
+
+Backend log/troubleshooting details are covered in [docs/development.md](docs/development.md); production wiring (Caddy, `docker-compose.prod.yml`) is in [docs/deployment.md](docs/deployment.md).
 
 ---
 
 ## Data Seeding
 
-The application distinguishes between controlled vocabulary and test fixture data.
+The application distinguishes between controlled vocabulary and test fixture data. Default policy: seed vocabulary on, seed test data off, preserve existing data on.
 
 - `data/vocab.ttl` is the canonical seed source for controlled vocabulary (core types and role types).
-- `dcterms:LinguisticSystem` vocabulary relies on [Glottolog v5.3](https://glottolog.org/meta/downloads) data from glottolog.org, imported from `data/glottolog_language.ttl`.
-- Before using `data/glottolog_language.ttl`, normalize prefixes by replacing `geo1:` with `geo:`:
+- `dcterms:LinguisticSystem` vocabulary relies on [Glottolog v5.3](https://glottolog.org/meta/downloads) data, imported from `data/glottolog_language.ttl`. Prefix normalization is already applied to the committed file. Only if you re-download a fresh version from glottolog.org, replace `geo1:` with `geo:`:
 
-```bash
-sed -i '' 's/geo1:/geo:/g' data/glottolog_language.ttl
-```
+  ```bash
+  sed -i '' 's/geo1:/geo:/g' data/glottolog_language.ttl
+  ```
 
 - `data/data.ttl` is test-only fixture data.
-
-Default policy: seed vocabulary on, seed test data off, preserve existing data on.
 
 ---
 
@@ -247,206 +203,54 @@ Default policy: seed vocabulary on, seed test data off, preserve existing data o
 | `GET` | `/api/meta/graphs` | Named graphs with triple/term counts and advisory config warnings |
 | `GET` | `/api/meta/files` | Digital-copy storage stats (staged/registered/orphans) |
 
-### Health Check Response
-
-`GET /health` returns:
-
-```json
-{
-  "status": "ok",
-  "oxigraph": "up" | "down",
-  "seed": { ... } | null
-}
-```
+`GET /health` returns `{ "status": "ok", "oxigraph": "up" | "down", "seed": { ... } | null }`.
 
 ---
 
-## SHACL-Driven Form Generation
+## Documentation
 
-The editor generates forms from the active SHACL schema. Each `sh:NodeShape` becomes a form type; each `sh:property` becomes a form field.
+The root README is the entry point (overview, setup, schema, API, configuration). These topic guides go deeper; where any document and the implementation diverge, the implementation and the active `schema/schema.ttl` take precedence.
 
-The form generator derives:
+| Document | Covers |
+|---|---|
+| [docs/getting-started.md](docs/getting-started.md) | What the editor is for, the WEMI data model in brief, and how to run it locally and in production. |
+| [docs/data-model.md](docs/data-model.md) | RDF/SHACL modeling reference: prefix map, ontologies, per-shape field definitions, and the literal/language/date/IRI policies. |
+| [docs/architecture.md](docs/architecture.md) | System design: the schema-driven pipeline, backend/frontend responsibilities, SHACL extraction, validation and delete behavior, the metadata API, and the storage stack. |
+| [docs/development.md](docs/development.md) | Development workflow: environment setup, code quality, CI, schema and data change workflows, troubleshooting, and the commit checklist. |
+| [docs/deployment.md](docs/deployment.md) | Production deployment on a single Docker host behind Caddy. |
+| [docs/roadmap.md](docs/roadmap.md) | Planned, not-yet-shipped work and short-term priorities. |
 
-- field predicate from `sh:path`
-- required fields from `sh:minCount`
-- single-valued fields from `sh:maxCount 1`
-- repeatable fields when no `sh:maxCount 1` is present
-- literal datatype from `sh:datatype`
-- IRI-valued fields from `sh:nodeKind sh:IRI`
-- linked-resource target classes from `sh:class`
-- linked form shape from `sh:node`
-- alternatives from `sh:or`
-- fixed values from `sh:hasValue`
-- help text from `sh:description`
-- closed-shape behavior from `sh:closed true`
-
-The backend also infers a shape role from the schema. Shapes with a `sh:property` on `rdfs:label` are treated as standalone entities; shapes without one are treated as helper/bridge nodes and rendered inline when referenced by a parent shape. `rfdbs:AgentRoleShape` follows this helper/bridge pattern.
-
-Shapes whose shape-level `sh:or` branches into multiple `sh:class` alternatives (e.g. `rfdbs:ContributorShape`, constrained to `foaf:Person` or `foaf:Organization`) surface a `typeOptions` list; the frontend renders a type-selection dropdown so the user picks the concrete class at creation time.
+The live task list lives in the root `TODO.md`.
 
 ---
 
-## Current Data Model
-
-The active schema uses the following main ontologies and vocabularies:
-
-- LRMoo
-- CIDOC CRM
-- Polifonia Core Ontology
-- Polifonia Music Meta Ontology
-- Polifonia Source Ontology
-- Dublin Core Terms
-- PRISM
-- RDF, RDFS, OWL
-- SKOS
-- Wikidata direct properties
-- XML Schema datatypes
-
-The active model uses LRMoo rather than the older FRBR/FaBiO model.
-
-LRMoo hierarchy: a **Musical Work** is the abstract work; an **Expression** is an intellectual realization (e.g. a libretto); a **Manifestation** is an edition or product type; a **Source / Item** is a specific physical or documentary copy. Each level refines the one above it, from Work through Expression and Manifestation to Source/Item.
-
----
-
-## Main SHACL Shapes
-
-The current schema includes these primary record types:
-
-- `rfdbs:MusicalWorkShape`: musical work, targeting `mm:MusicEntity`, constrained as `lrmoo:F1_Work`
-- `rfdbs:ExpressionShape`: expression, targeting `lrmoo:F2_Expression`
-- `rfdbs:ManifestationShape`: manifestation, targeting `lrmoo:F3_Manifestation`
-- `rfdbs:SourceShape`: source/item, targeting `source:Source` and `lrmoo:F5_Item`
-- `rfdbs:DigitalCopyShape`: digital copy (PDF scan) of a source, targeting `schema:DigitalDocument` (helper shape, managed via the file-upload panel)
-- `rfdbs:PersonShape`: person, targeting `core:Person`
-- `rfdbs:RoleShape`: role, targeting `core:Role`
-- `rfdbs:AgentRoleShape`: agent-role assignment, targeting `core:AgentRole`
-- `rfdbs:PlaceShape`: place, targeting `core:Place`
-- `rfdbs:SubjectShape`: subject, targeting `cidoc:E89_Propositional_Object`
-- `rfdbs:SourceTypeShape`: source type, targeting `core:Type`
-- `rfdbs:HoldingOrganizationShape`: holding organization, targeting `core:Organization`
-- `rfdbs:ContributorShape`: donor/contributor record for digital-copy provenance
-- `rfdbs:PerformanceShape`: staged performance, targeting `lrmoo:F31_Performance`
-- `rfdbs:LanguageShape`: controlled-vocabulary language record, targeting `dcterms:LinguisticSystem` (seeded from Glottolog, see Data Seeding below)
-
----
-
-## Important Modeling Patterns
-
-### Work, Expression, Manifestation, Item
-
-Recommended editorial insertion order:
-
-1. Create the auxiliary entities (`core:Place`, `core:Person`, `cidoc:E89_Propositional_Object` Subjects, `core:Organization`, and the document `core:Type`) — they populate the dropdowns used below.
-2. Create the Musical Work (`lrmoo:F1_Work`, `mm:MusicEntity`).
-3. Create the Expression (`lrmoo:F2_Expression`), linked to its parent Work via `cidoc:P148i_is_component_of` (e.g. the libretto of the opera).
-4. Create the Manifestation (`lrmoo:F3_Manifestation`), linked to the Expression via `lrmoo:R4_embodies`.
-5. Create the Source / Item (`source:Source`, `lrmoo:F5_Item`), linked to the Manifestation via `lrmoo:R7_exemplifies` (one Manifestation can have many Sources).
-
-Every WEMI link points from the more concrete record up to its parent (`cidoc:P148i_is_component_of`, `lrmoo:R4_embodies`, `lrmoo:R7_exemplifies`), so create parents before children. This keeps identifiers stable and makes validation errors easier to localize. The editor also supports incremental cascade insertion — you can create a parent and inline-create its nested referenced entities in one payload.
-
-`POST /api/data` validates against a merged graph that includes referenced entities already present in the store. Merge expansion is transitive and depth-bounded, so helper nodes (e.g. `AgentRole` → `Person`/`Role`) linked behind referenced Work/Expression nodes are included during validation. This avoids false SHACL negatives in top-down incremental flows when nested linked nodes are not repeated in every later payload.
-
-### Agent Role
-
-The schema represents contributor roles through `core:AgentRole` bridge records:
+## Repository Structure
 
 ```text
-Work or Expression
-    → core:hasAgentRole
-        → Agent Role
-            → core:hasAgent → Person
-            → core:hasRole  → Role
+rfdb-curator/
+├── backend/
+│   ├── api/                      # Route handlers (data, entities, files, shapes, validate, meta)
+│   ├── core/                     # Core services (config, Oxigraph client, schema extractor,
+│   │                             #   SHACL validator, validation merge, seeder, file storage)
+│   ├── models/                   # Pydantic request/response schemas
+│   ├── app.py                    # FastAPI app + lifespan (startup seeding + settings init)
+│   ├── Dockerfile
+│   └── pyproject.toml
+│
+├── frontend/
+│   ├── src/                      # React components, API client, JSON-LD/prefix utils
+│   ├── Dockerfile
+│   ├── vite.config.js            # Dev server + proxy config (/api → backend:8000)
+│   └── package.json
+│
+├── schema/schema.ttl             # Active SHACL schema (source of truth)
+├── data/                         # vocab.ttl (controlled vocabulary) + data.ttl (test fixtures)
+├── docs/                         # Topic documentation (see the Documentation section)
+├── docker-compose.yml
+├── garage.toml                   # Object-storage (Garage) configuration
+├── scripts/                      # Host-side helpers (garage-init.sh, env-init.sh)
+├── AGENTS.md / .agent-defs/      # Agent instructions
+├── tests/                        # Backend/API validation and integration tests
+├── TODO.md
+└── README.md
 ```
-
-The editor preserves stable IRIs for helper or bridge records during updates.
-
-### Performance Modeling
-
-Staged performances are modeled as `lrmoo:F31_Performance`, linked to a Work via `lrmoo:R80_performed`.
-Date, venue, and personnel are attached on the performance itself, and personnel reuse the existing
-`core:hasAgentRole` + `rfdb:AgentRoleShape` bridge pattern already used for composer/librettist attribution.
-
-Performance-to-manifestation links intentionally keep two evidentiary strengths separate:
-
-- `cidoc:P19_was_intended_use_of`: stronger claim, when a manifestation was created for that specific performance.
-- `cidoc:P16_used_specific_object`: weaker claim, when a manifestation was used/present, without asserting why it was created.
-
-These are distinct, standards-based CIDOC-CRM relations chosen for exact domain/range fit, rather than one convenient property stretched across two different evidentiary strengths.
-
-### Donor/Contributor Modeling
-
-Digital-copy donor/provenance attribution uses `dcterms:contributor` and is deliberately separate from:
-
-- `cidoc:P51_has_former_or_current_owner` (legal ownership of the physical object)
-- `core:hasAgentRole` contributor-role attribution used for creative/performance participation
-
-`rfdb:ContributorShape` is constrained to `foaf:Person` or `foaf:Organization`. Since the core editorial entities
-in this schema are typed with `core:*` classes, reuse requires deliberate visible retyping rather than accidental
-cross-use between creative-role entities and donor/provenance entities. That separation is intentional because CIDOC-CRM
-does not provide a simple donor shortcut outside the full acquisition event.
-
-### Editing Existing Entities
-
-For updates, always preserve:
-
-1. Existing stable IRIs (`@id`) for the entity being edited.
-2. Required class types (`@type`) for all class-targeted shapes.
-3. Required labels and required relation links (`minCount` fields).
-
-Do not regenerate helper/bridge node IRIs during an update unless the old node is being intentionally replaced.
-
----
-
-## Validation
-
-Validation happens at two levels.
-
-### Client-side validation
-
-The frontend enforces simple constraints derived from SHACL:
-
-- required fields
-- cardinality
-- datatype checks
-- IRI syntax checks
-- language-tag checks
-- linked-record consistency
-
-### Backend SHACL validation
-
-The backend validates submitted data against the active SHACL schema before persistence, against a merged graph that includes referenced entities already present in the store (see the merge-expansion note above).
-
-Class-targeted shapes apply only to nodes that declare the corresponding RDF class. If a payload omits a required class type, constraints from that class-targeted shape may not run for that node. Submitted JSON-LD should include required `@type` values, especially for helper or bridge nodes.
-
----
-
-## RDF and IRI Handling
-
-Each RDF resource must have a stable subject IRI.
-
-Main project namespace:
-
-```text
-https://rosfeatr.eu/rdf
-```
-
-Two main prefixes:
-```ttl 
-@prefix rfdb: <https://rosfeatr.eu/rdf/data/> .
-@prefix rfdbs: <https://rosfeatr.eu/rdf/schema/> .
-```
-
-Compact form: `rfdb:EntityID`
-Expanded form: `https://rosfeatr.eu/rdf/data/EntityID`
-
-The editor supports:
-
-- compact prefixed IRIs
-- full IRIs
-- prefix expansion and compaction
-- stable IRI preservation during updates
-- validation of IRI syntax
-- Turtle export
-
-
-
