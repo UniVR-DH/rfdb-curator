@@ -36,6 +36,7 @@ import { Controller } from 'react-hook-form'
 
 import FileField from './FileField.jsx'
 import LangStringList from './LangStringList.jsx'
+import StyledSelect from './StyledSelect.jsx'
 import UriList from './UriList.jsx'
 import '../components/ShapeForm.css'
 import { LANG_OPTIONS, languageLabel } from '../utils/languages.js'
@@ -67,17 +68,31 @@ export default function FormField({ field, allShapes, register, control }) {
 
   // ── Enum / sh:in ───────────────────────────────────────────────
   if (type === 'enum') {
+    const enumOptions = options.map((v) => ({
+      value: v,
+      label: v.includes(':') ? v.split(':').pop() : v,
+    }))
     return (
       <div className="field-group">
         {label}
-        <select id={path} className="field-input" {...register(path, { required: isRequired })}>
-          <option value="">— select —</option>
-          {options.map((v) => (
-            <option key={v} value={v}>
-              {v.includes(':') ? v.split(':').pop() : v}
-            </option>
-          ))}
-        </select>
+        <Controller
+          name={path}
+          control={control}
+          defaultValue={''}
+          rules={{ required: isRequired }}
+          render={({ field }) => (
+            <StyledSelect
+              inputId={path}
+              options={enumOptions}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              selectRef={field.ref}
+              placeholder="— select —"
+              isClearable={!isRequired}
+            />
+          )}
+        />
       </div>
     )
   }
@@ -232,14 +247,20 @@ export default function FormField({ field, allShapes, register, control }) {
               },
             }}
             render={({ field }) => (
-              <select className="field-lang" {...field}>
-                {hasNoLanguageOption && <option value="">--</option>}
-                {LANG_OPTIONS.map((l) => (
-                  <option key={l} value={l}>
-                    {languageLabel(l)}
-                  </option>
-                ))}
-              </select>
+              <StyledSelect
+                inputId={`${path}.__lang`}
+                options={[
+                  ...(hasNoLanguageOption ? [{ value: '', label: '—' }] : []),
+                  ...LANG_OPTIONS.map((l) => ({ value: l, label: languageLabel(l) })),
+                ]}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                selectRef={field.ref}
+                placeholder="Lang"
+                isClearable={false}
+                isSearchable={false}
+              />
             )}
           />
         </div>

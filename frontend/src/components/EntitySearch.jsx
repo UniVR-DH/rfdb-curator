@@ -8,8 +8,9 @@
  *   - defaultOptions is set so the dropdown pre-populates on focus even before
  *     the user types (fires an empty-string search showing all available entities).
  *   - Multi-select is enabled when field.maxCount !== 1.
- *   - Each option renders two lines: primary label above, compact IRI below
- *     (smaller, dimmed) to help distinguish identically-named entities.
+ *   - Each option renders up to three lines: primary label, compact IRI below
+ *     (smaller, dimmed), and — in the open menu only — the entity's rdfs:comment
+ *     (truncated) to help distinguish identically-named entities.
  *   - The stored form value is a react-select option {value, label};
  *     buildJsonLdEntity() in utils/jsonld.js reads option.value (the full IRI)
  *     and emits the correct {"@id": "..."} JSON-LD node.
@@ -26,6 +27,7 @@ import { Controller } from 'react-hook-form'
 import AsyncSelect from 'react-select/async'
 import { apiClient } from '../api/client.js'
 import { compactIri } from '../utils/prefixes.js'
+import { selectStyles } from './selectStyles.js'
 
 /**
  * Normalise a react-hook-form field value for use with AsyncSelect.
@@ -45,6 +47,18 @@ function normalizeSelectValue(value, isMulti) {
   return value ?? null
 }
 
+/**
+ * Truncate a string to `max` characters, appending an ellipsis when clipped.
+ *
+ * @param {string} text - The text to shorten.
+ * @param {number} max  - Maximum character count before the ellipsis.
+ * @returns {string} The original text, or its first `max` chars plus '…'.
+ */
+function truncate(text, max) {
+  const s = String(text)
+  return s.length > max ? `${s.slice(0, max)}…` : s
+}
+
 export default function EntitySearch({ field, control, name }) {
   const fieldName = name || field.path
   const loadOptions = useCallback(
@@ -57,6 +71,7 @@ export default function EntitySearch({ field, control, name }) {
             value: r.uri,
             label: r.label ?? compactIri(r.uri),
             compactUri: compactIri(r.uri),
+            comment: r.comment ?? null,
           }))
           .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
       } catch {
@@ -84,12 +99,17 @@ export default function EntitySearch({ field, control, name }) {
           ref={ctrl.ref}
           placeholder={`Search ${field.name}…`}
           noOptionsMessage={() => 'No results'}
-          formatOptionLabel={(option) => (
+          formatOptionLabel={(option, meta) => (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               <span>{option.label}</span>
               <span style={{ opacity: 0.65, fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
                 {option.compactUri}
               </span>
+              {option.comment && meta.context === 'menu' && (
+                <span style={{ opacity: 0.75, fontSize: '11px' }}>
+                  {truncate(option.comment, 100)}
+                </span>
+              )}
             </div>
           )}
           styles={selectStyles}
@@ -98,44 +118,4 @@ export default function EntitySearch({ field, control, name }) {
       )}
     />
   )
-}
-
-const selectStyles = {
-  control: (base, state) => ({
-    ...base,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    borderColor: state.isFocused ? 'var(--color-focus)' : 'rgba(255,255,255,0.14)',
-    boxShadow: state.isFocused ? '0 0 0 3px var(--color-focus-glow)' : 'none',
-    borderRadius: 'var(--radius-input)',
-    minHeight: '38px',
-    '&:hover': { borderColor: 'rgba(255,255,255,0.2)' },
-  }),
-  menu: (base) => ({
-    ...base,
-    backgroundColor: '#1e1e22',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 'var(--radius-panel)',
-  }),
-  option: (base, state) => ({
-    ...base,
-    backgroundColor: state.isFocused ? 'rgba(139,30,45,0.35)' : 'transparent',
-    color: '#e8e1d6',
-    cursor: 'pointer',
-  }),
-  multiValue: (base) => ({
-    ...base,
-    backgroundColor: 'rgba(198,161,91,0.15)',
-    borderRadius: '4px',
-  }),
-  multiValueLabel: (base) => ({ ...base, color: '#c6a15b', fontSize: '12px' }),
-  multiValueRemove: (base) => ({
-    ...base,
-    color: '#c6a15b',
-    ':hover': { backgroundColor: 'rgba(139,30,45,0.4)', color: '#e8e1d6' },
-  }),
-  singleValue: (base) => ({ ...base, color: '#e8e1d6' }),
-  input: (base) => ({ ...base, color: '#e8e1d6' }),
-  placeholder: (base) => ({ ...base, color: 'rgba(201,210,216,0.5)' }),
-  clearIndicator: (base) => ({ ...base, color: 'rgba(201,210,216,0.5)', cursor: 'pointer' }),
-  dropdownIndicator: (base) => ({ ...base, color: 'rgba(201,210,216,0.5)' }),
 }

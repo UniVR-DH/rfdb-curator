@@ -95,6 +95,12 @@
   border-radius: var(--radius-badge);
 }
 
+/* Neutral status badge (e.g. "empty") — dimmer than the accent "active" badge. */
+.dc-badge-muted {
+  color: var(--color-ambient-2);
+  border-color: var(--color-ambient-2);
+}
+
 .dc-ns {
   color: var(--color-ambient-2);
   word-break: break-all;

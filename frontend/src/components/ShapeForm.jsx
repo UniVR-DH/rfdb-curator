@@ -1,11 +1,12 @@
 /** SHACL-driven form: loads schema metadata, maps records to form state, and submits JSON-LD. */
 import { useEffect, useRef, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { apiClient } from '../api/client.js'
 import { buildJsonLdEntity } from '../utils/jsonld.js'
 import { compactIri } from '../utils/prefixes.js'
- 
+
 import FormField from './FormField.jsx'
+import StyledSelect from './StyledSelect.jsx'
 import './ShapeForm.css'
 
 const RDF_TYPE_URI = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
@@ -724,18 +725,24 @@ export default function ShapeForm({
             <label className="field-label" htmlFor="__typeChoice">
               Type<span className="field-required">*</span>
             </label>
-            <select
-              id="__typeChoice"
-              className="field-input"
-              {...register('__typeChoice', { required: true })}
-            >
-              <option value="">— select —</option>
-              {formSchema.shape.typeOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            <Controller
+              name="__typeChoice"
+              control={control}
+              defaultValue={''}
+              rules={{ required: true }}
+              render={({ field }) => (
+                <StyledSelect
+                  inputId="__typeChoice"
+                  options={formSchema.shape.typeOptions}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  selectRef={field.ref}
+                  placeholder="— select —"
+                  isClearable={false}
+                />
+              )}
+            />
           </div>
         )}
         {formSchema.fields.map((field) => (

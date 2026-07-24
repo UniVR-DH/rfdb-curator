@@ -5,9 +5,11 @@ calls `GET /api/entities/search?shape=PlaceShape&query=<text>` and renders
 the results as dropdown options.  The search fires on an empty query too, so
 the dropdown is pre-populated when the field receives focus.
 
-SPARQL strategy: a nested SELECT / GROUP BY deduplicates entities that carry
-multiple `rdfs:label` values, then a BIND+FILTER applies the text match on
-the sampled label so the outer query stays readable.
+SPARQL strategy: a flat `GROUP BY ?uri` with `SAMPLE` collapses entities that
+carry several `rdfs:label` / `rdfs:comment` values to one row each, and a FILTER
+applies the case-insensitive text match on the label or the IRI. Each result
+carries `uri`, `label`, and (when present) `comment` — the dropdown shows the
+comment as a secondary line to help tell similarly-named entities apart.
 """
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -50,26 +52,31 @@ def search_entities(
 
     safe_query = query.replace('"', "").replace("\\", "")
     filter_clause = (
-        f'FILTER(regex(COALESCE(str(?label), ""), "{safe_query}", "i") '
+        f'FILTER(regex(COALESCE(str(?label_raw), ""), "{safe_query}", "i") '
         f'|| regex(str(?uri), "{safe_query}", "i"))'
         if safe_query
         else ""
     )
 
-    # SPARQL note: FROM does not propagate into subqueries (SPARQL 1.1 §8.2).
-    # Flattening the OPTIONAL label lookup into the outer WHERE ensures it
-    # runs inside the FROM-scoped dataset.
+    # SPARQL notes:
+    #  - FROM does not propagate into subqueries (SPARQL 1.1 §8.2), so the query
+    #    stays flat and the OPTIONAL lookups run inside the FROM-scoped dataset.
+    #  - GROUP BY ?uri + SAMPLE collapses entities that carry several labels or
+    #    comments to one row each; ordering by the grouping key keeps Oxigraph
+    #    happy (the frontend re-sorts by label anyway).
     oxigraph = request.app.state.oxigraph
     sparql = f"""
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        SELECT ?uri ?label
+        SELECT ?uri (SAMPLE(?label_raw) AS ?label) (SAMPLE(?comment_raw) AS ?comment)
         {oxigraph.from_clause()}
         WHERE {{
             ?uri a <{target_class}> .
-            OPTIONAL {{ ?uri rdfs:label ?label . }}
+            OPTIONAL {{ ?uri rdfs:label ?label_raw . }}
+            OPTIONAL {{ ?uri rdfs:comment ?comment_raw . }}
             {filter_clause}
         }}
-        ORDER BY ?label
+        GROUP BY ?uri
+        ORDER BY ?uri
         LIMIT {limit}
     """
 
@@ -78,4 +85,8 @@ def search_entities(
     except Exception:
         return []
 
-    return [{"uri": r["uri"], "label": r.get("label", r["uri"])} for r in rows if r.get("uri")]
+    return [
+        {"uri": r["uri"], "label": r.get("label", r["uri"]), "comment": r.get("comment")}
+        for r in rows
+        if r.get("uri")
+    ]

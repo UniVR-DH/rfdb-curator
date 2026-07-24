@@ -124,6 +124,7 @@ export default function DataContextPanel() {
                       <td className="mono">
                         {compactIri(g.uri)}
                         {g.active && <span className="dc-badge">active</span>}
+                        {g.count === 0 && <span className="dc-badge dc-badge-muted">empty</span>}
                       </td>
                       <td className="dc-num">{fmt(g.count)}</td>
                       <td className="dc-num">{fmt(g.subjects)}</td>

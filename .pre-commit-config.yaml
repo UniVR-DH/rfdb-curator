@@ -26,3 +26,12 @@ repos:
         entry: bash -c 'cd backend && env -u VIRTUAL_ENV uv run ruff format .'
         pass_filenames: false
         files: ^backend/.*\.py$
+      # Keep core.prefixes.PREFIXES (served by /api/meta/prefixes) in sync with
+      # the @prefix declarations across the schema/data TTL files. Fires only
+      # when a TTL or the curated map itself changes; the script picks the files.
+      - id: prefix-map-check
+        name: prefix-map coverage (backend/core/prefixes.py vs TTL files)
+        language: system
+        entry: bash -c 'cd backend && env -u VIRTUAL_ENV uv run python scripts/check_prefixes.py'
+        pass_filenames: false
+        files: ^(schema/.*\.ttl|data/.*\.ttl|backend/core/prefixes\.py)$

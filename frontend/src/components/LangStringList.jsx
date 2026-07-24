@@ -21,7 +21,10 @@
  */
  
 import { useFieldArray, Controller } from 'react-hook-form'
+import StyledSelect from './StyledSelect.jsx'
 import { LANG_OPTIONS, languageLabel } from '../utils/languages.js'
+
+const LANG_SELECT_OPTIONS = LANG_OPTIONS.map((l) => ({ value: l, label: languageLabel(l) }))
 
 export default function LangStringList({ path, label, control, isRequired }) {
   const { fields, append, remove } = useFieldArray({ control, name: path })
@@ -46,13 +49,17 @@ export default function LangStringList({ path, label, control, isRequired }) {
             control={control}
             defaultValue="en"
             render={({ field }) => (
-              <select className="field-lang" {...field}>
-                {LANG_OPTIONS.map((l) => (
-                  <option key={l} value={l}>
-                    {languageLabel(l)}
-                  </option>
-                ))}
-              </select>
+              <StyledSelect
+                inputId={`${path}.${index}.__lang`}
+                options={LANG_SELECT_OPTIONS}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                selectRef={field.ref}
+                placeholder="Lang"
+                isClearable={false}
+                isSearchable={false}
+              />
             )}
           />
           <button
