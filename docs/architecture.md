@@ -66,6 +66,38 @@ Expected backend responsibilities include:
 
 ---
 
+## API Reference
+
+The endpoints the backend exposes. The behaviors behind several of these
+(validation merge, delete, the metadata endpoints) are explained in the
+sections further down.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/health` | Liveness/readiness check (Oxigraph status + seed report) |
+| `GET` | `/api/shapes` | Available SHACL NodeShapes with metadata and field descriptors |
+| `GET` | `/api/forms?shapeId=...` | Generated form schema for one shape |
+| `GET` | `/api/data/list` | Paginated entity list for a shape, with text filter |
+| `GET` | `/api/data/counts` | Per-shape entity counts |
+| `GET` | `/api/data/{entityId}` | All triples for one entity |
+| `POST` | `/api/data` | Create or update an entity (JSON-LD → SHACL validate → Turtle load) |
+| `DELETE` | `/api/data/{entityId}` | Delete triples where the entity is subject |
+| `GET` | `/api/entities/search` | Autocomplete for linked-resource fields |
+| `POST` | `/api/validate` | Dry-run SHACL validation without persisting |
+| `POST` | `/api/files/staged` | Stage an uploaded digital copy (e.g. a PDF) before it is attached to a record |
+| `GET` | `/api/files/{fileId}` | Fetch a staged or registered digital-copy file |
+| `GET` | `/api/meta/prefixes` | Curated CURIE prefix-to-namespace map (from `core/prefixes.py`) |
+| `GET` | `/api/meta/graphs` | Named graphs with triple/term counts and advisory config warnings |
+| `GET` | `/api/meta/files` | Digital-copy storage stats (staged/registered/orphans) |
+
+`GET /health` returns `{ "status": "ok", "oxigraph": "up" | "down", "seed": { ... } | null }`.
+
+Since the backend is FastAPI, the always-current interactive reference is served
+at `/docs` (Swagger UI) with the raw schema at `/openapi.json`; the table above is
+a convenience overview and can drift from the running app.
+
+---
+
 ## Detailed Frontend Responsibilities
 
 The frontend is responsible for rendering usable editorial workflows from backend-provided shape metadata.

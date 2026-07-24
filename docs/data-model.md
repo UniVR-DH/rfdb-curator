@@ -1,30 +1,12 @@
 # RFDB Curator — Data Model
 
 This document records the **design principles and modeling decisions** behind the RFDB
-data model: which vocabularies are used and for what, how the WEMI layering and the
-bridge-node pattern work, and the literal/language/date/IRI policies that the SHACL
-schema alone cannot explain.
+data model: which vocabularies are used and for what, how the WEMI layering and the bridge-node pattern work, and the literal/language/date/IRI policies that the SHACL schema alone cannot explain.
 
-It is **not** a per-shape field reference. The active schema at
-[`schema/schema.ttl`](../schema/schema.ttl) is the single source of truth for record
-types, fields, cardinalities, datatypes, and relations — do not duplicate that here, or
-this file will need editing on every schema tweak. To answer "what fields does shape X
-have?", read the schema or query the live metadata endpoints (below). For how shapes
-become forms and how validation runs, see [architecture.md](architecture.md).
+The active schema at [`schema/schema.ttl`](../schema/schema.ttl) is the single source of truth for record types, fields, cardinalities, datatypes, and relations. 
+For how shapes become forms and how validation runs, see [architecture.md](architecture.md).
 
----
-
-## Where to look for the mechanical detail
-
-| Question | Source of truth |
-|---|---|
-| Which shapes exist, their fields, cardinalities, datatypes, relations | [`schema/schema.ttl`](../schema/schema.ttl) |
-| The same, resolved into form/field descriptors | `GET /api/shapes`, `GET /api/forms?shapeId=...` |
-| The active prefix → namespace map | schema `@prefix` declarations, [`backend/core/prefixes.py`](../backend/core/prefixes.py), `GET /api/meta/prefixes` |
-
-Because everything downstream (forms, validation, autocomplete, export) is derived from
-the schema at runtime, the schema is the only place a field or prefix is *defined*. This
-document explains the reasoning; the schema holds the facts.
+Because everything downstream (forms, validation, autocomplete, export) is derived from the schema at runtime, the schema is the only place a field or prefix is *defined*. 
 
 ---
 

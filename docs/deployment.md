@@ -48,13 +48,17 @@ uses the Docker-internal hostname since backend and store are separate services;
 | `READ_ONLY` | No | `true`/`false`. When `true`, rejects `POST /api/data` and `DELETE /api/data/{entityId}` with HTTP 403 while keeping read endpoints available. Default: `false`. |
 | `READ_ONLY_SHAPES` | No | JSON array string of shape IRIs to protect from create/update/delete even when `READ_ONLY` is `false`, e.g. `["https://rosfeatr.eu/rdf/schema/LanguageShape"]`. Default: `[]`. |
 | `CORS_ORIGINS` | Yes | JSON array string of allowed CORS origins, e.g. `["http://localhost:5173"]`. |
-| `LOG_FILE` | No | Path to the JSON-lines log file. Default: `logs/app.jsonl`. Parent directory created automatically. |
 | `LOG_LEVEL` | No | Minimum log level for file and console handlers. Default: `INFO`. One of `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. |
 
 The S3/object-storage (`S3_*`) and Garage (`GARAGE_RPC_SECRET`) variables consumed by the
 compose file are generated into `.env` by `scripts/env-init.sh`; see the
 [Quick Start](../README.md#quick-start). Backend log/troubleshooting details are in
 [development.md](development.md).
+
+`LOG_FILE` (the JSON-lines log path) isn't listed above: it's pinned to the
+`backend_logs` Docker volume mount in the compose files and isn't meant to be
+overridden in the supported deployments — changing it without also updating
+the volume mount would write logs outside the persisted volume.
 
 ### Data reset modes
 

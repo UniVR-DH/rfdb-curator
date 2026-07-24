@@ -156,25 +156,19 @@ The full environment-variable reference, data-reset modes, and seed sources (con
 
 ## API Reference
 
+The backend is FastAPI, so the complete, always-current reference is generated from the running app. With the stack up, open **<http://localhost:8000/docs>** for interactive Swagger UI (raw schema at `/openapi.json`).
+
+The core of the schema-driven pipeline is just a handful of endpoints:
+
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/health` | Liveness/readiness check (Oxigraph status + seed report) |
 | `GET` | `/api/shapes` | Available SHACL NodeShapes with metadata and field descriptors |
 | `GET` | `/api/forms?shapeId=...` | Generated form schema for one shape |
-| `GET` | `/api/data/list` | Paginated entity list for a shape, with text filter |
-| `GET` | `/api/data/counts` | Per-shape entity counts |
-| `GET` | `/api/data/{entityId}` | All triples for one entity |
 | `POST` | `/api/data` | Create or update an entity (JSON-LD → SHACL validate → Turtle load) |
-| `DELETE` | `/api/data/{entityId}` | Delete triples where the entity is subject |
-| `GET` | `/api/entities/search` | Autocomplete for linked-resource fields |
 | `POST` | `/api/validate` | Dry-run SHACL validation without persisting |
-| `POST` | `/api/files/staged` | Stage an uploaded digital copy (e.g. a PDF) before it is attached to a record |
-| `GET` | `/api/files/{fileId}` | Fetch a staged or registered digital-copy file |
-| `GET` | `/api/meta/prefixes` | Curated CURIE prefix-to-namespace map (from `core/prefixes.py`) |
-| `GET` | `/api/meta/graphs` | Named graphs with triple/term counts and advisory config warnings |
-| `GET` | `/api/meta/files` | Digital-copy storage stats (staged/registered/orphans) |
+| `GET` | `/api/data/{entityId}` | All triples for one entity |
 
-`GET /health` returns `{ "status": "ok", "oxigraph": "up" | "down", "seed": { ... } | null }`.
+The full endpoint table (data listing, autocomplete, file staging, and the metadata API) is in [docs/architecture.md](docs/architecture.md#api-reference).
 
 ---
 
@@ -186,7 +180,7 @@ The root README is the entry point (overview, setup, schema, API, configuration)
 |---|---|
 | [docs/getting-started.md](docs/getting-started.md) | What the editor is for, the WEMI data model in brief, and how to run it locally and in production. |
 | [docs/data-model.md](docs/data-model.md) | Modeling principles and design decisions: the vocabularies used and for what, WEMI layering, the bridge-node pattern, and the literal/language/date/IRI policies. Per-shape fields live in `schema/schema.ttl`. |
-| [docs/architecture.md](docs/architecture.md) | System design: the schema-driven pipeline, backend/frontend responsibilities, SHACL extraction, validation and delete behavior, the metadata API, and the storage stack. |
+| [docs/architecture.md](docs/architecture.md) | System design: the schema-driven pipeline, backend/frontend responsibilities, the API endpoint reference, SHACL extraction, validation and delete behavior, the metadata API, and the storage stack. |
 | [docs/development.md](docs/development.md) | Development workflow: environment setup, code quality, CI, schema and data change workflows, troubleshooting, and the commit checklist. |
 | [docs/deployment.md](docs/deployment.md) | Deployment & operations: the development/testing configuration, data-reset modes, and seed sources; plus the production deployment plan and its work-in-progress status. |
 

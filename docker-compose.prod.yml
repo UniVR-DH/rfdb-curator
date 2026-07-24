@@ -153,10 +153,8 @@ services:
     logging:
       # Bounds Docker's own captured stdout/stderr. Does NOT bound
       # /app/logs/app.jsonl — that's app-level file logging in the
-      # backend_logs Docker volume, and needs in-volume cleanup/rotation,
-      # or switch the app
-      # to log to stdout only and drop LOG_FILE so Docker's driver
-      # handles rotation for you.
+      # backend_logs Docker volume, and needs its own in-volume
+      # cleanup/rotation.
       driver: json-file
       options:
         max-size: "10m"
