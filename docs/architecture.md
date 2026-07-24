@@ -10,11 +10,10 @@ the day-to-day workflow of changing schema/data/code see [development.md](develo
 
 ## Core Architectural Principle
 
-The `rfdb-curator` application is schema-driven by design.
+The `rfdb-curator` application is schema-driven by design, and the frontend carries no
+hard-coded assumptions about the current entity model.
 
-The frontend should not contain hard-coded assumptions about the current entity model.
-
-The current operational flow is:
+Data flows through the stack like this:
 
 ```text
 schema/schema.ttl
@@ -34,35 +33,33 @@ SHACL validation
 Oxigraph persistence
 ```
 
-This separation is important because the RFDB schema may evolve. The editor must remain adaptable when shapes, properties, labels, target classes, or ontology alignments change.
+This separation matters because the RFDB schema evolves over time: the editor keeps working when shapes, properties, labels, target classes, or ontology alignments change.
 
 ---
 
-## Detailed Backend Responsibilities
+## Backend Responsibilities
 
-The backend is responsible for turning RDF and SHACL semantics into stable API structures usable by the frontend.
+The backend turns RDF and SHACL semantics into stable API structures the frontend can
+consume. It:
 
-Expected backend responsibilities include:
-
-- loading the active SHACL schema from `schema/schema.ttl`
-- extracting all `sh:NodeShape` definitions
-- extracting field descriptors from `sh:property` blocks
-- preserving shape labels and descriptions
-- resolving prefixes and compact IRIs
-- detecting target classes
-- detecting field value kind: literal, IRI, linked entity, fixed value
-- detecting cardinality
-- detecting repeatability
-- detecting datatype alternatives from `sh:or`
-- detecting linked shapes from `sh:node`
-- detecting expected target classes from `sh:class`
-- validating submitted payloads with pySHACL
-- merging referenced entities into validation graphs when needed
-- loading RDF data into Oxigraph
-- querying entities by shape
-- providing autocomplete for linked-resource fields
-- returning human-readable validation errors where possible
-- exposing operational metadata, such as prefix maps and named graph status
+- loads the active SHACL schema from `schema/schema.ttl`
+- extracts all `sh:NodeShape` definitions
+- extracts field descriptors from `sh:property` blocks
+- preserves shape labels and descriptions
+- resolves prefixes and compact IRIs
+- detects target classes
+- detects each field's value kind: literal, IRI, linked entity, or fixed value
+- detects cardinality and repeatability
+- detects datatype alternatives from `sh:or`
+- detects linked shapes from `sh:node`
+- detects expected target classes from `sh:class`
+- validates submitted payloads with pySHACL
+- merges referenced entities into validation graphs when needed
+- loads RDF data into Oxigraph
+- queries entities by shape
+- provides autocomplete for linked-resource fields
+- returns human-readable validation errors where it can
+- exposes operational metadata such as prefix maps and named-graph status
 
 ---
 
@@ -98,35 +95,32 @@ a convenience overview and can drift from the running app.
 
 ---
 
-## Detailed Frontend Responsibilities
+## Frontend Responsibilities
 
-The frontend is responsible for rendering usable editorial workflows from backend-provided shape metadata.
+The frontend renders editorial workflows from the shape metadata the backend provides. It:
 
-Expected frontend responsibilities include:
-
-- listing available shapes in the navigation
-- showing per-shape entity counts
-- rendering dynamic forms from `/api/forms`
-- showing required fields clearly
-- distinguishing single-valued and repeatable fields
-- supporting language-tagged literal inputs
-- supporting date precision choices
-- supporting IRI inputs and linked-record selectors
-- supporting autocomplete for relation fields
-- preserving `@id` and `@type` during editing
-- showing compact IRIs alongside labels
-- showing form-level and field-level validation errors
-- supporting dry-run validation before save
-- showing RDF triples for record inspection
-- avoiding accidental regeneration of helper-node IRIs on update
+- lists available shapes in the navigation
+- shows per-shape entity counts
+- renders dynamic forms from `/api/forms`
+- marks required fields clearly
+- distinguishes single-valued from repeatable fields
+- supports language-tagged literal inputs
+- supports date-precision choices
+- supports IRI inputs and linked-record selectors
+- offers autocomplete for relation fields
+- preserves `@id` and `@type` during editing
+- shows compact IRIs alongside labels
+- surfaces form-level and field-level validation errors
+- supports dry-run validation before save
+- shows RDF triples for record inspection
+- avoids regenerating helper-node IRIs on update
 
 ---
 
 ## SHACL Extraction Details
 
-The schema extractor should treat `sh:NodeShape` as the primary source for form definitions.
-
-Important SHACL terms and expected behavior:
+The schema extractor treats `sh:NodeShape` as the primary source for form definitions.
+The SHACL terms it reads, and what each one contributes:
 
 ```text
 sh:NodeShape
@@ -175,7 +169,7 @@ sh:hasValue
     Defines a fixed required value, for example a required `rdf:type`.
 ```
 
-The extractor should preserve enough information for both rendering and validation feedback.
+The extractor keeps enough information for both form rendering and validation feedback.
 
 ---
 
@@ -195,7 +189,7 @@ When changing this behavior, check both the SHACL shape and the resulting `/api/
 
 ## Validation Merge Behavior
 
-`POST /api/data` should validate against a graph that includes:
+`POST /api/data` validates against a graph that includes:
 
 - the submitted payload
 - relevant referenced entities already present in the store
@@ -212,65 +206,33 @@ Work
         → Role
 ```
 
-If a later payload references the Work but does not repeat the AgentRole, Person, and Role nodes, validation should still have enough context to avoid false negatives.
+If a later payload references the Work but does not repeat the AgentRole, Person, and Role nodes, validation still has enough context to avoid false negatives.
 
 ---
 
 ## Delete Behavior and Orphaned Helper Nodes
 
-Current planned behavior:
+`DELETE /api/data/{entityId}` removes the triples where the entity is the subject.
 
-```text
-DELETE /api/data/{entityId}
-```
-
-removes triples where the entity is the subject.
-
-Known issue:
-
-- bridge/helper nodes linked only from the deleted entity may remain orphaned
-- common example: `AgentRole` nodes
-
-Future options:
-
-- cascade delete for helper nodes
-- explicit cleanup endpoint
-- orphan detection job
-- UI warning before delete
-- shape-role policy distinguishing standalone entities from helper bridges
+This leaves a known gap: bridge/helper nodes linked only from the deleted entity can be
+left orphaned — `AgentRole` nodes are the usual example. Several approaches could close
+it later: a cascade delete for helper nodes, an explicit cleanup endpoint, an
+orphan-detection job, a warning in the UI before delete, or a shape-role policy that
+distinguishes standalone entities from helper bridges.
 
 ---
 
 ## Shape-Role Policy
 
-The editor needs a policy for nested shapes.
+Nested shapes fall into two roles, and the editor treats them differently:
 
-Important distinction:
+- **Standalone entity** — a reusable entity with independent meaning and lifecycle
+  (Person, Role, Place, Holding Organization).
+- **Helper bridge** — a structural node that is mainly meaningful in relation to another
+  entity (`AgentRole`).
 
-```text
-standalone entity
-    A reusable entity with independent meaning and lifecycle.
-
-helper bridge
-    A structural node mainly meaningful in relation to another entity.
-```
-
-Examples:
-
-- Person: standalone entity
-- Role: standalone entity
-- Place: standalone entity
-- Holding Organization: standalone entity
-- AgentRole: likely helper bridge
-
-This distinction affects:
-
-- creation UI
-- deletion behavior
-- update behavior
-- autocomplete
-- cascade cleanup
-- validation graph expansion
+The distinction shapes several behaviors: the creation UI, deletion, updates,
+autocomplete, cascade cleanup, and how the validation graph is expanded.
 
 ---
 
