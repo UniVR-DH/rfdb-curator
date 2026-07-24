@@ -10,6 +10,5 @@ files go deeper on specific topics.
 | [data-model.md](data-model.md) | RDF/SHACL modeling reference: prefix map, ontologies and vocabularies, per-shape field definitions, and the literal/language/date/IRI policies. |
 | [architecture.md](architecture.md) | System design: the schema-driven pipeline, backend/frontend responsibilities, SHACL extraction, validation and delete behavior, the metadata API, and the Oxigraph/Garage storage stack. |
 | [development.md](development.md) | Development workflow: environment setup, code quality, CI, schema and data change workflows, troubleshooting, logs, and the commit checklist. |
-| [deployment.md](deployment.md) | Production deployment on a single Docker host behind Caddy: prerequisites, environment, build, verification, and ongoing operations. |
-| [roadmap.md](roadmap.md) | Planned, not-yet-shipped work — chiefly the Data Context Panel — and short-term implementation priorities. |
+| [deployment.md](deployment.md) | Deployment & operations: development/testing configuration, data-reset modes, and seed sources; plus the production deployment plan (work in progress). |
 

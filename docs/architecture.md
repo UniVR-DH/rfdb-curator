@@ -277,8 +277,8 @@ leak into the map; `core/prefixes.py` carries the maintenance note and a sanity 
 This endpoint resolved the prefix-map duplication gap between `utils/prefixes.js` and
 `utils/jsonld.js` on the frontend — both now hydrate from it at app startup
 (`frontend/src/App.jsx`). A richer per-entry shape (merging JSON-LD context and runtime
-config with drift `warnings`) remains a possible future enhancement — see
-[roadmap.md](roadmap.md).
+config with drift `warnings`) remains a possible future enhancement — see the Data
+Context Panel enhancements in the root [`TODO.md`](../TODO.md).
 
 ### Graph Metadata
 
@@ -353,6 +353,7 @@ The application runs as a small set of Docker Compose services.
   into dev Compose via `garage.toml` and the host-side `scripts/garage-init.sh`;
   production hardening lives in the deployment notes.
 
-In production a reverse proxy (Caddy) terminates TLS and routes `/` to the frontend and
-`/api` to the backend; Oxigraph and Garage stay internal-only. See
-[deployment.md](deployment.md) for the production topology.
+The planned production topology puts a reverse proxy (Caddy) in front to terminate TLS and
+route `/` to the frontend and `/api` to the backend, with Oxigraph and object storage kept
+internal-only. This is not yet functional — see the
+[production deployment plan](deployment.md#production-deployment-work-in-progress).

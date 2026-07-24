@@ -52,7 +52,7 @@
 - [ ] for a Performance we need to select also the Venue not only the place, but keep the place because we not always know, and for venues consider coordinates
 - [x] from the inspector sidebar link directly to record view for that entity — shipped (47e3c4d): inspector IRI objects under the `rfdb:` namespace are clickable to open that record
 
-### Advanced Features (from roadmap)
+### Advanced Features
 - [x] Welcome / onboarding guide with simple guide on how to use the editor (should be possible to re-open again)
   - [x] First-time curator **WEMI overlay** — dismissible modal with a WEMI graph diagram (Work→Expression→Manifestation→Source, + Performance branch) and the ordered insertion steps; auto-opens on first visit (localStorage `rfdb.guideSeen`), re-openable via the "Getting started" button in the nav. Component: `frontend/src/components/WelcomeGuide.{jsx,css}`, wired in `frontend/src/App.jsx`. Plan: `.temp/temp-curator-welcome-guide-20260716.md`.
 - [ ] Real-time validation (debounced SHACL checking on blur/change)
@@ -97,6 +97,13 @@
   above); transaction/atomicity semantics that differ across stores; and a conformance test
   suite each backend must pass. Keep it low-risk and incremental like the file-storage seam.
 
+### Testing
+- [ ] Tests for class-targeted validation behavior (constraints only run when `@type` matches `sh:targetClass`)
+- [ ] Tests for date datatype preservation (`xsd:date` / `xsd:gYear` / `xsd:gYearMonth` not silently promoted)
+- [ ] Tests for language-tagged literals and `sh:uniqueLang` enforcement
+- [ ] Tests for nested AgentRole editing and update preservation
+- [ ] Stabilize / guard the SHACL extraction format exposed by `GET /api/forms` against unintended shape-metadata changes
+
 ### Data Context Panel (read-only)
 
 A read-only panel exposing the runtime data context. Design and implementation plan:
@@ -117,6 +124,13 @@ Milestones:
 - [x] Backend `GET /api/meta/prefixes` — **shipped** (resolved the prefix-map duplication gap above; `.temp/temp-DONE-prefix-consolidation-20260713.md`)
 - [x] Backend `GET /api/meta/graphs` — **shipped** (`backend/api/meta.py`; 6 tests in `tests/test_api_meta.py`)
 - [x] Frontend read-only `DataContextPanel` — **shipped** (`frontend/src/components/DataContextPanel.{jsx,css}`, wired in `App.jsx`). Live interactive smoke pending the stack run. Plan: `.temp/temp-data-context-panel-20260715.md`.
+
+Remaining enhancements (not yet shipped) on top of the shipped read-only baseline:
+
+- [ ] Prefixes: per-entry `source` attribution (`schema` / `jsonld-context` / `runtime`); explicit prefix-drift warnings when mappings differ across schema, JSON-LD context, and runtime; copy Turtle prefix declaration / copy namespace IRI; search by prefix or namespace substring
+- [ ] Named graphs: richer per-graph status labels beyond the current active/count view
+- [ ] Phase 2 — operational guardrails: store health indicators, metadata freshness timestamp, schema/context mismatch diagnostics, actionable hints
+- [ ] Phase 3 (optional, gated) — advanced operations: graph snapshot export, non-destructive graph diagnostics, controlled operational utilities. Keep the panel read-only in baseline deployment; do not add delete/clear actions unless separately designed and approved.
 
 ### Development and Deployment
 - [ ] verify why what is hogging the build and deploy time, especially in the backend, and if it is possible to speed up the build and deploy time

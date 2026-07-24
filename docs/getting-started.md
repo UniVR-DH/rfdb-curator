@@ -1,9 +1,10 @@
 # Getting Started with RFDB Curator
 
 A short orientation: what the editor is for, the shape of the data model you will be
-working with, and how to run it locally and in production. For the full RDF/SHACL
-reference see [data-model.md](data-model.md); for running a development environment see
-[development.md](development.md); for production see [deployment.md](deployment.md).
+working with, and how to run it locally. For the full RDF/SHACL reference see
+[data-model.md](data-model.md); for running a development environment see
+[development.md](development.md); for configuration, data seeding, and the (work-in-progress)
+production plan see [deployment.md](deployment.md).
 
 ---
 
@@ -69,7 +70,7 @@ In short: run `scripts/env-init.sh`, `docker compose up -d --build`, and
 
 ## Running in production
 
-Production runs a hardened Docker Compose stack behind a TLS-terminating reverse proxy,
-with the triple store and object store kept internal-only. The full step-by-step
-procedure — host prerequisites, environment configuration, build, and verification — is
-in [deployment.md](deployment.md).
+There is **no working production deployment yet.** The intended design — a hardened Docker
+Compose stack behind a TLS-terminating reverse proxy, with the triple store and object
+store kept internal-only — and the work still remaining are described in the
+[production deployment plan](deployment.md#production-deployment-work-in-progress).

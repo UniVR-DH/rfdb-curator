@@ -93,27 +93,6 @@ Remove volumes and clear all data (destructive — wipes Oxigraph triples **and*
 docker compose down -v
 ```
 
-### Data Reset Modes
-
-Startup behavior is controlled by `RESET_DATA_ON_STARTUP`.
-
-**Clean slate (empty store)** — clears all triples from `DATA_GRAPH_URI` before seeding.
-
-```bash
-RESET_DATA_ON_STARTUP=true docker compose up --build
-```
-
-**Preserve existing data (default)** — keeps existing triples and merges new seed data on top.
-
-```bash
-docker compose up --build
-```
-
-In both modes, the controlled vocabulary from `data/vocab.ttl` is loaded on every startup (idempotent) when `SEED_VOCAB_ON_STARTUP=true`.
-Test fixture data from `data/data.ttl` is loaded only when `SEED_TEST_DATA_ON_STARTUP=true` (off by default outside test environments).
-
-These and all other startup settings are listed under [Configuration](#configuration); seed sources are detailed under [Data Seeding](#data-seeding).
-
 ### Service URLs
 
 | Service | URL |
@@ -122,6 +101,8 @@ These and all other startup settings are listed under [Configuration](#configura
 | Backend | http://localhost:8000 |
 | Oxigraph | http://localhost:7878 |
 | Garage (S3 API) | http://localhost:3900 |
+
+Startup seeding, data-reset modes, and the full environment-variable reference live in the [development & testing deployment guide](docs/deployment.md#development--testing-deployment).
 
 ---
 
@@ -153,7 +134,7 @@ The current schema includes these primary record types:
 - `rfdbs:HoldingOrganizationShape`: holding organization, targeting `core:Organization`
 - `rfdbs:ContributorShape`: donor/contributor record for digital-copy provenance
 - `rfdbs:PerformanceShape`: staged performance, targeting `lrmoo:F31_Performance`
-- `rfdbs:LanguageShape`: controlled-vocabulary language record, targeting `dcterms:LinguisticSystem` (seeded from Glottolog, see [Data Seeding](#data-seeding))
+- `rfdbs:LanguageShape`: controlled-vocabulary language record, targeting `dcterms:LinguisticSystem` (seeded from Glottolog, see [Data Seeding](docs/deployment.md#data-seeding))
 
 ### Form Generation
 
@@ -161,56 +142,15 @@ Each `sh:NodeShape` becomes a form type and each `sh:property` becomes a form fi
 
 Shapes with a `sh:property` on `rdfs:label` are treated as standalone entities; shapes without one are helper/bridge nodes rendered inline when referenced by a parent (e.g. `rfdbs:AgentRoleShape`). Shapes whose shape-level `sh:or` branches into multiple `sh:class` alternatives (e.g. `rfdbs:ContributorShape`, `foaf:Person` or `foaf:Organization`) surface a type-selection dropdown at creation time.
 
-> Full modeling reference — per-shape fields, the prefix map, literal/language/date/IRI policies, and modeling patterns (WEMI editorial order, Agent Role, Performance, Donor/Contributor) — is in [docs/data-model.md](docs/data-model.md). The schema-driven extraction and validation pipeline is described in [docs/architecture.md](docs/architecture.md).
+> Modeling principles and design decisions — the vocabularies used and for what, WEMI layering and link direction, the Agent Role bridge pattern, and the literal/language/date/IRI policies — are in [docs/data-model.md](docs/data-model.md). Per-shape fields and cardinalities live in the schema itself (`schema/schema.ttl`, or `GET /api/shapes`). The schema-driven extraction and validation pipeline is described in [docs/architecture.md](docs/architecture.md).
 
 ---
 
 ## Configuration
 
-All backend settings are loaded from environment variables. No defaults are hardcoded in the Python source; the backend fails fast with a clear validation error if a required variable is missing or has the wrong type.
+All backend settings are loaded from environment variables; the backend fails fast if a required variable is missing or malformed. The source of truth is the `environment:` block in `docker-compose.yml`, the settings model in `backend/core/config.py`, and `backend/pyproject.toml`.
 
-Configuration source of truth:
-
-- Runtime wiring: `docker-compose.yml`
-- Backend settings model: `backend/core/config.py`
-- Backend dependency set: `backend/pyproject.toml`
-
-For Docker Compose, edit the `environment:` block in `docker-compose.yml`. `OXIGRAPH_URL` uses the Docker-internal hostname since backend and store are separate services; `SCHEMA_PATH`/`VOCAB_PATH`/`DATA_PATH` are container paths backed by the `volumes:` mounts (change both together).
-
-| Variable | Required | Description |
-|---|---|---|
-| `OXIGRAPH_URL` | Yes | Base URL of the Oxigraph HTTP endpoint, no trailing slash. `http://localhost:7878` locally, `http://oxigraph:7878` inside Docker. |
-| `DATA_GRAPH_URI` | Yes | Named graph URI where instance data is stored and queried. Every SPARQL read uses `FROM <uri>`; every Turtle load targets `?graph=<uri>`. |
-| `SCHEMA_PATH` | Yes | Path to `schema.ttl` relative to the backend working directory. Docker mounts it at `/app/schema/schema.ttl`. |
-| `VOCAB_PATH` | Yes | Path to `vocab.ttl` (controlled-vocabulary seed). Loaded at startup when `SEED_VOCAB_ON_STARTUP=true`. |
-| `DATA_PATH` | Yes | Path to `data.ttl` (test fixture data). Loaded at startup only when `SEED_TEST_DATA_ON_STARTUP=true`. |
-| `RESET_DATA_ON_STARTUP` | Yes | `true`/`false`. Destructive: clears the named graph before seeding on every startup. Must be `false` in production. |
-| `SEED_VOCAB_ON_STARTUP` | Yes | `true`/`false`. Load `VOCAB_PATH` on every startup. Should be `true` in all environments. |
-| `SEED_TEST_DATA_ON_STARTUP` | Yes | `true`/`false`. Load `DATA_PATH` on startup. `true` in dev/test only. |
-| `READ_ONLY` | No | `true`/`false`. When `true`, rejects `POST /api/data` and `DELETE /api/data/{entityId}` with HTTP 403 while keeping read endpoints available. Default: `false`. |
-| `READ_ONLY_SHAPES` | No | JSON array string of shape IRIs to protect from create/update/delete even when `READ_ONLY` is `false`, e.g. `["https://rosfeatr.eu/rdf/schema/LanguageShape"]`. Default: `[]`. |
-| `CORS_ORIGINS` | Yes | JSON array string of allowed CORS origins, e.g. `["http://localhost:5173"]`. |
-| `LOG_FILE` | No | Path to the JSON-lines log file. Default: `logs/app.jsonl`. Parent directory created automatically. |
-| `LOG_LEVEL` | No | Minimum log level for file and console handlers. Default: `INFO`. One of `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. |
-
-Backend log/troubleshooting details are covered in [docs/development.md](docs/development.md); production wiring (Caddy, `docker-compose.prod.yml`) is in [docs/deployment.md](docs/deployment.md).
-
-> **Note — not production ready.** The configuration and runtime described above target local development only. A hardened production configuration (secret management, TLS termination, internal-only data/object stores, resource limits) is **work in progress** and not yet complete. Do not deploy this stack to a public or shared environment as-is.
-
----
-
-## Data Seeding
-
-The application distinguishes between controlled vocabulary and test fixture data. Default policy: seed vocabulary on, seed test data off, preserve existing data on.
-
-- `data/vocab.ttl` is the canonical seed source for controlled vocabulary (core types and role types).
-- `dcterms:LinguisticSystem` vocabulary relies on [Glottolog v5.3](https://glottolog.org/meta/downloads) data, imported from `data/glottolog_language.ttl`. Prefix normalization is already applied to the committed file. Only if you re-download a fresh version from glottolog.org, replace `geo1:` with `geo:`:
-
-  ```bash
-  sed -i '' 's/geo1:/geo:/g' data/glottolog_language.ttl
-  ```
-
-- `data/data.ttl` is test-only fixture data.
+The full environment-variable reference, data-reset modes, and seed sources (controlled vocabulary + Glottolog languages) are documented in the [development & testing deployment guide](docs/deployment.md#development--testing-deployment). Production deployment is **work in progress** — see [docs/deployment.md](docs/deployment.md#production-deployment-work-in-progress).
 
 ---
 
@@ -245,11 +185,10 @@ The root README is the entry point (overview, setup, schema, API, configuration)
 | Document | Covers |
 |---|---|
 | [docs/getting-started.md](docs/getting-started.md) | What the editor is for, the WEMI data model in brief, and how to run it locally and in production. |
-| [docs/data-model.md](docs/data-model.md) | RDF/SHACL modeling reference: prefix map, ontologies, per-shape field definitions, and the literal/language/date/IRI policies. |
+| [docs/data-model.md](docs/data-model.md) | Modeling principles and design decisions: the vocabularies used and for what, WEMI layering, the bridge-node pattern, and the literal/language/date/IRI policies. Per-shape fields live in `schema/schema.ttl`. |
 | [docs/architecture.md](docs/architecture.md) | System design: the schema-driven pipeline, backend/frontend responsibilities, SHACL extraction, validation and delete behavior, the metadata API, and the storage stack. |
 | [docs/development.md](docs/development.md) | Development workflow: environment setup, code quality, CI, schema and data change workflows, troubleshooting, and the commit checklist. |
-| [docs/deployment.md](docs/deployment.md) | Production deployment on a single Docker host behind Caddy. |
-| [docs/roadmap.md](docs/roadmap.md) | Planned, not-yet-shipped work and short-term priorities. |
+| [docs/deployment.md](docs/deployment.md) | Deployment & operations: the development/testing configuration, data-reset modes, and seed sources; plus the production deployment plan and its work-in-progress status. |
 
 The live task list lives in the root `TODO.md`.
 
