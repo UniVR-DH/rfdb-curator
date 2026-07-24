@@ -1,147 +1,139 @@
-# TODO for RossijskijFeatrDB
+# TODO — RossijskijFeatrDB
 
-## Known Gaps
-
-- **HIGH PRIORITY / REQUIRES BRAINSTORM + USER APPROVAL: Optimize startup bulk load of large vocab files.**
-  The ~38 MB `data/glottolog_language.ttl` is re-loaded via `POST /store` on every
-  startup ([backend/core/seeder.py](backend/core/seeder.py), [backend/core/oxigraph_client.py](backend/core/oxigraph_client.py) `load_turtle`). This is slow
-  and previously timed out (mitigated for now by the configurable `OXIGRAPH_LOAD_TIMEOUT`,
-  default 300s). Investigate a better load path — options to brainstorm: skip re-seeding
-  when the graph already contains the vocab (idempotency check), one-time offline load
-  into a persisted Oxigraph volume, Oxigraph bulk-loader / native import instead of HTTP,
-  streaming/chunked upload, or splitting vocab from large reference data. Decide and get
-  user sign-off before implementing.
-- Expand the controlled-vocabulary seed set.
-- Complete shape-role policy for nested shapes and helper records.
-- Add cleanup for orphaned bridge entities after delete operations.
-- Improve JSON-LD handling for nested forms and repeated multilingual values.
-- Replace OFFSET-based pagination with cursor-based SPARQL pagination for large graphs.
-- ~~**Prefix map duplication**~~ — resolved: `GET /api/meta/prefixes` (`backend/api/meta.py`) now serves the schema graph's namespace map, and `frontend/src/utils/prefixes.js` / `utils/jsonld.js` hydrate from it at startup (`frontend/src/App.jsx`). See `.temp/temp-DONE-prefix-consolidation-20260713.md` for the completed implementation plan.
+Open work is grouped by area — **UI**, **Backend**, **DevOps** — with priority and
+`REQUIRES BRAINSTORM` tags kept inline. Shipped items are archived under
+[Shipped](#shipped) with pointers to where they live; [Non-Goals](#non-goals) closes the file.
 
 ---
 
-## Backlog
+## UI
 
-### Core features and bug fixes (from current development)
-- [x] `RESET_DATA_ON_STARTUP=true` does not actually reset data when starting via Docker Compose
-- [x] the `owl:sameAs` field allows multiple values (e.g. linking to multiple external authority records)
-- [x] Allow `rdfs:label` / `rdfs:comment` without language tags for generic untranslated values
-- [x] Expression form comment field renders as `[object Object]` instead of the actual string value
-- [x] HIGH PRIORITY/REQUIRES PLANNING: Hydrate `data/glottolog_language.ttl` into Oxigraph and connect it to `rfdb:Source` language handling via `sh:path dcterms:language ; sh:nodeKind sh:IRI ;` in `rfdb:SourceShape`
-- [x] HIGH PRIORITY/REQUIRES PLANNING: Language field in Source form should be a dropdown of available languages, not free text, check above
-- [ ] Auto-refresh entity lists (e.g. "has place" relations) when backend data changes behind the scenes
-- [ ] Implement records pagination with default page size 20
-- [ ] Implement smarter search ranking that favors edit distance without relying on server-side cap or limit
-- [x] Preserve current form/page state on browser reload (survive refresh) — create-form drafts persist to `sessionStorage` with a 1h TTL and survive reload; cleared on submit / Reset or once the TTL lapses (`App.jsx` `loadPersistedDrafts` + persist effect). Note: the active shape/view is not persisted — the form reopens on the first shape, but the saved draft re-applies when you return to that shape.
-- [x] Comment / description fields use a larger textarea instead of single-line input — `longText` derived from SHACL in `schema_extractor.py`, rendered in `FormField.jsx` (fe848de)
-- [ ] Dropdown selections should display both label and comment (not just label) with ellipsis if longer than a certain length, e.g., 100 characters, when available 
-- [x] For shapes using `sh:or` with alternative `sh:class` constraints, render a class-selection dropdown so users can explicitly choose which class branch they are filling
-- [x] READ_ONLY FLAG: add a flag to make the editor read-only and refuse with a message if the user tries to edit (for demo or presentation mode)
-- [ ] File upload of digital copy (PDF) — **upload-first redesign shipped & live-verified (2026-07-21); prod (Garage in prod compose) pending**. Plans: `.temp/temp-DONE-upload-first-files-20260717.md` supersedes the route design in `.temp/temp-SUPERSEDED-source-pdf-upload-20260716.md`. Design: a digital copy is a bridge node whose fields are machine-filled — stage PDF (`POST /api/files/staged`) → prefilled node in the form (works on unsaved records) → travels in the JSON-LD payload under the schema-declared predicate (any shape with `sh:node rfdbs:DigitalCopyShape` gets the widget; multi-parent native) → server re-derives metadata + promotes `staged/`→`registered/` on persist. RDF is the source of truth; storage reconciled against it.
-  - [x] Garage service (dev compose) + `garage.toml` + `scripts/garage-init.sh` (idempotent, host-side). Prod notes: `.temp/temp-garage-prod-bootstrap-20260716.md`.
-  - [x] Storage seam (`core/file_storage.py`: staged/registered prefixes, move, list; in-memory fake)
-  - [x] Schema `DigitalCopyShape` + `SourceShape` link (+ `schema:` prefix); extractor `file-list` field type
-  - [x] Staging/download routes; write-path re-derivation + promotion (`api/data.py`)
-  - [x] `backend/scripts/cleanup_files.py` reconciler + `GET /api/meta/files` + Data Context Panel file stats
-  - [x] Frontend `FileField` in the schema-driven form loop (jsonld emission, edit hydration)
-  - [x] Tests `tests/test_digital_copies.py` (18 cases)
-  - [x] Live end-to-end verification (API + frontend smoke) — verified working by the user (2026-07-21)
-  - [ ] Prod: `garage` in `docker-compose.prod.yml` (internal-only, hardened) + Caddy `request_body max_size` + DEV/DEPLOY/README docs
-- [ ] **OPERATIONAL — run the file-storage cleanup periodically**: `docker compose exec backend python scripts/cleanup_files.py` (add `--dry-run` to preview). Purges abandoned staged uploads (>24h), unreferenced registered files (>24h grace), and orphaned digital-copy nodes. The Data Context Panel "File storage" section shows when counts grow.
-- [x] mapping from xsd language acronym (EN, IT...) to the name — `frontend/src/utils/languages.js` (fe848de)
-- [ ] for a Performance we need to select also the Venue not only the place, but keep the place because we not always know, and for venues consider coordinates
-- [x] from the inspector sidebar link directly to record view for that entity — shipped (47e3c4d): inspector IRI objects under the `rfdb:` namespace are clickable to open that record
+- [ ] Auto-refresh entity lists (e.g. "has place" relations) when backend data changes behind the scenes.
+- [ ] Records pagination with a default page size of 20 (frontend side; pairs with cursor-based SPARQL pagination under [Backend](#backend)).
+- [ ] Entity relationship graph visualization.
+- [ ] Real-time validation — debounced SHACL checking on blur/change via `POST /api/validate`.
+- [ ] Warn on duplicate `owl:sameAs`: when a same-as value is entered, check whether another record already has it and warn the user (needs a backend lookup).
+- [ ] Data Context Panel enhancements on top of the shipped read-only baseline:
+  - [ ] Prefixes: per-entry `source` attribution (`schema` / `jsonld-context` / `runtime`); explicit prefix-drift warnings when mappings differ across schema, JSON-LD context, and runtime; copy Turtle prefix declaration / copy namespace IRI; search by prefix or namespace substring.
+  - [ ] Phase 2 — operational guardrails: store health indicators, metadata freshness timestamp, schema/context mismatch diagnostics, actionable hints.
+  - [ ] Phase 3 (optional, gated) — advanced operations: graph snapshot export, non-destructive graph diagnostics, controlled operational utilities. Keep the panel read-only in the baseline deployment; do not add delete/clear actions unless separately designed and approved.
 
-### Advanced Features
-- [x] Welcome / onboarding guide with simple guide on how to use the editor (should be possible to re-open again)
-  - [x] First-time curator **WEMI overlay** — dismissible modal with a WEMI graph diagram (Work→Expression→Manifestation→Source, + Performance branch) and the ordered insertion steps; auto-opens on first visit (localStorage `rfdb.guideSeen`), re-openable via the "Getting started" button in the nav. Component: `frontend/src/components/WelcomeGuide.{jsx,css}`, wired in `frontend/src/App.jsx`. Plan: `.temp/temp-curator-welcome-guide-20260716.md`.
-- [ ] Real-time validation (debounced SHACL checking on blur/change)
-- [ ] Bulk import (Excel/CSV → RDF)
-- [ ] Data export (RDF, JSON-LD, CSV)
-- [ ] **REQUIRES BRAINSTORM: Full snapshot export (schema + data + files).** A consistent,
-  restorable export of the whole curated state — SHACL schema graph, the data graph(s), and
-  the Garage-stored digital-copy blobs — not just a triples dump. Leaning toward a background
-  **export script** (`backend/scripts/`) that produces versioned/timestamped snapshots rather
-  than a UI feature. Open questions to brainstorm: bundle format (tar of `schema.ttl` +
-  `data.ttl`/`data.nq` + `files/` + a manifest linking digital-copy IRIs → blob keys);
-  point-in-time consistency across Oxigraph + Garage (snapshot ordering / brief read lock vs.
-  reconcile-after); trigger (cron via the existing scheduler? on-demand CLI? both?); where
-  snapshots land (local volume vs. a dedicated Garage bucket); whether it doubles as the
-  backup/restore path; and a matching import/restore counterpart. Distinct from the
-  triples-only "Data export" item above — this is the full-fidelity restorable snapshot.
-- [ ] Entity relationship graph visualization
-- [ ] Audit trail / change history
-- [ ] Cascade delete for orphaned bridge entities (AgentRole, etc.)
-- [ ] SPARQL-level pagination cursor
-- [ ] valdity check on dates between MusicalWork, Expression, and Manifestation (e.g. creation date of Expression should be after creation date of Work)
-- [ ] for all same-as fields check if other records already have it and if so, warn the user 
-- [ ] in the form, the dropdown selection for language and person should use the same UI component of the other selectors instead of the native HTML select, or at least a component with the same UI
-- [ ] support ruoli vocali, personaggi as AgentRoles a part
-- [ ]  for performances we need: scenografo, coreografo, ballerini, cantani/attori, musicisti 
-- [ ] for performances we need to know the "source" that is telling us about the performance, and the source should be linked to the performance, not to the work or expression. Sometimes a manifestation is the source, sometimes is another source like an anthology 
-- [ ] FUTURE / **multi-user editing** — the editor assumes a single concurrent curator. No optimistic locking or transactions: concurrent edits to the same entity can interleave (delete-then-insert update flow in `api/data.py`), and cross-store operations (Oxigraph triples + Garage objects) are not atomic. Needed before multiple curators work simultaneously: conflict detection (e.g. ETag/version triple per entity), and a saga/compensation pattern for file-upload + triple-write. File-id minting is already race-safe (random 8-hex suffixes, never reused).
-- [ ] FUTURE / storage — evaluate LanceDB for digital-copy storage once basic PDF upload (Garage) ships. Idea: store PDF text + page embeddings alongside blobs to make scanned sources semantically searchable, not just downloadable.
-  - Pros: embedded (no separate S3 service); metadata + vectors in one columnar store; unlocks semantic/full-text search & RAG over libretti; could unify "store file" + "make searchable".
-  - Cons: not blob-first (large PDFs sit awkwardly next to vectors); no S3 API (backend still proxies downloads); needs an OCR/embedding pipeline (scope creep beyond storing a PDF); S3 is more operationally familiar for pure serving.
-  - Kept low-risk by the `core/file_storage.py` seam introduced in the upload plan — a later, isolated swap.
-- [ ] model as in corago "Fonte Per" meaning a work is derived from another work
-- [ ] **REQUIRES BRAINSTORM: Decouple the backend from the triplestore so Oxigraph can be
-  swapped.** Today Oxigraph is reached directly via `backend/core/oxigraph_client.py` (HTTP
-  SPARQL + `load_turtle`) from routes and seeders. Introduce a storage-backend abstraction —
-  a `TripleStore` interface (query / update / load / graph management) with Oxigraph as the
-  first implementation — mirroring the `core/file_storage.py` seam that already isolates
-  Garage. Goal: no SPARQL-endpoint specifics leak past the interface, so another store
-  (Fuseki/Jena, Blazegraph, GraphDB, Qlever, RDF4J, an embedded lib, …) can be dropped in via
-  config. Open questions: how much to lean on plain SPARQL 1.1 (protocol + graph store
-  protocol) vs. per-store adapters; bulk-load path (ties into the startup bulk-load gap
-  above); transaction/atomicity semantics that differ across stores; and a conformance test
-  suite each backend must pass. Keep it low-risk and incremental like the file-storage seam.
+---
 
-### Testing
-- [ ] Tests for class-targeted validation behavior (constraints only run when `@type` matches `sh:targetClass`)
-- [ ] Tests for date datatype preservation (`xsd:date` / `xsd:gYear` / `xsd:gYearMonth` not silently promoted)
-- [ ] Tests for language-tagged literals and `sh:uniqueLang` enforcement
-- [ ] Tests for nested AgentRole editing and update preservation
-- [ ] Stabilize / guard the SHACL extraction format exposed by `GET /api/forms` against unintended shape-metadata changes
+## Backend
 
-### Data Context Panel (read-only)
+### High priority
 
-A read-only panel exposing the runtime data context. Design and implementation plan:
-`.temp/temp-data-context-panel-20260715.md`. The baseline version remains read-only and
-must not expose destructive graph operations.
+- [ ] **REQUIRES BRAINSTORM + USER APPROVAL — optimize startup bulk load of large vocab files.**
+  The ~38 MB `data/glottolog_language.ttl` is re-loaded via `POST /store` on every startup
+  ([backend/core/seeder.py](backend/core/seeder.py), [backend/core/oxigraph_client.py](backend/core/oxigraph_client.py) `load_turtle`).
+  This is slow and previously timed out (mitigated for now by the configurable `OXIGRAPH_LOAD_TIMEOUT`,
+  default 300s). Options to brainstorm: skip re-seeding when the graph already holds the vocab
+  (idempotency check), one-time offline load into a persisted Oxigraph volume, Oxigraph
+  bulk-loader / native import instead of HTTP, streaming/chunked upload, or splitting vocab from
+  large reference data. Decide and get user sign-off before implementing.
 
-Exposed information:
+### Modeling & schema
 
-- [x] active prefix mapping — served by `GET /api/meta/prefixes`, hydrated at startup
-- [x] active data graph from `DATA_GRAPH_URI` — via `GET /api/meta/graphs`
-- [x] available named graphs in Oxigraph — via `GET /api/meta/graphs`
-- [x] lightweight graph statistics (triple counts) — via `GET /api/meta/graphs`
-- [x] per-graph distinct subjects / objects / literals (columns in the graphs table) — via `GET /api/meta/graphs`
-- [x] prefix / config consistency warnings — via `GET /api/meta/graphs`
+- [ ] Complete the shape-role policy for nested shapes and helper records (see [architecture.md](docs/architecture.md#shape-role-policy)).
+- [ ] Cleanup for orphaned bridge entities after delete (e.g. `AgentRole` nodes left after their only parent is removed): cascade delete, an explicit cleanup endpoint, or an orphan-detection job. See [architecture.md](docs/architecture.md#delete-behavior-and-orphaned-helper-nodes).
+- [ ] Improve JSON-LD handling for nested forms and repeated multilingual values.
+- [ ] Expand the controlled-vocabulary seed set.
+- [ ] Support ruoli vocali / personaggi as AgentRoles in their own right.
+- [ ] Performances need the participant roles: scenografo, coreografo, ballerini, cantanti/attori, musicisti.
+- [ ] Performances need the Source that attests them, linked to the performance (not to the work or expression). Sometimes a manifestation is the source, sometimes another source such as an anthology.
+- [ ] For a Performance, select the Venue too (not only the Place; keep Place, since it is not always known) and consider coordinates for venues.
+- [ ] Validity check on dates between MusicalWork, Expression, and Manifestation (e.g. an Expression's creation date should be after the Work's).
+- [ ] Model corago-style "Fonte Per": a work derived from another work.
 
-Milestones:
+### Data, search & export
 
-- [x] Backend `GET /api/meta/prefixes` — **shipped** (resolved the prefix-map duplication gap above; `.temp/temp-DONE-prefix-consolidation-20260713.md`)
-- [x] Backend `GET /api/meta/graphs` — **shipped** (`backend/api/meta.py`; 6 tests in `tests/test_api_meta.py`)
-- [x] Frontend read-only `DataContextPanel` — **shipped** (`frontend/src/components/DataContextPanel.{jsx,css}`, wired in `App.jsx`). Live interactive smoke pending the stack run. Plan: `.temp/temp-data-context-panel-20260715.md`.
+- [ ] Replace OFFSET-based pagination with cursor-based SPARQL pagination for large graphs.
+- [ ] Smarter search ranking that favours edit distance without relying on a server-side cap or limit.
+- [ ] Bulk import (Excel/CSV → RDF).
+- [ ] Data export (RDF, JSON-LD, CSV) — the triples-only export, distinct from the full snapshot below.
+- [ ] **REQUIRES BRAINSTORM — full snapshot export (schema + data + files).** A consistent,
+  restorable export of the whole curated state — SHACL schema graph, the data graph(s), and the
+  Garage-stored digital-copy blobs — not just a triples dump. Leaning toward a background export
+  script (`backend/scripts/`) producing versioned/timestamped snapshots rather than a UI feature.
+  Open questions: bundle format (tar of `schema.ttl` + `data.ttl`/`data.nq` + `files/` + a manifest
+  linking digital-copy IRIs → blob keys); point-in-time consistency across Oxigraph + Garage
+  (snapshot ordering / brief read lock vs. reconcile-after); trigger (cron via the existing
+  scheduler? on-demand CLI? both?); where snapshots land (local volume vs. a dedicated Garage
+  bucket); whether it doubles as the backup/restore path; and a matching import/restore counterpart.
+- [ ] Audit trail / change history.
+- [ ] Pre-flight check: validate the SHACL shapes for consistency before the server starts, rejecting unsupported features/paradigms (e.g. shapes without a `targetClass`).
 
-Remaining enhancements (not yet shipped) on top of the shipped read-only baseline:
+### Platform & future
 
-- [ ] Prefixes: per-entry `source` attribution (`schema` / `jsonld-context` / `runtime`); explicit prefix-drift warnings when mappings differ across schema, JSON-LD context, and runtime; copy Turtle prefix declaration / copy namespace IRI; search by prefix or namespace substring
-- [ ] Named graphs: richer per-graph status labels beyond the current active/count view
-- [ ] Phase 2 — operational guardrails: store health indicators, metadata freshness timestamp, schema/context mismatch diagnostics, actionable hints
-- [ ] Phase 3 (optional, gated) — advanced operations: graph snapshot export, non-destructive graph diagnostics, controlled operational utilities. Keep the panel read-only in baseline deployment; do not add delete/clear actions unless separately designed and approved.
+- [ ] **FUTURE — multi-user editing.** The editor assumes a single concurrent curator. No optimistic
+  locking or transactions: concurrent edits to the same entity can interleave (delete-then-insert
+  update flow in `api/data.py`), and cross-store operations (Oxigraph triples + Garage objects) are
+  not atomic. Needed before multiple curators work simultaneously: conflict detection (e.g.
+  ETag/version triple per entity) and a saga/compensation pattern for file-upload + triple-write.
+  File-id minting is already race-safe (random 8-hex suffixes, never reused).
+- [ ] **FUTURE — storage.** Evaluate LanceDB for digital-copy storage once basic PDF upload (Garage)
+  ships in production. Idea: store PDF text + page embeddings alongside blobs to make scanned
+  sources semantically searchable, not just downloadable. Kept low-risk by the `core/file_storage.py`
+  seam — a later, isolated swap. Trade-offs: embedded (no separate S3 service) and unlocks semantic
+  search, but is not blob-first, has no S3 API, and needs an OCR/embedding pipeline.
+- [ ] **REQUIRES BRAINSTORM — decouple the backend from the triplestore so Oxigraph can be swapped.**
+  Today Oxigraph is reached directly via `backend/core/oxigraph_client.py` (HTTP SPARQL +
+  `load_turtle`) from routes and seeders. Introduce a `TripleStore` interface
+  (query / update / load / graph management) with Oxigraph as the first implementation — mirroring
+  the `core/file_storage.py` seam that already isolates Garage — so another store (Fuseki/Jena,
+  Blazegraph, GraphDB, Qlever, RDF4J, an embedded lib, …) can be dropped in via config. Open
+  questions: how much to lean on plain SPARQL 1.1 vs. per-store adapters; the bulk-load path (ties
+  into the startup bulk-load gap above); transaction/atomicity semantics that differ across stores;
+  and a conformance test suite each backend must pass.
 
-### Development and Deployment
-- [ ] verify why what is hogging the build and deploy time, especially in the backend, and if it is possible to speed up the build and deploy time
-- [x] fix  warning  Unused eslint-disable directive 
-- [ ] setup auto release to GitHub releases and github package registry
-- [ ] verify versioning and commit tagging works correctly with GitHub Actions and automatic release based on tagged commits
-- [ ] configure Docker Compose to run in production mode with Nginx reverse proxy and SSL termination
-- [x] check closely in README.md the Repository Structure
-- [x] pre-commit hook configuration (.pre-commit-config.yaml) — ruff lint + format, opt-in via `pre-commit install`
-- [ ] make a pre-flight check for the backend to ensure that the SHACL shapes are valid and consistent before starting the server and that they do not contain unsupported features or paradgims (e.g., shapes without a targetClass)
-- [ ] **prefix-map sanity check (manual)** — the CURIE map served by `GET /api/meta/prefixes` is a curated list in `backend/core/prefixes.py` (`PREFIXES`); it must be updated whenever a new `@prefix` is added to any TTL file (schema / data / vocab / glottolog). Run `cd backend && uv run python scripts/check_prefixes.py` to verify `PREFIXES` covers every declared prefix (reports missing / mismatched). Consider promoting this to an automated pre-flight/CI check later.
+---
+
+## DevOps
+
+- [ ] **OPERATIONAL — run the file-storage cleanup periodically:** `docker compose exec backend python scripts/cleanup_files.py` (add `--dry-run` to preview). Purges abandoned staged uploads (>24h), unreferenced registered files (>24h grace), and orphaned digital-copy nodes. The Data Context Panel "File storage" section shows when counts grow.
+- [ ] Production digital-copy storage: add `garage` to `docker-compose.prod.yml` (internal-only, hardened), a Caddy `request_body max_size`, and the matching DEV/DEPLOY/README docs. See [deployment.md](docs/deployment.md#production-deployment-work-in-progress).
+- [ ] Investigate what dominates build/deploy time (backend especially) and whether it can be sped up.
+- [ ] Set up automated release to GitHub Releases and the GitHub package registry.
+- [ ] Verify versioning and commit tagging work with GitHub Actions (automatic release from tagged commits).
+- [ ] Configure Docker Compose for production: Caddy reverse proxy + TLS termination, internal-only triple/object stores. See the [production deployment plan](docs/deployment.md#production-deployment-work-in-progress).
+
+---
+
+## Shipped
+
+### UI
+
+- [x] `owl:sameAs` accepts multiple values (linking to several external authority records).
+- [x] Expression comment field rendered `[object Object]` instead of the string value — fixed.
+- [x] Language field in the Source form is a dropdown of available languages, not free text.
+- [x] Preserve create-form drafts across browser reload: drafts persist to `sessionStorage` with a 1h TTL, survive reload, and clear on submit / Reset / TTL lapse (`App.jsx` `loadPersistedDrafts` + persist effect). Note: the active shape/view is not persisted — the form reopens on the first shape, but the saved draft re-applies when you return to that shape.
+- [x] Comment / description fields use a larger textarea (`longText` derived from SHACL in `schema_extractor.py`, rendered in `FormField.jsx`; fe848de).
+- [x] For shapes using `sh:or` with alternative `sh:class` constraints, a class-selection dropdown lets users pick which class branch they are filling.
+- [x] xsd language acronym → name mapping (`frontend/src/utils/languages.js`; fe848de).
+- [x] From the inspector sidebar, link directly to the record view for a `rfdb:`-namespace entity (47e3c4d).
+- [x] Welcome / onboarding guide: dismissible first-time curator **WEMI overlay** with a Work→Expression→Manifestation→Source (+ Performance) diagram and the ordered insertion steps; auto-opens on first visit (localStorage `rfdb.guideSeen`), re-openable via the "Getting started" nav button. `frontend/src/components/WelcomeGuide.{jsx,css}`.
+- [x] Autocomplete dropdown options show the entity's `rdfs:comment` as a truncated secondary line (search endpoint returns `comment`; `EntitySearch` renders it in the open menu).
+- [x] All form dropdowns unified on one react-select component (`StyledSelect` + shared `selectStyles`): enum (`sh:in`) fields, the polymorphic `@type` chooser, and the language-tag pickers no longer use a native `<select>`.
+- [x] Data Context Panel — richer per-graph status: an "empty" badge alongside "active".
+
+### Backend
+
+- [x] `RESET_DATA_ON_STARTUP=true` now actually resets data when starting via Docker Compose.
+- [x] Allow `rdfs:label` / `rdfs:comment` without language tags for generic untranslated values.
+- [x] Hydrate `data/glottolog_language.ttl` into Oxigraph and connect it to `rfdb:Source` language handling via `dcterms:language` (`sh:nodeKind sh:IRI`) in `rfdbs:SourceShape`.
+- [x] `READ_ONLY` flag: refuse writes with a message (for demo/presentation mode); plus `READ_ONLY_SHAPES` per-shape protection.
+- [x] Prefix-map duplication resolved: `GET /api/meta/prefixes` (`backend/api/meta.py`) serves the curated map; `frontend/src/utils/prefixes.js` / `utils/jsonld.js` hydrate from it at startup (`App.jsx`). Plan: `.temp/temp-DONE-prefix-consolidation-20260713.md`.
+- [x] Data Context Panel backend: `GET /api/meta/graphs` (named graphs, triple/term counts, config warnings) and `GET /api/meta/prefixes`; covered by `tests/test_api_meta.py`.
+- [x] Digital-copy upload-first backend (shipped & live-verified 2026-07-21): staging/download routes, write-path re-derivation + `staged/`→`registered/` promotion (`api/data.py`), storage seam (`core/file_storage.py`), `DigitalCopyShape` + `SourceShape` link, `scripts/cleanup_files.py` reconciler, `GET /api/meta/files`, and `tests/test_digital_copies.py`. Plan: `.temp/temp-DONE-upload-first-files-20260717.md`.
+- [x] Regression tests for previously-untested behaviours: class-targeted validation (`@type` gating), date-precision preservation (`xsd:gYear` not promoted), language tags + `sh:uniqueLang`, the `/api/forms` + `/api/shapes` metadata contract, and nested AgentRole editing. See `tests/test_class_targeted_validation.py`, `tests/test_date_datatype_preservation.py`, `tests/test_lang_string_unique.py`, `tests/test_forms_metadata_contract.py`, `tests/test_agent_role_nested.py`.
+
+### DevOps
+
+- [x] Fixed the "Unused eslint-disable directive" warning.
+- [x] Reviewed the Repository Structure section in `README.md`.
+- [x] pre-commit hook configuration (`.pre-commit-config.yaml`): ruff lint + format, opt-in via `pre-commit install`.
+- [x] Prefix-map sanity check automated: `backend/scripts/check_prefixes.py` now runs in CI (`.github/workflows/ci.yml`) and as a pre-commit hook (fires when a schema/data TTL or `core/prefixes.py` changes), so `PREFIXES` stays in sync with every declared `@prefix`.
 
 ---
 
@@ -149,10 +141,10 @@ Remaining enhancements (not yet shipped) on top of the shipped read-only baselin
 
 The initial version does not aim to:
 
-- implement a full ontology editor
-- replace SHACL authoring tools
-- provide complex graph visualization
-- automate ontology migration
-- infer inverse relations unless required by the schema
-- enforce constraints not present in SHACL
-- replace expert data curation
+- implement a full ontology editor;
+- replace SHACL authoring tools;
+- provide complex graph visualization;
+- automate ontology migration;
+- infer inverse relations unless required by the schema;
+- enforce constraints not present in SHACL;
+- replace expert data curation.
