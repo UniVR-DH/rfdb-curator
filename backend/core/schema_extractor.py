@@ -31,7 +31,7 @@ Shape roles
 -----------
 Every NodeShape is classified into one of two roles by ``_infer_shape_role()``:
 
-  ``external-entity``
+  ``standalone-entity``
       The shape has an ``rdfs:label`` property — it models a first-class named
       entity (Person, Place, Work, …) that can be created and searched independently.
 
@@ -54,7 +54,7 @@ The resolution runs in priority order:
   ``number``          datatype xsd:decimal / xsd:integer / xsd:int
   ``text``            any other explicit datatype
   ``nested``          sh:node pointing to a helper-bridge shape, or sh:nodeKind BlankNode
-  ``entity-search``   sh:class or sh:node pointing to an external-entity shape
+  ``entity-search``   sh:class or sh:node pointing to a standalone-entity shape
   ``uri``             sh:nodeKind IRI without a class constraint
   ``text``            fallback
 
@@ -392,16 +392,16 @@ class SchemaExtractor:
         return self._infer_shape_role(nested_shape)
 
     def _infer_shape_role(self, shape_uri: URIRef) -> str:
-        """Classify a shape as 'external-entity' or 'helper-bridge'.
+        """Classify a shape as 'standalone-entity' or 'helper-bridge'.
 
-        Policy: a shape that declares an rdfs:label property is an external entity
+        Policy: a shape that declares an rdfs:label property is a standalone entity
         (it has its own identity and label).  A shape without rdfs:label is a
         helper/bridge node that only exists to connect other entities.
         """
         for prop_node in self.graph.objects(shape_uri, SH.property):
             path = self.graph.value(prop_node, SH.path)
             if path == RDFS.label:
-                return "external-entity"
+                return "standalone-entity"
         return "helper-bridge"
 
     def _infer_field_type(
@@ -470,7 +470,7 @@ class SchemaExtractor:
             if "BlankNode" in nk or nested_shape_role == "helper-bridge":
                 return "nested"
 
-        # External entity reference via sh:class or sh:node
+        # Standalone entity reference via sh:class or sh:node
         if klass or node:
             return "entity-search"
 

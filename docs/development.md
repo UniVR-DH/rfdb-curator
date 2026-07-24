@@ -150,7 +150,7 @@ GET /api/forms?shapeId=...
 
 Two behaviors matter when adding or changing a shape, and both are documented elsewhere:
 
-- **Helper/bridge vs. external-entity classification** — whether a shape renders as a top-level record or as a nested inline editor is derived from the schema (whether it declares an `rdfs:label` property), not hardcoded per class name. Check both the SHACL shape and the resulting `/api/shapes` metadata before changing frontend code. See [architecture.md](architecture.md#helperbridge-shape-classification).
+- **Helper/bridge vs. standalone-entity classification** — whether a shape renders as a top-level record or as a nested inline editor is derived from the schema (whether it declares an `rdfs:label` property), not hardcoded per class name. Check both the SHACL shape and the resulting `/api/shapes` metadata before changing frontend code. See [architecture.md](architecture.md#helperbridge-shape-classification).
 - **Performance and contributor modeling rationale** — the deliberate use of `cidoc:P19_was_intended_use_of` vs `cidoc:P16_used_specific_object`, and of `dcterms:contributor` with `rfdbs:ContributorShape`, should be preserved unless there is an explicit migration plan. See [data-model.md](data-model.md#performance-and-contributor-modeling).
 
 ---

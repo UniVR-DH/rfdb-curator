@@ -10,11 +10,11 @@ the day-to-day workflow of changing schema/data/code see [development.md](develo
 
 ## Core Architectural Principle
 
-`rfdb-curator` should remain schema-driven.
+The `rfdb-curator` application is schema-driven by design.
 
-The frontend should not contain hard-coded assumptions about the current RossijskijFeatrDB entity model unless those assumptions are necessary for usability and are clearly isolated.
+The frontend should not contain hard-coded assumptions about the current entity model.
 
-The preferred flow is:
+The current operational flow is:
 
 ```text
 schema/schema.ttl
@@ -151,7 +151,7 @@ The extractor should preserve enough information for both rendering and validati
 
 Shape behavior in the UI is schema-driven, not hardcoded per class name.
 
-- If a shape declares a `sh:property` with `sh:path rdfs:label`, the backend classifies it as a standalone `external-entity`.
+- If a shape declares a `sh:property` with `sh:path rdfs:label`, the backend classifies it as a `standalone-entity`.
 - If a shape has no `rdfs:label` property, the backend classifies it as a `helper-bridge` shape.
 - If a parent property uses `sh:node` to point at a `helper-bridge` shape, the form generator exposes that field as a nested inline editor instead of a normal top-level linked entity form.
 
@@ -205,7 +205,7 @@ Future options:
 - explicit cleanup endpoint
 - orphan detection job
 - UI warning before delete
-- shape-role policy distinguishing external entities from helper bridges
+- shape-role policy distinguishing standalone entities from helper bridges
 
 ---
 
@@ -216,7 +216,7 @@ The editor needs a policy for nested shapes.
 Important distinction:
 
 ```text
-external entity
+standalone entity
     A reusable entity with independent meaning and lifecycle.
 
 helper bridge
@@ -225,10 +225,10 @@ helper bridge
 
 Examples:
 
-- Person: external entity
-- Role: external entity
-- Place: external entity
-- Holding Organization: external entity
+- Person: standalone entity
+- Role: standalone entity
+- Place: standalone entity
+- Holding Organization: standalone entity
 - AgentRole: likely helper bridge
 
 This distinction affects:

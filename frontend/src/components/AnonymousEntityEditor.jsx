@@ -12,7 +12,7 @@
  * Shape role drives rendering:
  *   helper-bridge   - the nested shape is a pure relation container (no rdfs:label of its own).
  *                    Each inline card shows EntitySearch widgets for every entity-search property (core:isMemberOf, core:hasRole).
- *   external-entity - the nested shape has its own label; a note is shown directing the user to create it separately then reference it via search.
+ *   standalone-entity - the nested shape has its own label; a note is shown directing the user to create it separately then reference it via search.
  *
  * Node creation:
  *   - When adding a bridge/helper entry, generate a regular node IRI (rfdb:ShapeType_<8hex>), not a blank node.
@@ -78,7 +78,7 @@ export default function AnonymousEntityEditor({ field, allShapes, control }) {
 
       {nestedShape && !isHelperBridge && (
         <p className="nested-editor-note">
-          Nested shape <span className="mono">{nestedShape.label}</span> is modeled as an external
+          Nested shape <span className="mono">{nestedShape.label}</span> is modeled as a standalone
           entity. Use reference fields to associate existing records.
         </p>
       )}

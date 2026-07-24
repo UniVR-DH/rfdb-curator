@@ -70,7 +70,7 @@ Recommended short-term priorities:
 2. Keep the reference docs as a deeper technical reference.
 3. Stabilize the SHACL schema extraction format exposed by `/api/forms`.
 4. Ensure every saved entity preserves stable `@id` and required `@type` values.
-5. Define shape-role policy for helper bridges versus reusable external entities.
+5. Define shape-role policy for helper bridges versus reusable standalone entities.
 6. Add tests for class-targeted validation behavior.
 7. Add tests for date datatype preservation.
 8. Add tests for language-tagged literals and `sh:uniqueLang`.

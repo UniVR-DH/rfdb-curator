@@ -1,14 +1,18 @@
 # RFDB Curator
 
-Developed within the [Rossiysky Θeatr: Music Sources of the Russian Empire](https://rosfeatr.eu/) project.
-
-Standalone SHACL-driven curation application for RossijskijFeatrDB.
-[SHACL shapes](https://www.w3.org/TR/shacl12-core/) are aligned with the [Polifonia Core Ontology](https://github.com/polifonia-project/core-ontology) and [LRMoo](https://cidoc-crm.org/lrmoo/) to support the FRBR-based work–expression–manifestation–item (WEMI) hierarchy.
+Standalone SHACL-driven curation application.
+Forms are generated dynamically and automatically from the active SHACL schema, so **the schema is the source of truth** for record types, fields, constraints, datatypes, and relations. 
+Swap the schema and the whole editor follows — see [The Schema](#the-schema).
 The web application provides shape-aware CRUD, validation, autocomplete, and record inspection for RDF instance data.
 
-Forms are generated dynamically and automatically from the active SHACL schema, so **the schema is the source of truth** for record types, fields, constraints, datatypes, and relations. Swap the schema and the whole editor follows — see [The Schema](#the-schema).
+The current use case is the curation of `RossijskijFeatrDB`, developed within the [Rossiysky Θeatr: Music Sources of the Russian Empire](https://rosfeatr.eu/) project.
+The current schema features record types for musical works, expressions, manifestations, sources/items, digital copies, persons, roles, agent-role assignments, places, subjects, source types, holding organizations, performances, and controlled-vocabulary languages.
+[SHACL shapes](https://www.w3.org/TR/shacl12-core/) are aligned with the [Polifonia Core Ontology](https://github.com/polifonia-project/core-ontology) and [LRMoo](https://cidoc-crm.org/lrmoo/) to support the FRBR-based work–expression–manifestation–item (WEMI) hierarchy.
 
-This repository is self-contained: backend, frontend, schema, data, and the Docker Compose runtime are all maintained at the repository root. For deeper topic guides, see the [documentation](#documentation).
+
+This repository is self-contained: backend, frontend, schema, data, and the Docker Compose runtime are all maintained at the repository root.
+For deeper topic guides, see the [documentation](#documentation).
+
 
 ---
 
@@ -26,7 +30,7 @@ This repository is self-contained: backend, frontend, schema, data, and the Dock
 
 ## Tech Stack
 
-- **Backend:** [FastAPI](https://fastapi.tiangolo.com/) + [uvicorn](https://www.uvicorn.org/)
+- **Backend:** [FastAPI](https://fastapi.tiangolo.com/) + [uvicorn](https://uvicorn.dev/)
 - **Frontend:** [React](https://react.dev/) + [Vite](https://vite.dev/)
 - **RDF Store:** [Oxigraph](https://github.com/oxigraph/oxigraph), using [SPARQL](https://www.w3.org/TR/sparql11-query/) and [Graph Store Protocol](https://www.w3.org/TR/sparql11-http-rdf-update/)
 - **Object Storage:** [Garage](https://garagehq.deuxfleurs.fr/) (S3-compatible), via [boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html) — holds digital-copy files
@@ -42,11 +46,13 @@ This repository is self-contained: backend, frontend, schema, data, and the Dock
 
 - Docker
 - Docker Compose
-- OpenSSL (for the one-time secret generation step below; present by default on macOS and most Linux distributions)
+- OpenSSL (for the one-time secret generation step below)
 
 ### First-time setup
 
-The stack needs a repo-root `.env` (Garage RPC secret + the S3 credentials shared by Garage and the backend) and a one-time Garage bootstrap (cluster layout, bucket, access key). Both are handled by helper scripts. `.env` is gitignored, so a fresh checkout has none — Compose fails fast if `GARAGE_RPC_SECRET` is missing, and uploads fail until Garage is bootstrapped.
+The stack needs a repo-root `.env` (Garage RPC secret + the S3 credentials shared by Garage and the backend) and a one-time Garage bootstrap (cluster layout, bucket, access key). 
+Both are handled by helper scripts. `.env` is gitignored, so a fresh checkout has none.
+Compose fails at startup if `GARAGE_RPC_SECRET` is missing, while uploads fail until Garage is bootstrapped.
 
 From the repository root:
 
@@ -189,6 +195,8 @@ For Docker Compose, edit the `environment:` block in `docker-compose.yml`. `OXIG
 
 Backend log/troubleshooting details are covered in [docs/development.md](docs/development.md); production wiring (Caddy, `docker-compose.prod.yml`) is in [docs/deployment.md](docs/deployment.md).
 
+> **Note — not production ready.** The configuration and runtime described above target local development only. A hardened production configuration (secret management, TLS termination, internal-only data/object stores, resource limits) is **work in progress** and not yet complete. Do not deploy this stack to a public or shared environment as-is.
+
 ---
 
 ## Data Seeding
@@ -277,3 +285,13 @@ rfdb-curator/
 ├── TODO.md
 └── README.md
 ```
+
+---
+
+## Copyright & License
+
+Copyright © 2026 University of Verona — Digital Humanities.
+
+Developed within the [Rossiysky Θeatr: Music Sources of the Russian Empire](https://rosfeatr.eu/) project.
+
+This program is free software: you can redistribute it and/or modify it under the terms of the [GNU General Public License v3.0](LICENSE) as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [LICENSE](LICENSE) file for the full text.

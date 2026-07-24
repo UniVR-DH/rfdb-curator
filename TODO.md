@@ -58,6 +58,17 @@
 - [ ] Real-time validation (debounced SHACL checking on blur/change)
 - [ ] Bulk import (Excel/CSV → RDF)
 - [ ] Data export (RDF, JSON-LD, CSV)
+- [ ] **REQUIRES BRAINSTORM: Full snapshot export (schema + data + files).** A consistent,
+  restorable export of the whole curated state — SHACL schema graph, the data graph(s), and
+  the Garage-stored digital-copy blobs — not just a triples dump. Leaning toward a background
+  **export script** (`backend/scripts/`) that produces versioned/timestamped snapshots rather
+  than a UI feature. Open questions to brainstorm: bundle format (tar of `schema.ttl` +
+  `data.ttl`/`data.nq` + `files/` + a manifest linking digital-copy IRIs → blob keys);
+  point-in-time consistency across Oxigraph + Garage (snapshot ordering / brief read lock vs.
+  reconcile-after); trigger (cron via the existing scheduler? on-demand CLI? both?); where
+  snapshots land (local volume vs. a dedicated Garage bucket); whether it doubles as the
+  backup/restore path; and a matching import/restore counterpart. Distinct from the
+  triples-only "Data export" item above — this is the full-fidelity restorable snapshot.
 - [ ] Entity relationship graph visualization
 - [ ] Audit trail / change history
 - [ ] Cascade delete for orphaned bridge entities (AgentRole, etc.)
@@ -74,6 +85,17 @@
   - Cons: not blob-first (large PDFs sit awkwardly next to vectors); no S3 API (backend still proxies downloads); needs an OCR/embedding pipeline (scope creep beyond storing a PDF); S3 is more operationally familiar for pure serving.
   - Kept low-risk by the `core/file_storage.py` seam introduced in the upload plan — a later, isolated swap.
 - [ ] model as in corago "Fonte Per" meaning a work is derived from another work
+- [ ] **REQUIRES BRAINSTORM: Decouple the backend from the triplestore so Oxigraph can be
+  swapped.** Today Oxigraph is reached directly via `backend/core/oxigraph_client.py` (HTTP
+  SPARQL + `load_turtle`) from routes and seeders. Introduce a storage-backend abstraction —
+  a `TripleStore` interface (query / update / load / graph management) with Oxigraph as the
+  first implementation — mirroring the `core/file_storage.py` seam that already isolates
+  Garage. Goal: no SPARQL-endpoint specifics leak past the interface, so another store
+  (Fuseki/Jena, Blazegraph, GraphDB, Qlever, RDF4J, an embedded lib, …) can be dropped in via
+  config. Open questions: how much to lean on plain SPARQL 1.1 (protocol + graph store
+  protocol) vs. per-store adapters; bulk-load path (ties into the startup bulk-load gap
+  above); transaction/atomicity semantics that differ across stores; and a conformance test
+  suite each backend must pass. Keep it low-risk and incremental like the file-storage seam.
 
 ### Data Context Panel (read-only)
 

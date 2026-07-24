@@ -57,42 +57,13 @@ overlay in the app walks through this WEMI flow the first time you open it.
 
 ## Running it locally
 
-You need Docker, Docker Compose, and OpenSSL. On a fresh checkout there is a one-time
-setup — generate the gitignored `.env` (Garage RPC secret + shared S3 credentials) and
-bootstrap Garage (cluster layout, bucket, access key). Compose fails fast without `.env`,
-and file uploads fail until Garage is bootstrapped. From the repository root:
+The full local setup — prerequisites, the one-time `.env` + Garage bootstrap, day-to-day
+run/stop commands, service URLs, and the data-reset and seeding options — is documented in
+the [Quick Start](../README.md#quick-start) section of the root `README.md`.
 
-```bash
-# 1. Generate .env with fresh dev secrets (refuses to clobber an existing .env)
-scripts/env-init.sh
-
-# 2. Build and start the stack
-docker compose up -d --build
-
-# 3. Bootstrap Garage — run ONCE, after the first `up` (and again after any `down -v`)
-scripts/garage-init.sh
-```
-
-Both scripts are idempotent. After setup, ordinary runs need only Compose:
-
-```bash
-# First run of a session or after Dockerfile changes
-docker compose up --build
-
-# Subsequent runs
-docker compose up
-```
-
-Then open the editor at <http://localhost:5173>.
-
-Stop the services with `docker compose down`. Avoid `docker compose down -v` unless you
-intend to erase all stored data — the `-v` flag deletes the Oxigraph data volume **and**
-the Garage volumes (layout, bucket, key), after which you must re-run
-`scripts/garage-init.sh`.
-
-The controlled vocabulary is seeded automatically on startup. For the full set of
-startup and data-reset options, see the Configuration and Data Seeding sections of the
-root `README.md`.
+In short: run `scripts/env-init.sh`, `docker compose up -d --build`, and
+`scripts/garage-init.sh` once on a fresh checkout, then open the editor at
+<http://localhost:5173>.
 
 ---
 

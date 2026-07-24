@@ -1,5 +1,7 @@
 # Production Deployment — RossijskijFeatrDB
 
+> **Note — not production ready.** The configuration and runtime described below target local development only. A hardened production configuration (secret management, TLS termination, internal-only data/object stores, resource limits) is **work in progress** and not yet complete. Do not deploy this stack to a public or shared environment as-is.
+
 ## Assumptions made in `docker-compose.prod.yml`
 
 This file will not run as-is. It assumes the following:
