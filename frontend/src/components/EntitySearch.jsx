@@ -113,6 +113,8 @@ export default function EntitySearch({ field, control, name }) {
             </div>
           )}
           styles={selectStyles}
+          menuPlacement="auto"
+          menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
           cacheOptions
         />
       )}

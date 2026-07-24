@@ -22,6 +22,9 @@ export const selectStyles = {
     border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: 'var(--radius-panel)',
   }),
+  // The menu is portaled to <body> (menuPortalTarget) so it is never clipped by
+  // a short form or a panel with overflow: hidden; keep it above modals/panels.
+  menuPortal: (base) => ({ ...base, zIndex: 9999 }),
   option: (base, state) => ({
     ...base,
     backgroundColor: state.isFocused ? 'rgba(139,30,45,0.35)' : 'transparent',

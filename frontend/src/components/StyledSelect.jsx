@@ -47,6 +47,7 @@ export default function StyledSelect({
       isSearchable={isSearchable}
       styles={selectStyles}
       menuPlacement="auto"
+      menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
     />
   )
 }
