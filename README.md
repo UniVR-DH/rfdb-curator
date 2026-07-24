@@ -3,7 +3,7 @@
 Developed within the [Rossiysky Θeatr: Music Sources of the Russian Empire](https://rosfeatr.eu/) project.
 
 Standalone SHACL-driven curation application for RossijskijFeatrDB.
-[SHACL shapes](https://www.w3.org/TR/shacl12-core/) are aligned with the Polifonia Core Ontology and LRMoo to support the FRBR-based work–expression–manifestation–item (WEMI) hierarchy.
+[SHACL shapes](https://www.w3.org/TR/shacl12-core/) are aligned with the [Polifonia Core Ontology](https://github.com/polifonia-project/core-ontology) and [LRMoo](https://cidoc-crm.org/lrmoo/) to support the FRBR-based work–expression–manifestation–item (WEMI) hierarchy.
 The web application provides shape-aware CRUD, validation, autocomplete, and record inspection for RDF instance data.
 
 Forms are generated dynamically and automatically from the active SHACL schema, so **the schema is the source of truth** for record types, fields, constraints, datatypes, and relations. Swap the schema and the whole editor follows — see [The Schema](#the-schema).
@@ -16,8 +16,8 @@ This repository is self-contained: backend, frontend, schema, data, and the Dock
 
 - Dynamic form generation from SHACL `sh:NodeShape` definitions
 - Shape-aware create, read, update, and delete operations
-- RDF instance data stored in Oxigraph
-- SHACL validation with pySHACL
+- RDF instance data stored in [Oxigraph](https://github.com/oxigraph/oxigraph)
+- SHACL validation with [pySHACL](https://github.com/RDFLib/pySHACL)
 - Autocomplete for linked RDF resources
 - Record inspection through RDF triples
 - Controlled-vocabulary seeding from Turtle files
@@ -26,13 +26,13 @@ This repository is self-contained: backend, frontend, schema, data, and the Dock
 
 ## Tech Stack
 
-- **Backend:** FastAPI + uvicorn
-- **Frontend:** React + Vite
-- **RDF Store:** Oxigraph, using SPARQL and Graph Store Protocol
-- **Object Storage:** Garage (S3-compatible), via boto3 — holds digital-copy files
-- **Validation:** pySHACL
-- **RDF/Data Model:** rdflib, Turtle, JSON-LD
-- **Runtime:** Docker Compose
+- **Backend:** [FastAPI](https://fastapi.tiangolo.com/) + [uvicorn](https://www.uvicorn.org/)
+- **Frontend:** [React](https://react.dev/) + [Vite](https://vite.dev/)
+- **RDF Store:** [Oxigraph](https://github.com/oxigraph/oxigraph), using [SPARQL](https://www.w3.org/TR/sparql11-query/) and [Graph Store Protocol](https://www.w3.org/TR/sparql11-http-rdf-update/)
+- **Object Storage:** [Garage](https://garagehq.deuxfleurs.fr/) (S3-compatible), via [boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html) — holds digital-copy files
+- **Validation:** [pySHACL](https://github.com/RDFLib/pySHACL)
+- **RDF/Data Model:** [rdflib](https://rdflib.readthedocs.io/), [Turtle](https://www.w3.org/TR/turtle/), [JSON-LD](https://www.w3.org/TR/json-ld11/)
+- **Runtime:** [Docker Compose](https://docs.docker.com/compose/)
 
 ---
 
@@ -42,13 +42,33 @@ This repository is self-contained: backend, frontend, schema, data, and the Dock
 
 - Docker
 - Docker Compose
+- OpenSSL (for the one-time secret generation step below; present by default on macOS and most Linux distributions)
 
-### Run
+### First-time setup
+
+The stack needs a repo-root `.env` (Garage RPC secret + the S3 credentials shared by Garage and the backend) and a one-time Garage bootstrap (cluster layout, bucket, access key). Both are handled by helper scripts. `.env` is gitignored, so a fresh checkout has none — Compose fails fast if `GARAGE_RPC_SECRET` is missing, and uploads fail until Garage is bootstrapped.
 
 From the repository root:
 
 ```bash
-# First run or after Dockerfile changes
+# 1. Generate .env with fresh dev secrets (refuses to clobber an existing .env)
+scripts/env-init.sh
+
+# 2. Build and start the stack
+docker compose up -d --build
+
+# 3. Bootstrap Garage — run ONCE, after the first `up` (and again after any `down -v`)
+scripts/garage-init.sh
+```
+
+Both scripts are idempotent and documented in their file headers.
+
+### Run
+
+Once set up, ordinary runs need only Compose:
+
+```bash
+# First run of a session or after Dockerfile changes
 docker compose up --build
 
 # Subsequent runs
@@ -61,7 +81,7 @@ Stop services:
 docker compose down
 ```
 
-Remove volumes and clear all Oxigraph data (destructive):
+Remove volumes and clear all data (destructive — wipes Oxigraph triples **and** Garage layout/bucket/key). After this you must re-run `scripts/garage-init.sh`:
 
 ```bash
 docker compose down -v
@@ -95,6 +115,7 @@ These and all other startup settings are listed under [Configuration](#configura
 | Frontend | http://localhost:5173 |
 | Backend | http://localhost:8000 |
 | Oxigraph | http://localhost:7878 |
+| Garage (S3 API) | http://localhost:3900 |
 
 ---
 
@@ -104,7 +125,7 @@ The active SHACL schema lives in `schema/schema.ttl` and is the single source of
 
 ### Data Model
 
-The active model uses LRMoo (rather than the older FRBR/FaBiO model) and draws on LRMoo, CIDOC CRM, the Polifonia Core / Music Meta / Source ontologies, Dublin Core Terms, PRISM, SKOS, FOAF, Schema.org, Wikidata direct properties, and RDF/RDFS/OWL/XSD.
+The active model uses [LRMoo](https://cidoc-crm.org/lrmoo/) (rather than the older FRBR/FaBiO model) and draws on [LRMoo](https://cidoc-crm.org/lrmoo/), [CIDOC CRM](https://cidoc-crm.org/), the Polifonia [Core](https://github.com/polifonia-project/core-ontology) / [Music Meta](https://github.com/polifonia-project/music-meta-ontology) / [Source](https://github.com/polifonia-project/source-ontology) ontologies, [Dublin Core Terms](https://www.dublincore.org/specifications/dublin-core/dcmi-terms/), [PRISM](https://www.w3.org/submissions/prism/), [SKOS](https://www.w3.org/TR/skos-reference/), [FOAF](http://xmlns.com/foaf/spec/), [Schema.org](https://schema.org/), [Wikidata](https://www.wikidata.org/) direct properties, and RDF/RDFS/OWL/XSD.
 
 LRMoo hierarchy: a **Musical Work** is the abstract work; an **Expression** is an intellectual realization (e.g. a libretto); a **Manifestation** is an edition or product type; a **Source / Item** is a specific physical or documentary copy. Each level refines the one above it, from Work through Expression and Manifestation to Source/Item, and every WEMI link points from the more concrete record up to its parent — so create parents before children.
 

@@ -34,7 +34,18 @@ Vite dev server runs on `http://localhost:5173`.
 
 ### Running the full application
 
-Docker Compose is the preferred way to run backend + frontend + Oxigraph together during development:
+Docker Compose is the preferred way to run backend + frontend + Oxigraph + Garage together during development.
+
+On a fresh checkout, do the one-time setup first (requires OpenSSL): generate the gitignored `.env` and bootstrap Garage. Compose fails fast without `.env` (missing `GARAGE_RPC_SECRET`), and file uploads fail until Garage is bootstrapped.
+
+```bash
+# One-time, from the repository root
+scripts/env-init.sh          # generate .env with fresh dev secrets
+docker compose up -d --build
+scripts/garage-init.sh        # bootstrap Garage layout/bucket/key (re-run after any `down -v`)
+```
+
+Both scripts are idempotent. After setup, ordinary runs need only:
 
 ```bash
 docker compose up --build
