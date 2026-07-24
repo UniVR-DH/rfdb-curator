@@ -1,5 +1,7 @@
 # RFDB Curator
 
+Developed within the [Rossiysky Θeatr: Music Sources of the Russian Empire](https://rosfeatr.eu/) project.
+
 Standalone SHACL-driven curation application for RossijskijFeatrDB.
 [SHACL shapes](https://www.w3.org/TR/shacl12-core/) are aligned with the Polifonia Core Ontology and LRMoo to support the FRBR-based work–expression–manifestation–item (WEMI) hierarchy.
 The web application provides shape-aware CRUD, validation, autocomplete, and record inspection for RDF instance data.
