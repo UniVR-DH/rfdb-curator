@@ -43,6 +43,7 @@ from rdflib.plugins.parsers.notation3 import BadSyntax
 from api.data import router as data_router
 from api.entities import router as entities_router
 from api.files import router as files_router
+from api.graph import router as graph_router
 from api.meta import router as meta_router
 from api.shapes import router as shapes_router
 from api.validate import router as validate_router
@@ -273,6 +274,7 @@ app.include_router(entities_router, prefix="/api", tags=["entities"])
 app.include_router(files_router, prefix="/api", tags=["files"])
 app.include_router(validate_router, prefix="/api", tags=["validation"])
 app.include_router(meta_router, prefix="/api", tags=["meta"])
+app.include_router(graph_router, prefix="/api", tags=["graph"])
 
 
 # ---------------------------------------------------------------------------

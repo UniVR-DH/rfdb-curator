@@ -1,0 +1,484 @@
+/*
+ * RFDB Explorer — design tokens + base styles.
+ *
+ * "Scholarly, imperial" look (see the inspiration doc): solid colours, no
+ * gradients, no decorative shadows. The one sanctioned shadow is the plum
+ * selection glow. System font for UI, monospace for URIs.
+ */
+
+:root {
+  /* Core palette */
+  --plum: #6b4c7a;
+  --burgundy: #8b3a3a;
+  --gold: #d4a574;
+  --parchment: #f5f1e8;
+  --slate: #2d3748;
+  --taupe: #a89f94;
+  --light-gray: #e5e0d5;
+  --very-light: #fafafa;
+
+  /* Functional (muted, academic) */
+  --success: #5a7a5a;
+  --warning: #8b7a5a;
+  --info: #5a7a8b;
+
+  /* Surfaces */
+  --bg: var(--parchment);
+  --panel-bg: #ffffff;
+  --border: var(--light-gray);
+  --border-strong: var(--taupe);
+  --text: var(--slate);
+  --text-dim: #6b6459;
+
+  /* Entity-kind accents (node headers, type badges, edge tints) */
+  --kind-work: #8b3a3a;
+  --kind-expression: #6b4c7a;
+  --kind-manifestation: #5a6a8b;
+  --kind-source: #2d3748;
+  --kind-person: #5a7a5a;
+  --kind-role: #8b6a3a;
+  --kind-agentrole: #7a6a8b;
+  --kind-place: #3a7a7a;
+  --kind-org: #6a5a8b;
+  --kind-performance: #8b5a6a;
+  --kind-subject: #5a7a8b;
+  --kind-language: #7a7a5a;
+  --kind-file: #8b7a5a;
+  --kind-default: #4a5568;
+
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'SF Mono', Monaco, 'Courier New', monospace;
+
+  --radius: 6px;
+  --radius-badge: 3px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  color: var(--text);
+  background: var(--bg);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* ── App shell ───────────────────────────────────────────────────── */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--slate);
+  color: var(--parchment);
+  border-bottom: 3px solid var(--plum);
+}
+
+.app-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.app-subtitle {
+  font-size: 12px;
+  color: var(--taupe);
+  margin: 0;
+}
+
+.app-header .spacer {
+  flex: 1;
+}
+
+.app-body {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+
+.btn {
+  font-family: inherit;
+  font-size: 13px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-bg);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  cursor: pointer;
+  transition:
+    transform 0.08s ease,
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: var(--plum);
+  border-color: var(--plum);
+  color: var(--parchment);
+}
+
+.btn-primary:hover {
+  background: var(--burgundy);
+  border-color: var(--burgundy);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--parchment);
+  border-color: var(--taupe);
+}
+
+/* ── Intro / source picker (empty state) ─────────────────────────── */
+
+.intro {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+}
+
+.intro-card {
+  width: min(560px, 100%);
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+}
+
+.intro-card h2 {
+  margin: 0 0 var(--space-2);
+  color: var(--slate);
+}
+
+.intro-card p {
+  margin: 0 0 var(--space-4);
+  color: var(--text-dim);
+}
+
+/* ── Source picker ───────────────────────────────────────────────── */
+
+.picker {
+  display: flex;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.picker-input,
+.picker-select {
+  font-family: inherit;
+  font-size: 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  color: var(--text);
+}
+
+.picker-input {
+  flex: 1;
+}
+
+.picker-input:focus,
+.picker-select:focus {
+  outline: none;
+  border-color: var(--plum);
+  box-shadow: 0 0 0 3px rgba(107, 76, 122, 0.18);
+}
+
+.picker-results {
+  margin-top: var(--space-3);
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.picker-result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  background: var(--panel-bg);
+}
+
+.picker-result:last-child {
+  border-bottom: none;
+}
+
+.picker-result:hover {
+  background: var(--very-light);
+}
+
+.picker-result .r-label {
+  color: var(--slate);
+  font-weight: 600;
+}
+
+.picker-result .r-iri {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.picker-empty,
+.picker-loading {
+  padding: 10px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+/* Header-embedded compact picker */
+.header-picker {
+  position: relative;
+  width: min(420px, 46vw);
+}
+
+.header-picker .picker-results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--panel-bg);
+  margin-top: var(--space-1);
+}
+
+/* ── Graph nodes (React Flow custom node) ────────────────────────── */
+
+.entity-node {
+  width: 220px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: 13px;
+  transition: transform 0.08s ease;
+}
+
+.entity-node:hover {
+  transform: translateY(-1px);
+  border-color: var(--plum);
+}
+
+.entity-node.selected {
+  border-color: var(--plum);
+  box-shadow: 0 0 0 3px rgba(107, 76, 122, 0.35);
+}
+
+.entity-node__type {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--parchment);
+  background: var(--kind-default);
+  padding: 3px 8px;
+}
+
+.entity-node__body {
+  padding: 8px 10px;
+}
+
+.entity-node__label {
+  color: var(--slate);
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.entity-node__hint {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.entity-node__count {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--plum);
+  font-weight: 600;
+}
+
+/* ── Inspector ───────────────────────────────────────────────────── */
+
+.inspector {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  bottom: var(--space-3);
+  width: 340px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  z-index: 15;
+  overflow: hidden;
+}
+
+.inspector-header {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.inspector-type {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--parchment);
+  background: var(--kind-default);
+  border-radius: var(--radius-badge);
+  padding: 2px 6px;
+}
+
+.inspector-title {
+  margin: var(--space-2) 0 0;
+  color: var(--slate);
+  font-size: 15px;
+}
+
+.inspector-iri {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  word-break: break-all;
+  margin-top: 4px;
+}
+
+.inspector-body {
+  padding: var(--space-3);
+  overflow: auto;
+}
+
+.inspector-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--plum);
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.inspector-section-title:first-child {
+  margin-top: 0;
+}
+
+.kv {
+  border-left: 2px solid var(--plum);
+  padding: 2px 0 2px 8px;
+  margin-bottom: var(--space-2);
+}
+
+.kv .k {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.kv .v {
+  color: var(--slate);
+  word-break: break-word;
+}
+
+.kv .v a {
+  color: var(--info);
+}
+
+.rel-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+.rel-row:hover .rel-target {
+  color: var(--plum);
+  text-decoration: underline;
+}
+
+.rel-dir {
+  font-size: 10px;
+  color: var(--parchment);
+  background: var(--taupe);
+  border-radius: var(--radius-badge);
+  padding: 0 4px;
+}
+
+.rel-pred {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.rel-target {
+  color: var(--slate);
+  font-weight: 600;
+}
+
+.inspector-close {
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 18px;
+  float: right;
+  line-height: 1;
+}
+
+/* ── Misc ────────────────────────────────────────────────────────── */
+
+.banner-error {
+  position: absolute;
+  top: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  background: var(--burgundy);
+  color: var(--parchment);
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
+.react-flow__attribution {
+  display: none;
+}
