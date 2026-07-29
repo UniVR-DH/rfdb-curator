@@ -1,5 +1,5 @@
 /*
- * RFDB Explorer — design tokens + base styles.
+ * Graph Explorer — design tokens + base styles.
  *
  * "Scholarly, imperial" look (see the inspiration doc): solid colours, no
  * gradients, no decorative shadows. The one sanctioned shadow is the plum
@@ -30,20 +30,9 @@
   --text: var(--slate);
   --text-dim: #6b6459;
 
-  /* Entity-kind accents (node headers, type badges, edge tints) */
-  --kind-work: #8b3a3a;
-  --kind-expression: #6b4c7a;
-  --kind-manifestation: #5a6a8b;
-  --kind-source: #2d3748;
-  --kind-person: #5a7a5a;
-  --kind-role: #8b6a3a;
-  --kind-agentrole: #7a6a8b;
-  --kind-place: #3a7a7a;
-  --kind-org: #6a5a8b;
-  --kind-performance: #8b5a6a;
-  --kind-subject: #5a7a8b;
-  --kind-language: #7a7a5a;
-  --kind-file: #8b7a5a;
+  /* Neutral fallback for node headers / type badges. Per-type colours are
+     derived at runtime by hashing the type URI (see utils/types.js kindColor),
+     so there is no hand-maintained, domain-specific palette here. */
   --kind-default: #4a5568;
 
   --font-ui:
@@ -210,8 +199,22 @@ body {
   color: var(--text);
 }
 
+/* Search is the primary action; the type select is a compact secondary filter. */
 .picker-input {
   flex: 1;
+  font-size: 15px;
+}
+
+.picker-select {
+  flex: none;
+  max-width: 170px;
+  color: var(--text-dim);
+}
+
+/* Empty-state search box is the hero of the intro card. */
+.intro-card .picker-input {
+  font-size: 17px;
+  padding: 12px 14px;
 }
 
 .picker-input:focus,
@@ -336,6 +339,48 @@ body {
   font-weight: 600;
 }
 
+.entity-node__expand {
+  display: block;
+  width: 100%;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--border);
+  padding: 6px 0;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.entity-node__expand::before {
+  content: '+';
+  margin-right: 5px;
+  font-weight: 700;
+}
+
+.entity-node__expand:hover {
+  background: var(--plum);
+  color: var(--parchment);
+}
+
+.entity-node__nolinks {
+  border-top: 1px solid var(--border);
+  padding: 6px 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  opacity: 0.65;
+}
+
 /* ── Inspector ───────────────────────────────────────────────────── */
 
 .inspector {
@@ -384,6 +429,8 @@ body {
 }
 
 .inspector-body {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: var(--space-3);
   overflow: auto;
 }
@@ -424,10 +471,16 @@ body {
 
 .rel-row {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 3px 0;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0 4px 8px;
+  border-left: 2px solid var(--border);
+  margin-bottom: var(--space-2);
   cursor: pointer;
+}
+
+.rel-row:hover {
+  border-left-color: var(--plum);
 }
 
 .rel-row:hover .rel-target {
@@ -435,7 +488,18 @@ body {
   text-decoration: underline;
 }
 
+.rel-pred {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  word-break: break-word;
+}
+
 .rel-dir {
+  flex: none;
   font-size: 10px;
   color: var(--parchment);
   background: var(--taupe);
@@ -443,15 +507,10 @@ body {
   padding: 0 4px;
 }
 
-.rel-pred {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-dim);
-}
-
 .rel-target {
   color: var(--slate);
   font-weight: 600;
+  word-break: break-word;
 }
 
 .inspector-close {
@@ -462,6 +521,23 @@ body {
   font-size: 18px;
   float: right;
   line-height: 1;
+}
+
+.inspector-footer {
+  margin-top: auto;
+  padding: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.inspector-hide {
+  width: 100%;
+  color: var(--text-dim);
+}
+
+.inspector-hide:hover {
+  background: #6f1d2e;
+  border-color: #6f1d2e;
+  color: var(--parchment);
 }
 
 /* ── Misc ────────────────────────────────────────────────────────── */

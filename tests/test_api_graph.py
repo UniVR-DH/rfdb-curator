@@ -146,6 +146,8 @@ def test_get_node_assembles_self_and_edges() -> None:
     assert edge["neighbor"]["id"] == DATA + "Manif1"
     assert edge["neighbor"]["label"] == "First edition"
     assert edge["neighbor"]["types"] == ["http://x/Manifestation"]
+    # A small neighbor set is not truncated.
+    assert body["truncated"] is False
 
 
 def test_get_node_includes_inbound_edges() -> None:
@@ -160,6 +162,24 @@ def test_get_node_includes_inbound_edges() -> None:
     assert len(inbound) == 1
     assert inbound[0]["neighbor"]["id"] == DATA + "Expr1"
     assert inbound[0]["neighbor"]["types"] == []
+
+
+def test_get_node_caps_neighbors_and_flags_truncation() -> None:
+    """More neighbors than `limit` are capped per direction and `truncated` is set."""
+    out_rows = [
+        {
+            "p": "http://iflastandards.info/ns/lrm/lrmoo/R7_exemplifies",
+            "o": DATA + f"N{i}",
+            "label": f"n{i}",
+            "types": "",
+        }
+        for i in range(5)
+    ]
+    ox = _StubOxigraph(self_turtle=_SOURCE_TURTLE, out_rows=out_rows, in_rows=[])
+    body = _client(ox).get("/api/graph/node", params={"id": DATA + "Src1", "limit": 2}).json()
+    out_edges = [e for e in body["edges"] if e["direction"] == "out"]
+    assert len(out_edges) == 2
+    assert body["truncated"] is True
 
 
 def test_get_node_rejects_bad_iri() -> None:

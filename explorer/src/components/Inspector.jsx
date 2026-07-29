@@ -6,7 +6,7 @@
 import { compactIri } from '../utils/prefixes.js'
 import { kindColor, predicateLabel } from '../utils/types.js'
 
-export default function Inspector({ node, edges, nodesById, onSelectNeighbor, onClose }) {
+export default function Inspector({ node, edges, nodesById, onSelectNeighbor, onHide, onClose }) {
   if (!node) return null
   const rels = edges.filter((e) => e.source === node.id || e.target === node.id)
   const literals = node.details?.literals ?? []
@@ -52,13 +52,21 @@ export default function Inspector({ node, edges, nodesById, onSelectNeighbor, on
               const other = nodesById[otherId]
               return (
                 <div className="rel-row" key={e.id} onClick={() => onSelectNeighbor(otherId)}>
-                  <span className="rel-dir">{outgoing ? '→' : '←'}</span>
-                  <span className="rel-pred">{predicateLabel(e.predicate)}</span>
-                  <span className="rel-target">{other?.label || compactIri(otherId)}</span>
+                  <div className="rel-pred">
+                    <span className="rel-dir">{outgoing ? '→' : '←'}</span>
+                    {predicateLabel(e.predicate)}
+                  </div>
+                  <div className="rel-target">{other?.label || compactIri(otherId)}</div>
                 </div>
               )
             })}
           </>
+        )}
+
+        {node.truncated && (
+          <p className="picker-empty">
+            Showing the first {rels.length} relations; this node has more.
+          </p>
         )}
 
         {externals.length > 0 && (
@@ -78,9 +86,19 @@ export default function Inspector({ node, edges, nodesById, onSelectNeighbor, on
         )}
 
         {!node.expanded && !node.loading && (
-          <p className="picker-empty">Click this node in the graph to load its relations.</p>
+          <p className="picker-empty">
+            Use the node’s “Expand links” button to load its relations.
+          </p>
         )}
       </div>
+
+      {onHide && (
+        <div className="inspector-footer">
+          <button className="btn inspector-hide" onClick={() => onHide(node.id)}>
+            Hide from map
+          </button>
+        </div>
+      )}
     </aside>
   )
 }

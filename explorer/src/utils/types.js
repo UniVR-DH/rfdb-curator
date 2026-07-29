@@ -1,88 +1,71 @@
 /**
- * Map RDF class URIs to an entity "kind" — a short display label plus a colour
- * key used for node headers and type badges. The kind keys line up with the
- * --kind-* CSS variables in index.css.
+ * Type & predicate presentation, derived entirely from the SHACL schema — no
+ * class or predicate is named in this file, so the explorer works against any
+ * SHACL-described dataset, not just one domain.
  *
- * Classification is by the class's local name (last URI segment), so it works
- * regardless of namespace. The first type that maps to a known kind wins; an
- * unrecognised set falls back to the first type's local name and the default
- * colour.
+ *   - a node's display type + label come from the shape whose `sh:targetClass`
+ *     matches one of the node's `rdf:type`s (its `rdfs:label`);
+ *   - a relation's label comes from that property's `sh:name`;
+ *   - a node's colour is hashed deterministically from its type URI, so every
+ *     type gets a stable, distinct hue with no palette to hand-maintain.
+ *
+ * Call `hydrateSchema(shapes)` once at startup with the `GET /api/shapes` body.
  */
 import { localName } from './prefixes.js'
 
-const KIND_BY_LOCAL = {
-  MusicEntity: 'work',
-  F1_Work: 'work',
-  F2_Expression: 'expression',
-  F3_Manifestation: 'manifestation',
-  Source: 'source',
-  F5_Item: 'source',
-  Person: 'person',
-  Role: 'role',
-  AgentRole: 'agentrole',
-  Place: 'place',
-  Organization: 'org',
-  F31_Performance: 'performance',
-  E89_Propositional_Object: 'subject',
-  LinguisticSystem: 'language',
-  DigitalDocument: 'file',
+/** @type {Map<string,string>} full class URI -> human label (shape rdfs:label). */
+let typeLabels = new Map()
+/** @type {Map<string,string>} full predicate URI -> human label (property sh:name). */
+let predLabels = new Map()
+
+/** Build the label maps from `GET /api/shapes` (call once at startup). */
+export function hydrateSchema(shapes = []) {
+  typeLabels = new Map()
+  predLabels = new Map()
+  for (const shape of shapes) {
+    if (shape.targetClassUri && shape.label) {
+      typeLabels.set(shape.targetClassUri, shape.label)
+    }
+    for (const prop of shape.properties || []) {
+      if (prop.pathUri && prop.name && !predLabels.has(prop.pathUri)) {
+        predLabels.set(prop.pathUri, prop.name)
+      }
+    }
+  }
 }
 
-const LABEL_BY_KIND = {
-  work: 'Musical Work',
-  expression: 'Expression',
-  manifestation: 'Manifestation',
-  source: 'Source',
-  person: 'Person',
-  role: 'Role',
-  agentrole: 'Agent Role',
-  place: 'Place',
-  org: 'Organization',
-  performance: 'Performance',
-  subject: 'Subject',
-  language: 'Language',
-  file: 'Digital Copy',
+/** A node's primary type: the first rdf:type the schema knows, else the first. */
+function primaryType(types = []) {
+  return types.find((t) => typeLabels.has(t)) || types[0] || null
 }
 
 /**
- * Resolve a list of full class URIs to `{ kind, label }`.
+ * Resolve a node's class URIs to `{ kind, label }`. `kind` is the primary type
+ * URI used only as a stable colour seed; `label` is the schema's human name for
+ * that type, falling back to its local name.
  *
  * @param {string[]} types - Full RDF class URIs.
- * @returns {{kind: string, label: string}}
+ * @returns {{kind: string|null, label: string}}
  */
 export function entityKind(types = []) {
-  for (const t of types) {
-    const kind = KIND_BY_LOCAL[localName(t)]
-    if (kind) return { kind, label: LABEL_BY_KIND[kind] }
-  }
-  if (types.length > 0) return { kind: 'default', label: localName(types[0]) }
-  return { kind: 'default', label: 'Entity' }
+  const t = primaryType(types)
+  if (!t) return { kind: null, label: 'Entity' }
+  return { kind: t, label: typeLabels.get(t) || localName(t) }
 }
 
-/** CSS colour for a kind (used inline for node header / badge backgrounds). */
+/**
+ * Stable, muted colour for a type URI. The hue is hashed from the URI; keeping
+ * saturation/lightness fixed and dark-ish matches the scholarly palette and
+ * keeps the cream node-header text readable across every hue.
+ */
 export function kindColor(kind) {
-  return `var(--kind-${kind || 'default'})`
+  if (!kind) return 'var(--kind-default)'
+  let hue = 0
+  for (let i = 0; i < kind.length; i++) hue = (hue * 31 + kind.charCodeAt(i)) % 360
+  return `hsl(${hue}, 35%, 40%)`
 }
 
-// Friendlier verbs for the relation predicates the graph traverses; anything
-// not listed falls back to the predicate's local name.
-const PRED_LABEL = {
-  R7_exemplifies: 'exemplifies',
-  R4_embodies: 'embodies',
-  P148i_is_component_of: 'component of',
-  hasAgentRole: 'has agent role',
-  hasAgent: 'agent',
-  hasRole: 'role',
-  P129_is_about: 'about',
-  P16_used_specific_object: 'used object',
-  P19_was_intended_use_of: 'intended for',
-  P51_has_former_or_current_owner: 'owner',
-  language: 'language',
-  hasPlace: 'place',
-}
-
-/** Short, human label for a relation predicate URI. */
+/** Human label for a relation predicate (`sh:name`), else its local name. */
 export function predicateLabel(uri) {
-  const ln = localName(uri)
-  return PRED_LABEL[ln] || ln
+  return predLabels.get(uri) || localName(uri)
 }

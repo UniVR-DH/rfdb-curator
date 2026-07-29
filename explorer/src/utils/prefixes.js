@@ -1,6 +1,6 @@
 /**
  * Prefix compaction for display. The backend returns full IRIs everywhere; this
- * maps them to compact CURIEs (e.g. https://…/data/Src_1 -> rfdb:Src_1). The map
+ * maps them to compact CURIEs (e.g. http://example.org/data/Thing_1 -> ex:Thing_1). The map
  * is hydrated once at startup from GET /api/meta/prefixes.
  */
 

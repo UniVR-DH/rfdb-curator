@@ -8,7 +8,7 @@
  *
  * Props:
  *   shapes         [{id,label}]  standalone-entity shapes for the type dropdown
- *   defaultShapeId string        which shape to search first (usually SourceShape)
+ *   defaultShapeId string        which shape to search first (first standalone entity)
  *   onPick         fn(iri)       called with the chosen entity's IRI
  *   variant        'intro'|'header'  layout context
  */
@@ -21,20 +21,26 @@ export default function SourcePicker({ shapes, defaultShapeId, onPick, variant =
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
-  const [open, setOpen] = useState(variant === 'intro')
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     if (defaultShapeId && !shapeId) setShapeId(defaultShapeId)
   }, [defaultShapeId, shapeId])
 
-  // Debounced search on (shape, query).
+  // Debounced search on (shape, query) — only once the user has typed something.
   useEffect(() => {
-    if (!shapeId) return
+    const q = query.trim()
+    if (!shapeId || !q) {
+      setResults([])
+      setLoading(false)
+      setOpen(false)
+      return
+    }
     let cancelled = false
     setLoading(true)
     const t = setTimeout(() => {
       api
-        .searchEntities(shapeId, query)
+        .searchEntities(shapeId, q)
         .then((rows) => {
           if (cancelled) return
           setResults(rows)
@@ -56,11 +62,20 @@ export default function SourcePicker({ shapes, defaultShapeId, onPick, variant =
   return (
     <div className={variant === 'header' ? 'header-picker' : ''}>
       <div className="picker">
+        <input
+          className="picker-input"
+          placeholder="Search by name…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => { if (query.trim()) setOpen(true) }}
+          autoFocus={variant === 'intro'}
+        />
         {shapes?.length > 0 && (
           <select
             className="picker-select"
             value={shapeId}
             onChange={(e) => setShapeId(e.target.value)}
+            aria-label="Filter by type"
           >
             {shapes.map((s) => (
               <option key={s.id} value={s.id}>
@@ -69,13 +84,6 @@ export default function SourcePicker({ shapes, defaultShapeId, onPick, variant =
             ))}
           </select>
         )}
-        <input
-          className="picker-input"
-          placeholder="Search by name…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setOpen(true)}
-        />
       </div>
       {open && (
         <div className="picker-results">
@@ -86,7 +94,11 @@ export default function SourcePicker({ shapes, defaultShapeId, onPick, variant =
               key={r.uri}
               className="picker-result"
               onClick={() => {
-                onPick(r.uri)
+                const shape = shapes?.find((s) => s.id === shapeId)
+                onPick(r.uri, {
+                  label: r.label,
+                  types: shape?.targetClassUri ? [shape.targetClassUri] : [],
+                })
                 setOpen(variant === 'intro')
                 if (variant === 'header') setQuery('')
               }}

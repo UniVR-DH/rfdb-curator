@@ -46,3 +46,50 @@ export async function applyElkLayout(nodes, edges) {
     }))
   }
 }
+
+const RING_RADIUS = 280
+const RING_STEP = 130
+
+/**
+ * Position only the freshly-added nodes, leaving already-placed nodes untouched
+ * so expanding a node grows the graph outward instead of relaying everything.
+ *
+ * Each new node is arranged on a ring around a placed neighbour (its "parent");
+ * new nodes with no placed neighbour ring the origin. This is intentionally not
+ * a full layout — call applyElkLayout for that (the explicit "Re-layout" action).
+ *
+ * @param {{id:string}[]} freshNodes - nodes without a remembered position
+ * @param {{source:string,target:string}[]} edges
+ * @param {Map<string,{x:number,y:number}>} placed - id -> position of placed nodes
+ * @returns {Map<string,{x:number,y:number}>} id -> position for each fresh node
+ */
+export function placeNewNodes(freshNodes, edges, placed) {
+  const byParent = new Map()
+  for (const n of freshNodes) {
+    let parent = null
+    for (const e of edges) {
+      const other = e.source === n.id ? e.target : e.target === n.id ? e.source : null
+      if (other && placed.has(other)) {
+        parent = other
+        break
+      }
+    }
+    const key = parent ?? '__origin__'
+    if (!byParent.has(key)) byParent.set(key, [])
+    byParent.get(key).push(n.id)
+  }
+
+  const result = new Map()
+  for (const [parent, ids] of byParent) {
+    const center = parent === '__origin__' ? { x: 0, y: 0 } : placed.get(parent)
+    ids.forEach((id, i) => {
+      const angle = (2 * Math.PI * i) / ids.length - Math.PI / 2
+      const radius = RING_RADIUS + Math.floor(i / 12) * RING_STEP
+      result.set(id, {
+        x: Math.round(center.x + radius * Math.cos(angle)),
+        y: Math.round(center.y + radius * Math.sin(angle)),
+      })
+    })
+  }
+  return result
+}

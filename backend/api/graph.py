@@ -73,12 +73,19 @@ def _preferred_label(labels: list[Literal]) -> str | None:
     return plain if plain is not None else str(labels[0])
 
 
-def _neighbor_edges(oxigraph, iri: str, rel_preds: list[str], inbound: bool) -> list[dict]:
+def _neighbor_edges(
+    oxigraph, iri: str, rel_preds: list[str], inbound: bool, limit: int
+) -> tuple[list[dict], bool]:
     """Query one direction of relation edges with each neighbor's label and types.
 
     A single flat query per direction (no subquery, so ``FROM`` scoping applies to
     the OPTIONAL label/type lookups too). ``GROUP BY`` + ``SAMPLE`` collapses a
     neighbor that carries several labels/types to one row.
+
+    Capped at ``limit`` neighbors per direction so a high-degree hub cannot return
+    (or render) an unbounded fan-out. One extra row is fetched to detect the cap:
+    the returned ``truncated`` flag is ``True`` when more neighbors exist than were
+    returned, so the caller can surface "N more" rather than silently dropping them.
     """
     values = " ".join(f"<{p}>" for p in rel_preds)
     var = "?s" if inbound else "?o"
@@ -96,8 +103,13 @@ def _neighbor_edges(oxigraph, iri: str, rel_preds: list[str], inbound: bool) -> 
             OPTIONAL {{ {var} a ?t }}
         }}
         GROUP BY ?p {var}
+        ORDER BY ?p {var}
+        LIMIT {limit + 1}
     """
     rows = oxigraph.query(sparql)
+    truncated = len(rows) > limit
+    if truncated:
+        rows = rows[:limit]
     key = "s" if inbound else "o"
     edges = []
     for r in rows:
@@ -112,11 +124,15 @@ def _neighbor_edges(oxigraph, iri: str, rel_preds: list[str], inbound: bool) -> 
                 "neighbor": {"id": neighbor_id, "label": r.get("label"), "types": sorted(types)},
             }
         )
-    return edges
+    return edges, truncated
 
 
 @router.get("/graph/node")
-def get_node(request: Request, id: str = Query(..., description="Full IRI of the entity")):
+def get_node(
+    request: Request,
+    id: str = Query(..., description="Full IRI of the entity"),
+    limit: int = Query(200, ge=1, le=2000, description="Max neighbors returned per direction"),
+):
     """Return one node's own data plus its schema-defined relation edges.
 
     Response shape::
@@ -127,7 +143,8 @@ def get_node(request: Request, id: str = Query(..., description="Full IRI of the
           "types": ["<classUri>", …],
           "literals": [{"predicate","value","datatype","language"}, …],
           "externalLinks": [{"predicate","target"}, …],
-          "edges": [{"direction":"out"|"in","predicate","neighbor":{id,label,types}}, …]
+          "edges": [{"direction":"out"|"in","predicate","neighbor":{id,label,types}}, …],
+          "truncated": bool  # true when a direction hit `limit` and more neighbors exist
         }
 
     Raises:
@@ -172,12 +189,14 @@ def get_node(request: Request, id: str = Query(..., description="Full IRI of the
         elif isinstance(obj, URIRef) and pred not in rel_set:
             external.append({"predicate": pred, "target": str(obj)})
 
+    truncated = False
     try:
         edges = []
         if rel_preds:
-            edges = _neighbor_edges(oxigraph, id, rel_preds, inbound=False) + _neighbor_edges(
-                oxigraph, id, rel_preds, inbound=True
-            )
+            out_edges, out_trunc = _neighbor_edges(oxigraph, id, rel_preds, inbound=False, limit=limit)
+            in_edges, in_trunc = _neighbor_edges(oxigraph, id, rel_preds, inbound=True, limit=limit)
+            edges = out_edges + in_edges
+            truncated = out_trunc or in_trunc
     except Exception as exc:
         raise HTTPException(status_code=503, detail="Store unavailable") from exc
 
@@ -194,4 +213,5 @@ def get_node(request: Request, id: str = Query(..., description="Full IRI of the
         "literals": literals,
         "externalLinks": external,
         "edges": edges,
+        "truncated": truncated,
     }
