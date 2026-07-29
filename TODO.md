@@ -36,6 +36,17 @@ on it; where an open task builds on something already shipped, that context is n
   vocabulary itself is already hydrated and wired to `rfdbs:SourceShape` `dcterms:language`;
   this task concerns only how it is loaded, not the feature.)
 
+- [ ] **REQUIRES BRAINSTORM — manage Julian vs Gregorian calendar dates.** Historical sources
+  (especially pre-1918 Russian material) record dates in the Julian calendar, but XSD date
+  datatypes carry no calendar-system information, so a value like `prism:publicationDate "1736"`
+  is ambiguous about which calendar it is in. Decide how to record the calendar system and how
+  to relate the as-in-source (Julian) value to a normalized (Gregorian) one — e.g. a
+  calendar-system qualifier property, dual Julian/Gregorian properties, or a reified date node —
+  plus backend conversion between the two. Spans schema (SHACL date fields), backend
+  (validation/conversion; ties into the cross-entity date-order check under
+  [Modeling & schema](#modeling--schema)), and UI (date input picks a calendar; display can show
+  both). Brainstorm the modeling and get user sign-off before implementing.
+
 ### Modeling & schema
 
 - [ ] Complete the shape-role policy for nested shapes and helper records (see [architecture.md](docs/architecture.md#shape-role-policy)).
