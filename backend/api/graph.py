@@ -193,7 +193,9 @@ def get_node(
     try:
         edges = []
         if rel_preds:
-            out_edges, out_trunc = _neighbor_edges(oxigraph, id, rel_preds, inbound=False, limit=limit)
+            out_edges, out_trunc = _neighbor_edges(
+                oxigraph, id, rel_preds, inbound=False, limit=limit
+            )
             in_edges, in_trunc = _neighbor_edges(oxigraph, id, rel_preds, inbound=True, limit=limit)
             edges = out_edges + in_edges
             truncated = out_trunc or in_trunc
