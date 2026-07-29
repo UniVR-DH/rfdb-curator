@@ -72,3 +72,28 @@ jobs:
       - name: Build frontend
         run: |
           npm run build --prefix frontend
+
+  explorer-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: explorer/package-lock.json
+
+      - name: Install explorer dependencies
+        run: |
+          npm ci --prefix explorer
+
+      - name: Lint explorer
+        run: |
+          npm run lint --prefix explorer
+
+      - name: Build explorer
+        run: |
+          npm run build --prefix explorer
