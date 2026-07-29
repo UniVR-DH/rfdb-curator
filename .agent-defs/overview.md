@@ -15,10 +15,11 @@ RossijskijFeatrDB (rfdb-curator) is a standalone SHACL-driven RDF curation proje
 1. **SHACL schema** (`schema/schema.ttl`) drives forms and validation.
 2. **Backend API** (`backend/`) provides shape extraction, CRUD, linked-entity search, and validation.
 3. **Frontend editor** (`frontend/`) renders dynamic forms and record workflows.
-4. **RDF data** (`data/vocab.ttl`, `data/data.ttl`) seeds vocabulary and optional fixtures.
-5. **Validation pipeline** (pySHACL + merged validation graph) enforces schema constraints.
-6. **Object storage** (Garage, S3-compatible) holds source digital copies (PDF scans); metadata lives in RDF, bytes in Garage.
-7. **Docker runtime** (`docker-compose.yml`) runs frontend, backend, Oxigraph, and Garage together.
+4. **Graph Explorer** (`explorer/`) is a read-only, schema-driven visualizer of entity lineage & relationships — a standalone Vite app that talks only to the backend `/api` (`GET /api/graph/node`).
+5. **RDF data** (`data/vocab.ttl`, `data/data.ttl`) seeds vocabulary and optional fixtures.
+6. **Validation pipeline** (pySHACL + merged validation graph) enforces schema constraints.
+7. **Object storage** (Garage, S3-compatible) holds source digital copies (PDF scans); metadata lives in RDF, bytes in Garage.
+8. **Docker runtime** (`docker-compose.yml`) runs the editor frontend, graph explorer, backend, Oxigraph, and Garage together.
 
 ## Business Goals
 

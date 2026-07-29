@@ -15,6 +15,10 @@ Use this environment for backend tests and Python checks.
 ```bash
 cd frontend
 npm ci
+
+# Explorer — standalone read-only graph visualizer (its own Vite app)
+cd ../explorer
+npm ci
 ```
 
 ## Docker Compose Runtime (Preferred)
@@ -45,6 +49,11 @@ uv run python -m pytest -c pyproject.toml ../tests/ -v
 
 # Frontend checks
 cd ../frontend
+npm run lint
+npm run build
+
+# Explorer checks (mirrors the frontend; CI runs these as `explorer-checks`)
+cd ../explorer
 npm run lint
 npm run build
 ```
@@ -91,6 +100,10 @@ uv run ruff format --check . # CI: "Ruff format check"
 # Frontend
 cd ../frontend
 npm run lint
+
+# Explorer
+cd ../explorer
+npm run lint
 ```
 
 ### Gotcha: `ruff: command not found` / `pyenv: ruff`
@@ -105,4 +118,4 @@ If you see `pyenv: ruff: command not found (exists in 3.8.14)` you ran ruff from
 ## Notes
 
 - Do not rely on a root Python package named `rfdbtools`; this repository is a standalone editor stack.
-- Treat commands referencing Excel generation, explorer apps, or ontology download pipelines as legacy unless explicitly reintroduced.
+- The `explorer/` app (read-only graph visualizer) is an active, first-class frontend — set it up, lint, and build it alongside `frontend/` (see the sections above). Treat only commands referencing Excel generation or ontology download pipelines as legacy unless explicitly reintroduced.
