@@ -1,9 +1,9 @@
 /*
  * Graph Explorer — design tokens + base styles.
  *
- * "Scholarly, imperial" look (see the inspiration doc): solid colours, no
- * gradients, no decorative shadows. The one sanctioned shadow is the plum
- * selection glow. System font for UI, monospace for URIs.
+ * "Scholarly, imperial" look: solid colours, no gradients, no decorative
+ * shadows. The one sanctioned shadow is the plum selection glow. System font
+ * for UI, monospace for URIs.
  */
 
 :root {
