@@ -11,7 +11,7 @@ on it; where an open task builds on something already shipped, that context is n
 
 - [ ] Auto-refresh entity lists (e.g. "has place" relations) when backend data changes behind the scenes.
 - [ ] Records pagination with a default page size of 20 (frontend side; pairs with cursor-based SPARQL pagination under [Backend](#backend)).
-- [ ] Entity relationship graph visualization.
+- [x] Entity relationship graph visualization — **shipped** as the read-only Graph Explorer (`explorer/`): a schema-driven lineage/relationship graph over `GET /api/graph/node`, with search-seeded entry, expand-on-demand (pre-fetched link counts), and an "Open in Explorer" deep-link from the editor. Deliberately a *simple* read-only visualizer, consistent with [Non-Goals](#non-goals) ("provide complex graph visualization") — not an interactive graph editor.
 - [ ] Real-time validation — debounced SHACL checking on blur/change via `POST /api/validate`.
 - [ ] Warn on duplicate `owl:sameAs`: when a same-as value is entered, check whether another record already has it and warn the user (needs a backend lookup).
 - [ ] Data Context Panel enhancements on top of the shipped read-only baseline (the panel plus its metadata API — `GET /api/meta/prefixes`, `GET /api/meta/graphs` with per-graph active/empty status, `GET /api/meta/files`):
