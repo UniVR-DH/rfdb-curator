@@ -227,6 +227,14 @@ services:
       #   Vite proxy → http://backend:8000/api
       #
       VITE_PROXY_TARGET: http://backend:8000
+
+      # ----------------------------------------------------------------------
+      # Explorer deep-link base (browser-facing)
+      # ----------------------------------------------------------------------
+      # When set, the editor shows an "Open in Explorer" link on a selected
+      # record that opens the Explorer at ?id=<iri>. Must be reachable from the
+      # browser; leave unset to hide the link.
+      VITE_EXPLORER_BASE: http://localhost:5174
     volumes:
       - ./frontend:/app
       # The anonymous volume re-surfaces the node_modules layer built by
@@ -237,6 +245,37 @@ services:
       - /app/node_modules
     ports:
       - "5173:5173"
+
+  # --------------------------------------------------------------------------
+  # Explorer — read-only graph visualizer (Vite dev server)
+  # --------------------------------------------------------------------------
+  # A pure frontend: it talks only to the backend's /api. Deployable standalone
+  # (point VITE_API_BASE at any backend); here it rides the dev stack and proxies
+  # /api to the backend container, exactly like the editor frontend above.
+  explorer:
+    build:
+      context: .
+      dockerfile: explorer/Dockerfile
+    container_name: rfdb-explorer
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      # Browser-facing API base — used only by a production/static build. The dev
+      # server below serves through the Vite proxy instead (import.meta.env.DEV).
+      VITE_API_BASE: http://localhost:8000
+      # Vite dev-server proxy target (inside Docker → service name, not localhost).
+      VITE_PROXY_TARGET: http://backend:8000
+      # Branding only — the explorer code is domain-agnostic.
+      VITE_APP_TITLE: RFDB Explorer
+    volumes:
+      - ./explorer:/app
+      # Anonymous volume keeps the image's node_modules over the bind-mount
+      # (correct OS/arch binaries), same rationale as the frontend service.
+      - /app/node_modules
+    ports:
+      - "5174:5174"
 
 # ------------------------------------------------------------------------------
 # Named volumes
