@@ -63,6 +63,16 @@ on it; where an open task builds on something already shipped, that context is n
 ### Data, search & export
 
 - [ ] Replace OFFSET-based pagination with cursor-based SPARQL pagination for large graphs.
+- [ ] **Investigate graph/explorer read-path performance (measure before optimizing).** Several
+  unmeasured costs worth profiling: (a) `relation_predicates()` re-derives the relation-predicate
+  set from all shapes on every `GET /api/graph/node` call — memoizing it on `app.state` was
+  considered but is of **dubious** benefit until measured, and would need to invalidate on schema
+  reload; (b) the explorer eagerly prefetches one `GET /api/graph/node` per collapsed node, so
+  expanding a high-degree hub fans out into many concurrent requests (browser-throttled, deduped,
+  but chatty) — consider a concurrency cap or hover-gated prefetch; (c) that endpoint returns a
+  node's full edge list even when the client only needs a link *count*, so a cheap degree/COUNT
+  (a general node-stats capability, not a bespoke route) may beat reusing `getNode` for counts.
+  Profile first, then decide which — if any — are worth it. Pairs with cursor-based pagination above.
 - [ ] Smarter search ranking that favours edit distance without relying on a server-side cap or limit.
 - [ ] Bulk import (Excel/CSV → RDF).
 - [ ] Data export (RDF, JSON-LD, CSV) — the triples-only export, distinct from the full snapshot below.
