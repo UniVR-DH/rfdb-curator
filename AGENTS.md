@@ -10,6 +10,7 @@ Agent instructions for RossijskijFeatrDB (rfdb-curator) development, including c
 4. **Reduce confirmation outputs**: When the user confirms or asks to execute a task, respond briefly and list files edited.
 5. **Do not perform broad Git operations**: Never stage, commit, reset, clean, or discard changes unless explicitly instructed and scoped by the user.
 6. **Never start the Docker daemon/Desktop yourself**: If the Docker engine is down, ask the user to start it. Running `docker compose` against a live daemon is fine; launching or restarting the engine is the user's prerogative.
+7. **Agent instructions here are vendor-neutral — never add tool-specific ones**: This file plus `.agent-defs/` is the *only* instruction set. Do not create `CLAUDE.md`, `.claude/`, `.cursor/`, `.aider*`, `.github/copilot-instructions.md` or any other per-tool equivalent, and do not commit one if your tool generates it (they are gitignored). Rules that apply to all agents belong in `.agent-defs/`; a rule worth writing down is worth writing once, where every tool reads it.
 
 Instructions are split into this root file plus specialized modules in `.agent-defs/`.
 Before any non-trivial task, read this file plus the relevant files in `.agent-defs/`. Do not load irrelevant modules unless needed for the task.
@@ -20,9 +21,9 @@ Before any non-trivial task, read this file plus the relevant files in `.agent-d
 |------|---------|
 | `AGENTS.md` (this file) | Root instructions: commands, code-style essentials, security rules, Git safety rules, temp-file policy, and the modular map |
 | [.agent-defs/overview.md](.agent-defs/overview.md) | Project purpose, users, features, business goals |
-| [.agent-defs/build-commands.md](.agent-defs/build-commands.md) | Environment setup, Docker workflow, tests, linting, validation |
+| [.agent-defs/build-commands.md](.agent-defs/build-commands.md) | Environment setup, Compose lifecycle, seeding/data reset, linting, RDF validation |
 | [.agent-defs/code-style.md](.agent-defs/code-style.md) | Python imports, docstrings, Turtle prefixes, SHACL shapes, naming rules |
-| [.agent-defs/editor-runtime.md](.agent-defs/editor-runtime.md) | Runtime diagnostics for backend/frontend/Oxigraph stack |
+| [.agent-defs/editor-runtime.md](.agent-defs/editor-runtime.md) | Runtime diagnostics for curator-backend/curator-frontend/Oxigraph stack |
 | [.agent-defs/testing.md](.agent-defs/testing.md) | Test structure and execution requirements |
 | [.agent-defs/security.md](.agent-defs/security.md) | Secrets handling, credentials, logging restrictions |
 | [.agent-defs/git-workflow.md](.agent-defs/git-workflow.md) | `[BOT]` commits, non-interactive Git, commit checklist |
@@ -32,7 +33,7 @@ Before any non-trivial task, read this file plus the relevant files in `.agent-d
 
 RossijskijFeatrDB (rfdb) is a curated RDF knowledge base of Russian theatrical works and their libretti.
 
-**Architecture:** standalone SHACL-driven editor stack with `schema/schema.ttl`, `data/*.ttl`, `backend/` (FastAPI), `frontend/` (React/Vite), and Oxigraph via Docker Compose.
+**Architecture:** standalone SHACL-driven stack, split by responsibility — `schema/schema.ttl`, `data/*.ttl`, `rfdb-core/` (shared library), `curator-backend/` (FastAPI; the only service that writes), `dataexplorer-backend/` (FastAPI; all reads), `curator-frontend/` + `graphexplorer-frontend/` (React/Vite), with Oxigraph and Garage via Docker Compose.
 
 ## 2. Inference Rule
 
@@ -69,24 +70,27 @@ Not lazy about: trust-boundary validation, data-loss prevention, security, acces
 
 ## 4. Essential Commands
 
-Backend Python commands must run from `backend/` (CI uses `working-directory: backend`). Ruff and its config live only in `backend/pyproject.toml`; running `uv run ruff` from the repo root fails with a misleading `pyenv: ruff` error. Lint/format exactly as CI does:
+The repo is a **uv workspace** with three Python members: `rfdb-core/` (shared library), `curator-backend/` (the only service that writes) and `dataexplorer-backend/` (reads). There is one lockfile and one `.venv`, both at the repo root. Ruff's config lives in the **root** `pyproject.toml`, so lint/format run from the root — that is the only invocation that checks every member plus `tests/`. Tests run **once per member**, as CI does, because both services own a top-level `api` package and a single pytest process would resolve `from api.data import …` to whichever was imported first.
 
 ```bash
-cd backend
-uv sync --all-extras --dev
-uv run python -m pytest -c pyproject.toml ../tests/ -v  # tests (-c: backend pytest config)
-uv run ruff check .          # lint
-uv run ruff format --check . # format check
+uv sync --all-extras --dev   # from the repo root — installs every member
+uv run ruff check .          # lint    — from the ROOT, covers all members + tests
+uv run ruff format --check . # format check — from the ROOT
+
+# Tests: one run per member (-c: that member's pytest config)
+cd rfdb-core               && uv run python -m pytest -c pyproject.toml ../tests/core -v
+cd ../curator-backend      && uv run python -m pytest -c pyproject.toml ../tests/curator -v
+cd ../dataexplorer-backend && uv run python -m pytest -c pyproject.toml ../tests/dataexplorer -v
 ```
 
-See [.agent-defs/build-commands.md](.agent-defs/build-commands.md) → "Gotcha: `ruff: command not found`" for the full explanation.
+See [.agent-defs/build-commands.md](.agent-defs/build-commands.md) → "Linting and Formatting" for why `src` in the root config is load-bearing, and "Gotcha: `ruff: command not found`" for environment troubleshooting. [.agent-defs/testing.md](.agent-defs/testing.md) explains the one-run-per-member rule.
 
 Environment setup:
 
 ```bash
 cd <repo-root>
-cd backend && uv sync --all-extras --dev
-cd ../frontend && npm ci
+uv sync --all-extras --dev
+cd curator-frontend && npm ci
 ```
 
 Docker (preferred when `Dockerfile` or `docker-compose.yml` exists):
@@ -141,7 +145,9 @@ Rules:
 
 If the user asks to "commit everything", do not do it blindly. Treat the request as ambiguous, show `git status --short`, and ask which files should be included.
 
-**File deletion is equally scoped.** Never `rm` a tracked or real project file — use `git rm -- <explicit-path>`. Never rely on the shell's current directory (it drifts between calls): use absolute paths and print `pwd` + `ls <target>` in the same command before any removal. Confirm with the user before deleting any non-`.temp/` file.
+**Deletion is equally scoped.** A wrong-directory `rm` once deleted the backend project files; never let it happen again. Never `rm` a tracked or real project file — use `git rm -- <explicit-path>`, which `git restore` can undo — and never `rm -rf` a path you did not create this session. Never rely on the shell's current directory (it drifts between calls): use absolute paths and print `pwd` + `ls <target>` in the same command before any removal. Never bulk-delete with globs or `find -delete`. Confirm with the user before deleting any non-`.temp/` file, tracked or untracked, showing the exact absolute paths first.
+
+**This covers data, not just files.** `docker compose down -v` drops the Oxigraph and Garage volumes, `RESET_DATA_ON_STARTUP=true` clears the named graph on every startup, and a loose `DELETE WHERE` destroys triples. All three are deletions and need the same explicit approval — plus a check of what is about to go (run the equivalent `SELECT` and report the count first). See [.agent-defs/build-commands.md](.agent-defs/build-commands.md) → "Seeding and Data Reset".
 
 Full Git workflow: [.agent-defs/git-workflow.md](.agent-defs/git-workflow.md)
 
@@ -165,3 +171,11 @@ Rules:
 5. Delete after task completion (or move to `.archive/` if needed)
 
 The `.temp/` directory is gitignored and reserved for AI-generated artifacts.
+
+## 9. Waiting and Polling (Mandatory)
+
+Never write an unbounded wait loop. Prefer `docker compose up -d --wait` — the stack declares
+healthchecks and `service_healthy` dependencies. When you must poll anyway, the loop needs a hard
+attempt cap, the observed state printed on every attempt, and a loud failure at the cap. Silence
+is not progress: a command that prints nothing is not evidence that something is still starting.
+Template and the Oxigraph liveness-vs-readiness caveat: [.agent-defs/editor-runtime.md](.agent-defs/editor-runtime.md) → "Waiting for Readiness".

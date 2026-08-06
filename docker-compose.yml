@@ -10,6 +10,48 @@
 #   docker compose up --build          # first run or after Dockerfile changes
 #   docker compose up                  # subsequent runs
 #   docker compose down -v             # tear down including named volumes
+#
+# ---------------------------------------------------------------------------
+# TWO MODES, selected by Compose profile (Task 9)
+# ---------------------------------------------------------------------------
+# The reader/writer boundary is a *service* boundary, so which kind of instance
+# this is becomes a deploy-time choice with no code change:
+#
+#   docker compose up                  # READ mode — 4 services, no editor
+#   docker compose --profile full up   # FULL mode — + curator-backend/-frontend
+#
+# Base services carry **no `profiles:` key**, so read mode needs no flag. Only
+# `curator-*` are `full`-only.
+#
+# ⚠ EXISTING CHECKOUTS: `docker compose up` no longer starts the editor. Put
+#   COMPOSE_PROFILES=full
+# in your repo-root .env to get the whole stack back on a bare `up` — that is
+# what scripts/env-init.sh now writes for a fresh checkout, and it refuses to
+# overwrite an existing .env, so this one line is a manual add.
+#
+# ⚠ INVARIANT when editing: every `depends_on` target must be a BASE service.
+# No dependency may cross into an inactive profile — Compose versions disagree
+# on whether that auto-activates the profile or hard-errors. `curator-frontend`
+# depending on `curator-backend` is fine (both `full`); nothing base may depend
+# on anything `full`.
+
+# ---------------------------------------------------------------------------
+# Shared values, defined once and aliased into each service that needs them.
+# ---------------------------------------------------------------------------
+
+# Per-shape read-only policy: shape URIs whose records cannot be edited. Language
+# data is reference vocabulary managed externally; curators browse it only.
+#
+# **Both backends must receive the identical value** (decision D11). The curator
+# enforces it on writes; the reader needs it because both services serve the same
+# shape catalogue, `readOnly` flags included, and the editor now fetches that
+# catalogue from the reader so it can start with the write tier down.
+#
+# The anchor is the point: with two literals, editing one and forgetting the other
+# would hand clients different flags depending on which service they asked — the
+# same class of bug (C20) this arrangement exists to remove, but quieter, because
+# both services would be individually self-consistent.
+x-read-only-shapes: &read_only_shapes '["https://rosfeatr.eu/rdf/schema/LanguageShape"]'
 
 services:
 
@@ -54,7 +96,7 @@ services:
   # idempotent. See that script's header for the why and when.
   garage:
     # Pinned like oxigraph:0.5.7 so `docker compose pull` can't shift the S3
-    # API out from under the backend. This image is distroless (only the
+    # API out from under curator-backend. This image is distroless (only the
     # /garage binary, no shell) — that's why bootstrap runs from the host.
     image: dxflrs/garage:v1.0.1
     container_name: rfdb-garage
@@ -83,24 +125,28 @@ services:
       start_period: 5s
 
   # --------------------------------------------------------------------------
-  # Backend — FastAPI + uvicorn
+  # Curator backend — FastAPI + uvicorn (the ONLY service that writes)
   # --------------------------------------------------------------------------
-  backend:
+  # `full` profile: a read-only instance does not deploy the write tier at all,
+  # which is what makes read mode a deployment choice rather than a per-route
+  # 403. Orthogonal to READ_ONLY below — that freezes a *deployed* writer.
+  curator-backend:
     build:
       context: .
-      dockerfile: backend/Dockerfile
-    container_name: rfdb-backend
+      dockerfile: curator-backend/Dockerfile
+    container_name: rfdb-curator-backend
+    profiles: ["full"]
     restart: unless-stopped
     depends_on:
       oxigraph:
         # service_healthy waits for the oxigraph liveness check (process
-        # alive) before starting the backend.  The backend's own startup
+        # alive) before starting curator-backend.  Its own startup
         # retry loop (see lifespan in app.py) then waits for the HTTP
         # port to be ready before seeding, giving a two-layer readiness
         # guarantee without needing tools inside the Oxigraph image.
         condition: service_healthy
       garage:
-        # Wait for Garage's RPC to be up. The backend's boto3 client connects
+        # Wait for Garage's RPC to be up. The boto3 client connects
         # lazily, so this only orders startup — a fresh volume still needs a
         # one-time `scripts/garage-init.sh` before uploads work.
         condition: service_healthy
@@ -133,14 +179,17 @@ services:
       S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY:-}"
       # Per-file upload ceiling (MB); 0 disables the cap.
       MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-500}"
-      # Demo mode: block all write/delete API routes when true.
+      # Demo mode: block all write/delete API routes when true. Genuinely
+      # writer-only — the reader has no writes to disable, so it has no mode.
       READ_ONLY: "${READ_ONLY:-false}"
-      # Per-shape read-only: JSON array of shape URIs whose records cannot be edited.
-      # Language data is reference vocabulary managed externally; curators browse only.
-      READ_ONLY_SHAPES: '["https://rosfeatr.eu/rdf/schema/LanguageShape"]'
-      CORS_ORIGINS: '["http://localhost:5173", "http://localhost:5174"]'
+      # Shared with dataexplorer-backend via the anchor at the top of this file.
+      READ_ONLY_SHAPES: *read_only_shapes
+      # graphexplorer-frontend now publishes on host port 80, so its browser
+      # Origin is "http://localhost" with no port (80 is http's default port,
+      # which browsers omit from the Origin header).
+      CORS_ORIGINS: '["http://localhost:5173", "http://localhost"]'
       # Structured JSON-lines log file written inside the container.
-      # Persisted in the backend_logs named volume mounted at /app/logs.
+      # Persisted in the curator_backend_logs named volume mounted at /app/logs.
       LOG_FILE: logs/app.jsonl
       LOG_LEVEL: INFO
       # Keep crash/restart history, but truncate once when a fresh container is created.
@@ -154,7 +203,12 @@ services:
       # dependencies.  If you switch to a virtualenv inside /app (e.g.
       # /app/.venv), move it outside /app or protect it with an anonymous
       # volume, otherwise the bind-mount will shadow it.
-      - ./backend:/app
+      - ./curator-backend:/app
+      # The shared library, hot-reloadable on the same terms as the service
+      # code above. Mounted at the path the image installed it from (editable,
+      # so the .pth in site-packages resolves through here) — NOT under /app,
+      # which the previous mount replaces wholesale.
+      - ./rfdb-core:/opt/rfdb-core
       # Read-only mounts for schema and data files.
       # The container runs as appuser (uid 1001); ensure host files are
       # world-readable (chmod o+r) if your umask is restrictive.
@@ -162,7 +216,7 @@ services:
       - ./data:/app/data:ro
       # Persist JSON-lines logs in a Docker-managed volume to avoid
       # host uid/gid permission issues on first deploy.
-      - backend_logs:/app/logs
+      - curator_backend_logs:/app/logs
     ports:
       - "8000:8000"
     healthcheck:
@@ -180,32 +234,138 @@ services:
     # --reload is a dev-only flag enabling uvicorn's file-watcher.
     # Remove it (or move to docker-compose.override.yml) for
     # staging/production — it adds overhead and is not safe in production.
-    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    #
+    # --reload-dir is required, not decorative: passing it at all replaces
+    # uvicorn's default (watch the cwd), so /app must be listed explicitly.
+    # Without the second entry an edit to rfdb-core would not restart the
+    # process, and the service would keep serving the previously imported
+    # version of the shared library with no visible sign of it.
+    command:
+      [
+        "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000",
+        "--reload", "--reload-dir", "/app", "--reload-dir", "/opt/rfdb-core",
+      ]
+
+  # --------------------------------------------------------------------------
+  # Data Explorer backend — FastAPI + uvicorn, reads only
+  # --------------------------------------------------------------------------
+  # Same store, same bucket, no write path. It does NOT depend on
+  # curator-backend: that independence is the point of the split, and Task 9's
+  # read-only deploy mode runs this service with no writer present at all.
+  #
+  # It also does not wait for the store to be reachable — an unreachable store is
+  # a per-request condition here (503 / empty results), not a startup failure, so
+  # blocking on it would only make the reader less available. Contrast
+  # curator-backend, which must not begin clearing and seeding against a store
+  # that may drop mid-operation.
+  dataexplorer-backend:
+    build:
+      context: .
+      dockerfile: dataexplorer-backend/Dockerfile
+    container_name: rfdb-dataexplorer-backend
+    restart: unless-stopped
+    depends_on:
+      oxigraph:
+        condition: service_healthy
+      garage:
+        # Only orders startup: the boto3 client connects lazily, and this service
+        # tolerates storage being absent (GET /api/meta/files reports
+        # configured: false rather than erroring).
+        condition: service_healthy
+    environment:
+      # Must match curator-backend's OXIGRAPH_URL and DATA_GRAPH_URI, or this
+      # service will correctly report an empty store.
+      OXIGRAPH_URL: http://oxigraph:7878
+      DATA_GRAPH_URI: "https://rosfeatr.eu/rdf/graph/"
+      OXIGRAPH_LOAD_TIMEOUT: "${OXIGRAPH_LOAD_TIMEOUT:-300}"
+      SCHEMA_PATH: /app/schema/schema.ttl
+      # No VOCAB_PATH / DATA_PATH / RESET_DATA_ON_STARTUP / SEED_* / READ_ONLY /
+      # MAX_UPLOAD_MB: every one of those is a write concern, and this service's
+      # Settings does not define them.
+      #
+      # READ_ONLY_SHAPES *is* here, from the same anchor the curator uses (D11). It
+      # looks like a write concern and was filed as one, which is precisely the
+      # mistake: it states which shapes are editable, so any client needs it to
+      # render a UI. Withholding it meant the editor could only get the flags from
+      # the writer, and therefore showed nothing whenever the writer was down (C20).
+      READ_ONLY_SHAPES: *read_only_shapes
+      S3_ENDPOINT: "http://garage:3900"
+      S3_REGION: garage
+      S3_BUCKET: "${S3_BUCKET:-sources}"
+      S3_ACCESS_KEY_ID: "${S3_ACCESS_KEY_ID:-}"
+      S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY:-}"
+      # Both frontends read from this service, so both dev origins are allowed.
+      # graphexplorer-frontend now publishes on host port 80, so its browser
+      # Origin is "http://localhost" with no port (80 is http's default port,
+      # which browsers omit from the Origin header).
+      CORS_ORIGINS: '["http://localhost:5173", "http://localhost"]'
+      LOG_FILE: logs/app.jsonl
+      LOG_LEVEL: INFO
+      TRUNCATE_LOG_ON_STARTUP: "false"
+      TRUNCATE_LOG_ON_FRESH_CONTAINER_START: "true"
+    volumes:
+      - ./dataexplorer-backend:/app
+      # The shared library, hot-reloadable — see the curator-backend service for
+      # why this is mounted at /opt and why the install is editable.
+      - ./rfdb-core:/opt/rfdb-core
+      # Schema only. No ./data mount: the reader never loads a seed file, so
+      # giving it the seed data would just be an unused mount that implies
+      # otherwise.
+      - ./schema:/app/schema:ro
+      - dataexplorer_backend_logs:/app/logs
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=2)",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    command:
+      [
+        "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8001",
+        "--reload", "--reload-dir", "/app", "--reload-dir", "/opt/rfdb-core",
+      ]
 
   # --------------------------------------------------------------------------
   # Frontend — Vite dev server
   # --------------------------------------------------------------------------
-  frontend:
+  curator-frontend:
     build:
       context: .
-      dockerfile: frontend/Dockerfile
-    container_name: rfdb-frontend
+      dockerfile: curator-frontend/Dockerfile
+      # Explicit, because this Dockerfile now also has a `production` stage and
+      # Docker defaults to the LAST stage when no target is given.
+      target: development
+    container_name: rfdb-curator-frontend
+    profiles: ["full"]
     restart: unless-stopped
     depends_on:
-      backend:
-        # Frontend starts only after backend /health is reachable so the
+      curator-backend:
+        # Frontend starts only after curator-backend /health is reachable so the
         # app does not appear "up" while API startup failed.
+        condition: service_healthy
+      dataexplorer-backend:
+        # The editor reads from :8001 (every list/get/search/counts/meta call and
+        # the whole shape catalogue), so it genuinely depends on the reader too.
+        # A base service, so this never crosses into an inactive profile.
         condition: service_healthy
     environment:
       # ----------------------------------------------------------------------
       # Browser-facing API base URL
       # ----------------------------------------------------------------------
-      # This value is embedded in the frontend runtime (via Vite) and used by
+      # This value is embedded in the curator-frontend runtime (via Vite) and used by
       # code executing in the user's browser.
       #
       # IMPORTANT:
       # - Must be reachable from the host machine (i.e. the browser)
-      # - Must NOT use Docker service names like "backend"
+      # - Must NOT use Docker service names like "curator-backend"
       # - Typically points to a published port on localhost
       #
       # Example:
@@ -214,19 +374,31 @@ services:
       VITE_API_BASE: http://localhost:8000
 
       # ----------------------------------------------------------------------
-      # Internal proxy target (Vite dev server → backend container)
+      # Read API base (browser-facing) — dataexplorer-backend
+      # ----------------------------------------------------------------------
+      # Unlike VITE_API_BASE, this is used in dev too. The read/write split is
+      # not a path split (GET vs DELETE on /api/data/{id}), so Vite's
+      # prefix-keyed proxy cannot route it — the client holds an absolute read
+      # base instead. See the devnote in curator-frontend/src/api/client.js.
+      #
+      # Browser-reachable, so localhost and the published port, never a service
+      # name. dataexplorer-backend's CORS_ORIGINS already allows :5173.
+      VITE_READ_API_BASE: http://localhost:8001
+
+      # ----------------------------------------------------------------------
+      # Internal proxy target (Vite dev server → curator-backend container)
       # ----------------------------------------------------------------------
       # Used ONLY by the Vite development server running inside this container.
       #
       # IMPORTANT:
       # - Runs inside Docker → must use Docker DNS (service name)
-      # - "backend" resolves to the backend container on the internal network
+      # - "curator-backend" resolves to that container on the internal network
       # - Never use localhost here (would point to this container itself)
       #
       # Example:
-      #   Vite proxy → http://backend:8000/api
+      #   Vite proxy → http://curator-backend:8000/api
       #
-      VITE_PROXY_TARGET: http://backend:8000
+      VITE_PROXY_TARGET: http://curator-backend:8000
 
       # ----------------------------------------------------------------------
       # Explorer deep-link base (browser-facing)
@@ -234,9 +406,11 @@ services:
       # When set, the editor shows an "Open in Explorer" link on a selected
       # record that opens the Explorer at ?id=<iri>. Must be reachable from the
       # browser; leave unset to hide the link.
-      VITE_EXPLORER_BASE: http://localhost:5174
+      # graphexplorer-frontend publishes on host port 80 (default http port,
+      # so no ":80" suffix needed here or in the resulting URL).
+      VITE_EXPLORER_BASE: http://localhost
     volumes:
-      - ./frontend:/app
+      - ./curator-frontend:/app
       # The anonymous volume re-surfaces the node_modules layer built by
       # `npm ci` during `docker build` on top of the bind-mount.  Docker
       # applies anonymous volumes after bind-mounts, so the image's
@@ -249,33 +423,43 @@ services:
   # --------------------------------------------------------------------------
   # Explorer — read-only graph visualizer (Vite dev server)
   # --------------------------------------------------------------------------
-  # A pure frontend: it talks only to the backend's /api. Deployable standalone
-  # (point VITE_API_BASE at any backend); here it rides the dev stack and proxies
-  # /api to the backend container, exactly like the editor frontend above.
-  explorer:
+  # A pure frontend: it talks only to a backend's /api. Deployable standalone
+  # (point VITE_API_BASE at any read service); here it rides the dev stack and
+  # proxies /api to dataexplorer-backend. It depends on the reader, not the
+  # curator — the explorer issues nothing but reads, which is what lets it keep
+  # working with the write tier stopped.
+  graphexplorer-frontend:
     build:
       context: .
-      dockerfile: explorer/Dockerfile
-    container_name: rfdb-explorer
+      dockerfile: graphexplorer-frontend/Dockerfile
+      # See curator-frontend: the Dockerfile has a `production` stage as well.
+      target: development
+    container_name: rfdb-graphexplorer-frontend
     restart: unless-stopped
     depends_on:
-      backend:
+      dataexplorer-backend:
         condition: service_healthy
     environment:
       # Browser-facing API base — used only by a production/static build. The dev
       # server below serves through the Vite proxy instead (import.meta.env.DEV).
-      VITE_API_BASE: http://localhost:8000
+      VITE_API_BASE: http://localhost:8001
       # Vite dev-server proxy target (inside Docker → service name, not localhost).
-      VITE_PROXY_TARGET: http://backend:8000
-      # Branding only — the explorer code is domain-agnostic.
+      VITE_PROXY_TARGET: http://dataexplorer-backend:8001
+      # Branding only — the graphexplorer-frontend code is domain-agnostic.
       VITE_APP_TITLE: RFDB Explorer
     volumes:
-      - ./explorer:/app
+      - ./graphexplorer-frontend:/app
       # Anonymous volume keeps the image's node_modules over the bind-mount
-      # (correct OS/arch binaries), same rationale as the frontend service.
+      # (correct OS/arch binaries), same rationale as the curator-frontend service.
       - /app/node_modules
     ports:
-      - "5174:5174"
+      # Host-facing port is 80 so the explorer is reachable at
+      # http://localhost with no port suffix, matching how a browser would hit
+      # it in production. The Vite dev server itself still binds 5174 inside
+      # the container (vite.config.js server.port) — it runs as the non-root
+      # `node` user (see Dockerfile), which cannot bind port 80 directly, so
+      # this is a Docker port *mapping*, not a server-side listen change.
+      - "80:5174"
 
 # ------------------------------------------------------------------------------
 # Named volumes
@@ -284,8 +468,11 @@ volumes:
   oxigraph_data:
     # Persists RDF data across container restarts.
     # Run `docker compose down -v` to destroy it along with all containers.
-  backend_logs:
-    # Persists backend JSON-lines logs across container restarts.
+  curator_backend_logs:
+    # Persists curator-backend JSON-lines logs across container restarts.
+  dataexplorer_backend_logs:
+    # Same, for the read service. Separate volume so the two services' access
+    # logs stay separable — they answer different halves of the API.
   garage_meta:
     # Garage cluster metadata (layout, buckets, keys). Destroyed by
     # `down -v` — after which you must re-run scripts/garage-init.sh.

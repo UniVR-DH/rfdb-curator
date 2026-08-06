@@ -1,8 +1,8 @@
 # RFDB Curator — Architecture
 
-How the pieces fit together: the schema-driven pipeline, backend and frontend
-responsibilities, how SHACL shapes are extracted into form and validation metadata,
-how validation and delete behave, and the storage/runtime stack. For the RDF/SHACL
+How the pieces fit together: the schema-driven pipeline, the writer/reader service
+split, frontend responsibilities, how SHACL shapes are extracted into form and
+validation metadata, how validation and delete behave, and the storage/runtime stack. For the RDF/SHACL
 modeling itself (ontologies, shapes, prefixes) see [data-model.md](data-model.md); for
 the day-to-day workflow of changing schema/data/code see [development.md](development.md).
 
@@ -18,7 +18,7 @@ Data flows through the stack like this:
 ```text
 schema/schema.ttl
     ↓
-backend schema extractor
+schema extractor (rfdb-core, loaded by both services)
     ↓
 normalized form schema
     ↓
@@ -37,10 +37,49 @@ This separation matters because the RFDB schema evolves over time: the editor ke
 
 ---
 
+## Service Split
+
+There are two API services and one shared library. The line between them is *whether
+an operation mutates the store*:
+
+| | `curator-backend` (:8000) | `dataexplorer-backend` (:8001) |
+|---|---|---|
+| Writes | **all of them** — create/update, delete, upload staging | none |
+| Reads | shape metadata + forms only | everything else |
+| SHACL validator | yes | no |
+| Seeding / reset | yes | no |
+| `app.state` | `schema_extractor`, `store`, `storage`, `shacl_validator`, `shape_dep_graph`, `seed_report` | `schema_extractor`, `store`, `storage` |
+
+Both talk to the same Oxigraph and the same object-storage bucket, and neither imports
+the other. `dataexplorer-backend` does not `depends_on` the curator in Compose: the
+independence is the point, and a read-only deployment runs the reader alone.
+
+**`rfdb-core`** holds what both need — the `TripleStore` seam, the schema extractor, the
+object-storage seam, the CURIE map, the IRI guard, the digital-copy state snapshot, the
+shared settings base, and the FastAPI edge wiring (CORS, access log, storage-error
+handling). It is framework-free apart from one module behind a `web` extra, so neither
+service inherits the other's web stack.
+
+Two things about the split are worth stating explicitly:
+
+- **Both services serve the shape catalogue, and the payloads are identical.** One
+  implementation (`rfdb_core.shapes`) over one `schema.ttl`, `readOnly` flags included. This
+  was once an asymmetry — the reader omitted the flag because `READ_ONLY_SHAPES` was filed
+  as write policy — and the asymmetry was the bug: the editor needed the flag, could only
+  get it from the writer, and so could not render a sidebar during a writer outage.
+  `READ_ONLY_SHAPES` is better read as policy metadata about *which shapes are editable*,
+  which any client needs. The remaining obligation is operational: give both services the
+  same value (a single Compose YAML anchor does that).
+- **Only the curator waits for the store at startup.** It is about to clear and seed,
+  and a connection dropped mid-wipe is unrecoverable, so it polls `health()` until the
+  store answers. For the reader an unreachable store is a per-request condition (503, or
+  empty results) that resolves itself — blocking startup on it would only reduce
+  availability.
+
 ## Backend Responsibilities
 
-The backend turns RDF and SHACL semantics into stable API structures the frontend can
-consume. It:
+Together, the two services turn RDF and SHACL semantics into stable API structures the
+frontend can consume. They:
 
 - loads the active SHACL schema from `schema/schema.ttl`
 - extracts all `sh:NodeShape` definitions
@@ -65,43 +104,167 @@ consume. It:
 
 ## API Reference
 
-The endpoints the backend exposes. The behaviors behind several of these
-(validation merge, delete, the metadata endpoints) are explained in the
-sections further down.
+Every endpoint, and which service owns it. The behaviors behind several of these
+(validation merge, delete, the metadata endpoints) are explained in the sections
+further down.
+
+The URL space is split into **two spaces with different contracts**, which is the single
+most important thing to know before adding a route:
+
+| Space | Owner | Contract |
+|---|---|---|
+| `/rdf/…` | reader | **The data.** Public, permanent, **unversioned** identifiers. These URLs are stored *inside triples*, so they can never move. |
+| `/api/v1/{service}/…` | each service | **Our own apps' operational surface.** Versioned, and named after the service that owns it. |
+
+Naming the owner in `/api/` paths is deliberate. It means no path can mean two things
+depending on which service answers it, a wrong-service request fails as a legible `404`
+instead of a `405`, a reverse proxy routes the whole API by prefix with no method
+awareness, and a read-only deployment simply omits the `/api/v1/curator/*` namespace
+rather than returning `403` per route. That costs nothing in public-contract terms
+precisely *because* the durable, third-party-facing identifiers live in `/rdf/`.
+
+### The data space — `/rdf/…` (served by dataexplorer-backend, :8001)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/rdf/data/{id}` | **Content-negotiated dereference** of an entity: `text/html`, `text/turtle`, `application/ld+json`, `application/rdf+xml`, `application/n-triples`. Describes the resource in *both* directions, so the graph is walkable from any IRI. `?_mediatype=` overrides `Accept`, `?_profile=alt` lists the representations; `Vary: Accept` is set. |
+| `GET` | `/rdf/data/{fileId}/content` | The bytes of a **published** digital copy — what `schema:contentUrl` points at |
+| `GET` | `/rdf/schema/{ShapeName}` | A SHACL shape's own definition, served from `schema.ttl`. **RDF only** — see below |
+
+An entity's IRI *is* its URL: `https://rosfeatr.eu/rdf/data/{id}`, and production serves
+that host, so a browser pointed at any identifier in the data gets a readable page:
+label, types, literal properties, and click-through links in both directions. A
+machine client asking for `*/*` gets Turtle instead — this is a data space, so the
+default is machine-readable. An `Accept` we cannot satisfy at all still falls back to
+Turtle rather than answering `406`, which would make a persisted identifier look broken.
+
+Three properties of that surface are load-bearing rather than cosmetic:
+
+- **Links on the HTML page are path-only.** A persisted IRI names `rosfeatr.eu`, but a dev
+  reader answers on `localhost:8001`, so linking the IRI as-is would send a developer's
+  click to the public internet. The path each link uses is *derived from the namespace*
+  (`RFDB_BASE` is `https://rosfeatr.eu/rdf/data/`, and the router is mounted at `/rdf`) —
+  that identity is what makes these URLs cool, and deriving it keeps the links right if the
+  namespace ever moves. Same re-basing the frontend does for `schema:contentUrl`.
+- **A variant URL percent-encodes its media type.** `?_mediatype=application/ld+json`
+  does *not* work — a query string is form-encoded, so the `+` arrives as a space. Every
+  URL the service emits (`Content-Location`, the `Link` alternates, the page's own links)
+  writes `%2B`. A hand-typed `+` is still understood, since no media type contains a space.
+- **`/rdf/schema/{ShapeName}` serves no HTML.** A shape's description is mostly blank nodes
+  — a shape *is* its property descriptors — which a flat subject-centric page would
+  silently drop. A browser gets Turtle; an explicit `?_mediatype=text/html` gets a `400`
+  naming what the route does serve. The rendered form of the shape catalogue is the
+  editor's, fed by `/api/v1/dataexplorer/shapes`.
+
+**Content negotiation by profile (ConnegP conventions, not Prez).** `?_profile=alt` returns
+the list of available representations, itself negotiable in any of the five formats. It is
+described with DCMI terms — `dcterms:hasFormat` is defined as the same resource in another
+format — rather than with the ALTR vocabulary Prez uses; adopting Prez/pyLDAPI is an
+explicit non-goal. `?_profile=rfdb` names the default view, and an unknown token is a `400`,
+matching `_mediatype`: a client that asked for something by name deserves an error rather
+than a silent substitution. Profile *tokens*, not profile URIs — a URI minted under `/rdf/`
+would be a permanent public identifier we then owe a representation, for no current
+consumer. Every response also carries plain RFC 8288 discovery: `rel="canonical"` plus one
+`rel="alternate"` per variant.
+
+### `curator-backend` — :8000 (writes)
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/health` | Liveness/readiness check (Oxigraph status + seed report) |
-| `GET` | `/api/shapes` | Available SHACL NodeShapes with metadata and field descriptors |
-| `GET` | `/api/forms?shapeId=...` | Generated form schema for one shape |
-| `GET` | `/api/data/list` | Paginated entity list for a shape, with text filter |
-| `GET` | `/api/data/counts` | Per-shape entity counts |
-| `GET` | `/api/data/{entityId}` | All triples for one entity |
-| `POST` | `/api/data` | Create or update an entity (JSON-LD → SHACL validate → Turtle load) |
-| `DELETE` | `/api/data/{entityId}` | Delete triples where the entity is subject |
-| `GET` | `/api/entities/search` | Autocomplete for linked-resource fields |
-| `POST` | `/api/validate` | Dry-run SHACL validation without persisting |
-| `POST` | `/api/files/staged` | Stage an uploaded digital copy (e.g. a PDF) before it is attached to a record |
-| `GET` | `/api/files/{fileId}` | Fetch a staged or registered digital-copy file |
-| `GET` | `/api/meta/prefixes` | Curated CURIE prefix-to-namespace map (from `core/prefixes.py`) |
-| `GET` | `/api/meta/graphs` | Named graphs with triple/term counts and advisory config warnings |
-| `GET` | `/api/meta/files` | Digital-copy storage stats (staged/registered/orphans) |
+| `GET` | `/api/v1/curator/shapes` | NodeShapes with metadata, field descriptors and the `readOnly` flag — **identical to the reader's** |
+| `GET` | `/api/v1/curator/forms?shapeId=...` | Generated form schema for one shape. Writer-only: form fields exist to drive an editing form |
+| `POST` | `/api/v1/curator/entities` | Create or update an entity (JSON-LD → SHACL validate → Turtle load) |
+| `DELETE` | `/api/v1/curator/entities?id=<iri>` | Delete triples where the entity is subject |
+| `POST` | `/api/v1/curator/validate` | Dry-run SHACL validation without persisting |
+| `POST` | `/api/v1/curator/files/staged` | Stage an uploaded digital copy (e.g. a PDF) before it is attached to a record |
+| `GET` | `/api/v1/curator/files/staged/{fileId}` | Preview a staged, not-yet-submitted copy (mode-gated, curator-only) |
 
-`GET /health` returns `{ "status": "ok", "oxigraph": "up" | "down", "seed": { ... } | null }`.
+Nothing here is published under `/rdf/`: permanent identifiers must not resolve to the
+one component a read-only deployment omits.
 
-Since the backend is FastAPI, the always-current interactive reference is served
-at `/docs` (Swagger UI) with the raw schema at `/openapi.json`; the table above is
-a convenience overview and can drift from the running app.
+### `dataexplorer-backend` — :8001 (reads)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/health` | Liveness/readiness check (store status only) |
+| `GET` | `/api/v1/dataexplorer/shapes` | NodeShapes with metadata, field descriptors and the `readOnly` flag — **byte-identical to the curator's** |
+| `GET` | `/api/v1/dataexplorer/entities` | Paginated entity list for a shape, with text filter |
+| `GET` | `/api/v1/dataexplorer/entities/counts` | Per-shape entity counts |
+| `GET` | `/api/v1/dataexplorer/entities/search` | Autocomplete for linked-resource fields |
+| `GET` | `/api/v1/dataexplorer/entities/get?id=<iri>` | All triples for one entity, in the editor's JSON shape (the RDF sibling is `GET /rdf/data/{id}`) |
+| `GET` | `/api/v1/dataexplorer/graph/node` | Schema-aware graph traversal (one node + its relation edges) |
+| `GET` | `/api/v1/dataexplorer/meta/prefixes` | Curated CURIE prefix-to-namespace map (from `rfdb_core/prefixes.py`) |
+| `GET` | `/api/v1/dataexplorer/meta/graphs` | Named graphs with triple/term counts and advisory config warnings |
+| `GET` | `/api/v1/dataexplorer/meta/files` | Digital-copy storage stats (staged/registered/orphans) |
+
+**Both services serve the same shape catalogue, from one implementation**
+(`rfdb_core.shapes`) over the same `schema.ttl`, `readOnly` flags included. The flags used
+to be curator-only, on the reasoning that `READ_ONLY_SHAPES` was a write concern; it is
+better read as *policy metadata saying which shapes are editable*, which any client needs
+to render a UI. That misfiling meant the editor had to fetch its shape list from the
+writer, and therefore showed an empty sidebar whenever the writer was down. It now starts,
+browses and searches with the write tier stopped. The catch is operational: both services
+must be given the same `READ_ONLY_SHAPES`, which `docker-compose.yml` guarantees with a
+single YAML anchor rather than two editable literals.
+
+**An entity IRI always travels as `?id=`, never as a path segment** — on both services, and
+matching `/graph/node?id=`. Two reasons. A path parameter would have to be greedy (`{iri:path}`,
+because an encoded IRI's `%2F` is decoded before route matching), and a greedy parameter under
+`/entities/` silently swallows `/entities/search` and `/entities/counts` unless every literal route
+happens to be registered first — an invariant that lived in `app.py`, files away from the routes it
+governed. Second, a path-encoded IRI needs double-encoding to survive, and a bare local name fails
+the unsafe-IRI guard with a 400 that reads like a data problem. A test on each service asserts no
+route uses `:path`, so the collision is impossible rather than merely guarded.
+
+`entities/get` puts a verb in a URL, which is deliberate: this is the operational surface, where the
+HTTP method alone cannot distinguish a single-entity lookup from the collection. The
+resource-oriented address for the same entity is `GET /rdf/data/{id}`, which is where RESTful
+identity belongs.
+
+The two `/health` payloads differ:
+
+- curator: `{ "status": "ok", "oxigraph": "up" | "down", "seed": { ... } | null }`
+- dataexplorer: `{ "status": "ok", "store": "up" | "down" }` — no seed report, because it
+  never seeds.
+
+Note that a digital copy is **uploaded** through the curator and **downloaded** through
+the reader: staging writes bytes, serving them does not.
+
+The two download routes are not duplicates — they serve different lifecycle states, and
+which one applies is an **RDF** question, never a storage-prefix one:
+
+| State | Route | Why there |
+|---|---|---|
+| Staged, no parent entity yet | `GET :8000/api/v1/curator/files/staged/{fileId}` | One curator's in-progress working state. Mode-gated, and never handed out by the public reader. |
+| Published (a parent references it) | `GET :8001/rdf/data/{fileId}/content` | A real resource. Answers `X-RFDB-File-State: registered`. |
+
+The reader refuses anything unreferenced with a `404`, so unsubmitted uploads are not
+public. When a file *is* referenced but its bytes are still under `staged/` — the
+promotion after the entity write did not complete — it is served with
+`X-RFDB-File-State: awaiting-promotion` and a warning, rather than silently, so a stalled
+`scripts/cleanup_files.py` is visible instead of latent. If the store is unreachable the
+reader falls back to `registered/` presence alone (`registered-unverified`); a
+staged-only file gets a `503` rather than risk publishing working state during an outage.
+
+This is also why `contentUrl` resolves cleanly with no cross-service knowledge: staging
+returns the staged path on the writer, and the submit path rewrites it to the published
+path on persist, so a client always resolves the relative URL against the origin that
+gave it the document.
+
+Since both services are FastAPI, the always-current interactive reference is served at
+`/docs` (Swagger UI) on each, with the raw schema at `/openapi.json`; the tables above
+are a convenience overview and can drift from the running apps.
 
 ---
 
 ## Frontend Responsibilities
 
-The frontend renders editorial workflows from the shape metadata the backend provides. It:
+The frontend renders editorial workflows from the shape metadata the API provides. It:
 
 - lists available shapes in the navigation
 - shows per-shape entity counts
-- renders dynamic forms from `/api/forms`
+- renders dynamic forms from `/api/v1/curator/forms`
 - marks required fields clearly
 - distinguishes single-valued from repeatable fields
 - supports language-tagged literal inputs
@@ -114,6 +277,68 @@ The frontend renders editorial workflows from the shape metadata the backend pro
 - supports dry-run validation before save
 - shows RDF triples for record inspection
 - avoids regenerating helper-node IRIs on update
+
+### Which backend each frontend talks to
+
+The two apps resolve `/api` differently, because only one of them writes.
+
+**`graphexplorer-frontend`** (Vite listens on :5174 inside the container; dev compose
+publishes it to the host at :80, matching how a browser reaches it in production) — a single
+Vite proxy rule sends all of `/api` to
+`dataexplorer-backend:8001`. Everything it calls is a read, so it needs no second base and no
+knowledge of the curator. That is what makes it the outage-resilient surface: it keeps working
+with the write tier stopped.
+
+**`curator-frontend` (:5173)** — needs both. The split *used* to defeat the dev proxy: `GET` and
+`DELETE /api/data/{id}` were the same path on different services, and Vite's proxy keys on path
+prefixes, so no rule could separate them. Naming the owner in the path removed that collision, so
+a single prefix rule now could route both. The client keeps two bases anyway, because it makes the
+two upstreams visible in the Network tab and exercises the same cross-origin path production uses:
+
+| | Base | Dev behaviour |
+|---|---|---|
+| Writes + writer-only reads | `VITE_API_BASE` | Relative (`''`) → through the Vite proxy to `curator-backend:8000` |
+| All other reads | `VITE_READ_API_BASE` | **Absolute even in dev** (`http://localhost:8001`) → straight to the reader from the browser |
+
+Making only the production base configurable would have silently kept every dev read on the
+writer, where those routes do not exist. Going direct works because `dataexplorer-backend`'s
+`CORS_ORIGINS` allows the dev-server origins.
+
+Two consequences worth knowing:
+
+- **The editor gets its shape catalogue from the reader; only `forms` stays on the writer.** This
+  was the other way round until the shape catalogue was single-sourced, and the cost showed up
+  immediately: the editor needed the `readOnly` flags to disable protected shapes, only the writer
+  produced them, so with `curator-backend` down the editor had an empty sidebar even though every
+  data read succeeded. Both services now serve the identical catalogue from one implementation, so
+  the editor starts, browses and searches through a writer outage — only *editing* needs the
+  writer, and `forms` is writer-only precisely because form fields exist to drive an editing form.
+- **File links resolve per lifecycle state, not per configured base.** `resolveFileUrl` picks the
+  base from the path the backend handed back: `/api/v1/curator/files/staged/{id}` → writer,
+  `/rdf/data/{id}/content` → reader. See the digital-copy note in the API reference above.
+
+### In production: one origin, and a mode
+
+Production collapses all of that to **one origin**. A Caddy edge terminates TLS and routes by
+path prefix, so both frontends are built with empty API bases and every call is same-origin —
+no CORS anywhere:
+
+| Prefix | Service |
+|---|---|
+| `/api/v1/curator/*` | curator-backend |
+| `/api/v1/dataexplorer/*` · `/rdf/*` | dataexplorer-backend |
+| `/explorer/*` | graphexplorer-frontend |
+| everything else | curator-frontend |
+
+That the edge config is a plain prefix table is the point of naming the owner in each path.
+Before the re-cut, `GET` and `DELETE /api/data/{id}` were the same path on two services, which
+no prefix-keyed proxy — Vite's or Caddy's — can split.
+
+Because the partition is by owner, **which kind of instance this is becomes a deploy-time
+choice**: a read-only deployment omits the `/api/v1/curator/*` namespace entirely rather than
+deploying a writer that answers 403 per route. Compose profiles gate exactly the two curator
+services; everything else runs in both modes. Runbook and the invariants in
+[deployment.md](deployment.md#deploy-modes--read-vs-full).
 
 ---
 
@@ -177,19 +402,19 @@ The extractor keeps enough information for both form rendering and validation fe
 
 Shape behavior in the UI is schema-driven, not hardcoded per class name.
 
-- If a shape declares a `sh:property` with `sh:path rdfs:label`, the backend classifies it as a `standalone-entity`.
-- If a shape has no `rdfs:label` property, the backend classifies it as a `helper-bridge` shape.
+- If a shape declares a `sh:property` with `sh:path rdfs:label`, the extractor classifies it as a `standalone-entity`.
+- If a shape has no `rdfs:label` property, the extractor classifies it as a `helper-bridge` shape.
 - If a parent property uses `sh:node` to point at a `helper-bridge` shape, the form generator exposes that field as a nested inline editor instead of a normal top-level linked entity form.
 
 `rfdbs:AgentRoleShape` is the current example of this pattern. It is referenced from `core:hasAgentRole`, defines no `sh:property` whose `sh:path` is `rdfs:label`, and is therefore edited inline as a bridge between the parent Work/Expression and the linked `Person`/`Role` records.
 
-When changing this behavior, check both the SHACL shape and the resulting `/api/shapes` metadata before changing frontend code. A shape can look label-like because it has a shape-level `rdfs:label` for display, but the classifier only cares whether the shape defines an RDF property with `sh:path rdfs:label`.
+When changing this behavior, check both the SHACL shape and the resulting `/api/v1/dataexplorer/shapes` metadata before changing frontend code. A shape can look label-like because it has a shape-level `rdfs:label` for display, but the classifier only cares whether the shape defines an RDF property with `sh:path rdfs:label`.
 
 ---
 
 ## Validation Merge Behavior
 
-`POST /api/data` validates against a graph that includes:
+`POST /api/v1/curator/entities` validates against a graph that includes:
 
 - the submitted payload
 - relevant referenced entities already present in the store
@@ -212,7 +437,7 @@ If a later payload references the Work but does not repeat the AgentRole, Person
 
 ## Delete Behavior and Orphaned Helper Nodes
 
-`DELETE /api/data/{entityId}` removes the triples where the entity is the subject.
+`DELETE /api/v1/curator/entities/{entityId}` removes the triples where the entity is the subject.
 
 This leaves a known gap: bridge/helper nodes linked only from the deleted entity can be
 left orphaned — `AgentRole` nodes are the usual example. Several approaches could close
@@ -239,19 +464,19 @@ autocomplete, cascade cleanup, and how the validation graph is expanded.
 ## Metadata API
 
 Three read-only metadata endpoints back the Data Context Panel
-(`frontend/src/components/DataContextPanel.jsx`). All are implemented in
-`backend/api/meta.py`, registered in `backend/app.py`, and covered by
-`tests/test_api_meta.py`.
+(`curator-frontend/src/components/DataContextPanel.jsx`). All are implemented in
+`dataexplorer-backend/api/meta.py`, registered in `dataexplorer-backend/app.py`, and
+covered by `tests/dataexplorer/test_api_meta.py`.
 
 ```text
-GET /api/meta/prefixes   — curated CURIE prefix map
-GET /api/meta/graphs     — named graphs, triple counts, config warnings
-GET /api/meta/files      — digital-copy storage stats
+GET /api/v1/dataexplorer/meta/prefixes   — curated CURIE prefix map
+GET /api/v1/dataexplorer/meta/graphs     — named graphs, triple counts, config warnings
+GET /api/v1/dataexplorer/meta/files      — digital-copy storage stats
 ```
 
 ### Prefix Metadata
 
-`GET /api/meta/prefixes` returns the curated CURIE prefix→namespace map:
+`GET /api/v1/dataexplorer/meta/prefixes` returns the curated CURIE prefix→namespace map:
 
 ```json
 {
@@ -262,21 +487,22 @@ GET /api/meta/files      — digital-copy storage stats
 }
 ```
 
-The map is served from the hand-maintained `core.prefixes.PREFIXES` — the union of the
+The map is served from the hand-maintained `rfdb_core.prefixes.PREFIXES` — the union of the
 `@prefix` declarations across the schema, vocab, data, and Glottolog Turtle files —
 **not** from the rdflib schema graph's `namespaces()`. rdflib pre-binds ~29 unrelated
 well-known vocabularies (`brick`, `dcat`, …) into every `Graph`, which would otherwise
-leak into the map; `core/prefixes.py` carries the maintenance note and a sanity check.
+leak into the map; `rfdb-core/rfdb_core/prefixes.py` carries the maintenance note and a
+sanity check (`curator-backend/scripts/check_prefixes.py`, gated in CI).
 
 This endpoint resolved the prefix-map duplication gap between `utils/prefixes.js` and
 `utils/jsonld.js` on the frontend — both now hydrate from it at app startup
-(`frontend/src/App.jsx`). A richer per-entry shape (merging JSON-LD context and runtime
+(`curator-frontend/src/App.jsx`). A richer per-entry shape (merging JSON-LD context and runtime
 config with drift `warnings`) remains a possible future enhancement — see the Data
 Context Panel enhancements in the root [`TODO.md`](../TODO.md).
 
 ### Graph Metadata
 
-`GET /api/meta/graphs` returns the runtime graph context, read store-wide (its SPARQL
+`GET /api/v1/dataexplorer/meta/graphs` returns the runtime graph context, read store-wide (its SPARQL
 queries run unscoped, so the panel sees every named graph, not just `DATA_GRAPH_URI`):
 
 ```json
@@ -302,9 +528,11 @@ unreachable.
 
 ### File Storage Metadata
 
-`GET /api/meta/files` returns digital-copy storage stats, mirroring the reconciler's
-view (`scripts/cleanup_files.py`): RDF is the source of truth, object storage is
-compared against it.
+`GET /api/v1/dataexplorer/meta/files` returns digital-copy storage stats, mirroring the reconciler's
+view (`curator-backend/scripts/cleanup_files.py`): RDF is the source of truth, object
+storage is compared against it. Both read the same snapshot helper
+(`rfdb_core.files_state.collect_file_state`) — it sits in the shared library precisely
+because the endpoint is a read and the reconciler is a curator-side maintenance tool.
 
 ```json
 {
@@ -331,7 +559,7 @@ The application runs as a small set of Docker Compose services.
 
 - **Backend** — FastAPI + uvicorn. Loads and extracts the SHACL schema, validates
   submitted JSON-LD with pySHACL, and reads/writes RDF through the Oxigraph HTTP API.
-- **Frontend** — React + Vite. Renders forms from `/api/shapes` and `/api/forms`.
+- **Frontend** — React + Vite. Renders forms from the shapes catalogue and `/api/v1/curator/forms`.
 - **Oxigraph** — the RDF triple store. All instance data lives in a single named graph
   identified by `DATA_GRAPH_URI`; every SPARQL read uses `FROM <uri>` and every Turtle
   load targets `?graph=<uri>` via the Graph Store Protocol. It is the source of truth
@@ -339,15 +567,19 @@ The application runs as a small set of Docker Compose services.
   (`oxigraph_data`).
 - **Garage** — an S3-compatible object store for digital copies (uploaded PDFs and
   similar). A digital copy is modeled as a bridge node whose fields are machine-filled:
-  a file is staged first (`POST /api/files/staged`), travels in the JSON-LD payload
+  a file is staged first (`POST /api/v1/curator/files/staged`, previewable meanwhile at
+  `GET /api/v1/curator/files/staged/{fileId}` on the curator), travels in the JSON-LD payload
   under its schema-declared predicate, is promoted from `staged/` to `registered/`
-  when the record is persisted, and is served back through `GET /api/files/{fileId}`.
+  when the record is persisted, and is then served back through the reader's
+  `GET /rdf/data/{fileId}/content`.
   RDF remains the source of truth; object storage is reconciled against it (see the
-  File Storage Metadata endpoint above and `scripts/cleanup_files.py`). Garage is wired
+  File Storage Metadata endpoint above and `scripts/cleanup_files.py`). That direction
+  also decides who may download what: a file is public because an entity references it,
+  not because its bytes sit under a particular prefix. Garage is wired
   into dev Compose via `garage.toml` and the host-side `scripts/garage-init.sh`;
   production hardening lives in the deployment notes.
 
 The planned production topology puts a reverse proxy (Caddy) in front to terminate TLS and
-route `/` to the frontend and `/api` to the backend, with Oxigraph and object storage kept
+route `/` to the frontends and `/api` to the two backends by path, with Oxigraph and object storage kept
 internal-only. This is not yet functional — see the
-[production deployment plan](deployment.md#production-deployment-work-in-progress).
+[production deployment plan](deployment.md#production-deployment).

@@ -10,7 +10,8 @@ The current schema features record types for musical works, expressions, manifes
 [SHACL shapes](https://www.w3.org/TR/shacl12-core/) are aligned with the [Polifonia Core Ontology](https://github.com/polifonia-project/core-ontology) and [LRMoo](https://cidoc-crm.org/lrmoo/) to support the FRBR-based work–expression–manifestation–item (WEMI) hierarchy.
 
 
-This repository is self-contained: backend, frontend, schema, data, and the Docker Compose runtime are all maintained at the repository root.
+This repository is self-contained: both backend services, both frontends, the shared library, schema, data, and the Docker Compose runtime are all maintained at the repository root.
+The API is split by responsibility — `curator-backend` is the only service that writes to the store, `dataexplorer-backend` answers every read — so a read-only deployment can run without the writer at all.
 For deeper topic guides, see the [documentation](#documentation).
 
 
@@ -50,7 +51,7 @@ For deeper topic guides, see the [documentation](#documentation).
 
 ### First-time setup
 
-The stack needs a repo-root `.env` (Garage RPC secret + the S3 credentials shared by Garage and the backend) and a one-time Garage bootstrap (cluster layout, bucket, access key). 
+The stack needs a repo-root `.env` (Garage RPC secret + the S3 credentials shared by Garage and both backends) and a one-time Garage bootstrap (cluster layout, bucket, access key). 
 Both are handled by helper scripts. `.env` is gitignored, so a fresh checkout has none.
 Compose fails at startup if `GARAGE_RPC_SECRET` is missing, while uploads fail until Garage is bootstrapped.
 
@@ -81,6 +82,17 @@ docker compose up --build
 docker compose up
 ```
 
+**Which services start is a mode**, not a fixed list. Base services (Oxigraph, Garage, the
+read backend, the graph explorer) run in every mode, and the two curator services are gated
+behind the `full` profile — so a bare `docker compose up` is the read-only stack a public
+instance would run. `scripts/env-init.sh` writes `COMPOSE_PROFILES=full` into `.env`, so
+development gets the whole six-service stack by default.
+
+*On an existing clone,* `env-init.sh` will not overwrite your `.env` — add
+`COMPOSE_PROFILES=full` to it yourself, or pass `--profile full` per invocation. Without it
+the editor on `:5173` simply will not start. See
+[docs/deployment.md](docs/deployment.md#deploy-modes--read-vs-full).
+
 Stop services:
 
 ```bash
@@ -95,12 +107,18 @@ docker compose down -v
 
 ### Service URLs
 
-| Service | URL |
-|---|---|
-| Frontend | http://localhost:5173 |
-| Backend | http://localhost:8000 |
-| Oxigraph | http://localhost:7878 |
-| Garage (S3 API) | http://localhost:3900 |
+| Service | URL | Role |
+|---|---|---|
+| curator-frontend | http://localhost:5173 | Editor UI |
+| graphexplorer-frontend | http://localhost | Read-only graph visualizer |
+| curator-backend | http://localhost:8000 | **Writes** — create/update/delete, validation, upload staging |
+| dataexplorer-backend | http://localhost:8001 | **Reads** — listing, search, graph traversal, metadata, downloads |
+| Oxigraph | http://localhost:7878 | RDF triple store |
+| Garage (S3 API) | http://localhost:3900 | Object storage for source PDFs |
+
+The API is split by responsibility: `curator-backend` is the only service that
+mutates the store. `dataexplorer-backend` answers every read and can run without
+the writer at all.
 
 Startup seeding, data-reset modes, and the full environment-variable reference live in the [development & testing deployment guide](docs/deployment.md#development--testing-deployment).
 
@@ -142,33 +160,40 @@ Each `sh:NodeShape` becomes a form type and each `sh:property` becomes a form fi
 
 Shapes with a `sh:property` on `rdfs:label` are treated as standalone entities; shapes without one are helper/bridge nodes rendered inline when referenced by a parent (e.g. `rfdbs:AgentRoleShape`). Shapes whose shape-level `sh:or` branches into multiple `sh:class` alternatives (e.g. `rfdbs:ContributorShape`, `foaf:Person` or `foaf:Organization`) surface a type-selection dropdown at creation time.
 
-> Modeling principles and design decisions — the vocabularies used and for what, WEMI layering and link direction, the Agent Role bridge pattern, and the literal/language/date/IRI policies — are in [docs/data-model.md](docs/data-model.md). Per-shape fields and cardinalities live in the schema itself (`schema/schema.ttl`, or `GET /api/shapes`). The schema-driven extraction and validation pipeline is described in [docs/architecture.md](docs/architecture.md).
+> Modeling principles and design decisions — the vocabularies used and for what, WEMI layering and link direction, the Agent Role bridge pattern, and the literal/language/date/IRI policies — are in [docs/data-model.md](docs/data-model.md). Per-shape fields and cardinalities live in the schema itself (`schema/schema.ttl`, or `GET /api/v1/dataexplorer/shapes`). The schema-driven extraction and validation pipeline is described in [docs/architecture.md](docs/architecture.md).
 
 ---
 
 ## Configuration
 
-All backend settings are loaded from environment variables; the backend fails fast if a required variable is missing or malformed. The source of truth is the `environment:` block in `docker-compose.yml`, the settings model in `backend/core/config.py`, and `backend/pyproject.toml`.
+All settings are loaded from environment variables; each service fails fast if a required variable is missing or malformed. The source of truth is the `environment:` blocks in `docker-compose.yml` plus the settings models.
 
-The full environment-variable reference, data-reset modes, and seed sources (controlled vocabulary + Glottolog languages) are documented in the [development & testing deployment guide](docs/deployment.md#development--testing-deployment). Production deployment is **work in progress** — see [docs/deployment.md](docs/deployment.md#production-deployment-work-in-progress).
+Both services share a base (`rfdb-core/rfdb_core/config.py`: store connection, schema path, CORS, logging, S3). `curator-backend/core/config.py` extends it with the write-side surface — seeding, data reset, `READ_ONLY`, `READ_ONLY_SHAPES`, `MAX_UPLOAD_MB`. `dataexplorer-backend` adds nothing: everything a reader needs is already in the base. Because the base ignores unknown variables, one shared `.env` across both services is safe — the writer-only values are simply invisible to the reader.
+
+The full environment-variable reference, data-reset modes, and seed sources (controlled vocabulary + Glottolog languages) are documented in the [development & testing deployment guide](docs/deployment.md#development--testing-deployment). The production stack is **complete but has never been deployed** — every piece exists and the whole topology has been exercised locally, but there is no host, domain or certificate yet. Runbook and the one remaining gap: [docs/deployment.md](docs/deployment.md#production-deployment).
 
 ---
 
 ## API Reference
 
-The backend is FastAPI, so the complete, always-current reference is generated from the running app. With the stack up, open **<http://localhost:8000/docs>** for interactive Swagger UI (raw schema at `/openapi.json`).
+Both services are FastAPI, so the complete, always-current reference is generated from the running apps. With the stack up, open **<http://localhost:8000/docs>** (writes) and **<http://localhost:8001/docs>** (reads) for interactive Swagger UI; raw schemas at `/openapi.json` on each.
 
-The core of the schema-driven pipeline is just a handful of endpoints:
+The core of the schema-driven pipeline is a handful of endpoints, split by which service owns them:
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/shapes` | Available SHACL NodeShapes with metadata and field descriptors |
-| `GET` | `/api/forms?shapeId=...` | Generated form schema for one shape |
-| `POST` | `/api/data` | Create or update an entity (JSON-LD → SHACL validate → Turtle load) |
-| `POST` | `/api/validate` | Dry-run SHACL validation without persisting |
-| `GET` | `/api/data/{entityId}` | All triples for one entity |
+| Method | Path | Service | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/{service}/shapes` | both | Available SHACL NodeShapes with metadata, field descriptors and `readOnly` flags |
+| `GET` | `/api/v1/curator/forms?shapeId=...` | curator | Generated form schema for one shape |
+| `POST` | `/api/v1/curator/entities` | curator | Create or update an entity (JSON-LD → SHACL validate → Turtle load) |
+| `POST` | `/api/v1/curator/validate` | curator | Dry-run SHACL validation without persisting |
+| `GET` | `/api/v1/dataexplorer/entities/get?id=<iri>` | dataexplorer | All triples for one entity, in the editor's JSON shape |
+| `GET` | `/rdf/data/{id}` | dataexplorer | The same entity as **RDF**, content-negotiated (Turtle / JSON-LD / RDF-XML / N-Triples) |
 
-The full endpoint table (data listing, autocomplete, file staging, and the metadata API) is in [docs/architecture.md](docs/architecture.md#api-reference).
+Two URL spaces, deliberately: `/rdf/…` holds the **data** — public, permanent, unversioned identifiers that are stored inside triples and can never move — while `/api/v1/{service}/…` is this project's own operational surface, named after whichever service owns it so no path ever means two things.
+
+The shapes route is served by both services and returns the **same payload from one implementation** (`rfdb_core.shapes`), `readOnly` flags included. Both must therefore be given the same `READ_ONLY_SHAPES`; `docker-compose.yml` does that with a single YAML anchor. The upshot is that the editor can start, browse and search with the write tier stopped.
+
+The full endpoint table (data listing, autocomplete, file staging, downloads, and the metadata API) with per-service ownership is in [docs/architecture.md](docs/architecture.md#api-reference).
 
 ---
 
@@ -180,9 +205,9 @@ The root README is the entry point (overview, setup, schema, API, configuration)
 |---|---|
 | [docs/getting-started.md](docs/getting-started.md) | What the editor is for, the WEMI data model in brief, and how to run it locally and in production. |
 | [docs/data-model.md](docs/data-model.md) | Modeling principles and design decisions: the vocabularies used and for what, WEMI layering, the bridge-node pattern, and the literal/language/date/IRI policies. Per-shape fields live in `schema/schema.ttl`. |
-| [docs/architecture.md](docs/architecture.md) | System design: the schema-driven pipeline, backend/frontend responsibilities, the API endpoint reference, SHACL extraction, validation and delete behavior, the metadata API, and the storage stack. |
+| [docs/architecture.md](docs/architecture.md) | System design: the schema-driven pipeline, the writer/reader service split and what each owns, the API endpoint reference, SHACL extraction, validation and delete behavior, the metadata API, and the storage stack. |
 | [docs/development.md](docs/development.md) | Development workflow: environment setup, code quality, CI, schema and data change workflows, troubleshooting, and the commit checklist. |
-| [docs/deployment.md](docs/deployment.md) | Deployment & operations: the development/testing configuration, data-reset modes, and seed sources; plus the production deployment plan and its work-in-progress status. |
+| [docs/deployment.md](docs/deployment.md) | Deployment & operations: the development/testing configuration, data-reset modes, and seed sources; the read-vs-full deploy modes; plus the production runbook, its complete-but-never-deployed status, and the remaining log-rotation gap. |
 
 The live task list lives in the root `TODO.md`.
 
@@ -192,20 +217,46 @@ The live task list lives in the root `TODO.md`.
 
 ```text
 rfdb-curator/
-├── backend/
-│   ├── api/                      # Route handlers (data, entities, files, shapes, validate, meta)
-│   ├── core/                     # Core services (config, Oxigraph client, schema extractor,
-│   │                             #   SHACL validator, validation merge, seeder, file storage)
-│   ├── models/                   # Pydantic request/response schemas
-│   ├── app.py                    # FastAPI app + lifespan (startup seeding + settings init)
+├── pyproject.toml                # uv workspace root (members + the one ruff config)
+│
+├── rfdb-core/                    # Shared library — imported by both services
+│   └── rfdb_core/
+│       ├── triplestore/          # The store seam: TripleStore protocol + OxigraphStore
+│       ├── schema_extractor.py   # SHACL → form/shape metadata
+│       ├── file_storage.py       # Object-storage seam (S3/Garage)
+│       ├── files_state.py        # Digital-copy state snapshot (RDF vs. storage)
+│       ├── app_factory.py        # Shared CORS / access log / storage-error wiring
+│       ├── config.py             # BaseServiceSettings — the fields both services read
+│       ├── prefixes.py           # Curated CURIE map
+│       ├── iri.py                # IRI guard for SPARQL interpolation
+│       ├── models_data.py        # Record-list response models
+│       └── vocab.py              # Data namespace + digital-copy vocabulary terms
+│
+├── curator-backend/              # WRITES ONLY — :8000
+│   ├── api/                      # data (POST/DELETE), files (staging), shapes, validate
+│   ├── core/                     # config, SHACL validator, validation merge, seeder,
+│   │                             #   blank-node handler
+│   ├── models/                   # Pydantic write-path schemas
+│   ├── scripts/                  # seed.py, cleanup_files.py, check_prefixes.py
+│   ├── app.py                    # FastAPI app + lifespan (seeds on startup)
 │   ├── Dockerfile
 │   └── pyproject.toml
 │
-├── frontend/
+├── dataexplorer-backend/         # READS ONLY — :8001
+│   ├── api/                      # data (GET), entities, graph, meta, files, shapes
+│   ├── core/config.py            # Plain BaseServiceSettings — no writer fields
+│   ├── app.py                    # FastAPI app; no validator, no seeder, no reset
+│   ├── Dockerfile
+│   └── pyproject.toml
+│
+├── curator-frontend/
 │   ├── src/                      # React components, API client, JSON-LD/prefix utils
 │   ├── Dockerfile
-│   ├── vite.config.js            # Dev server + proxy config (/api → backend:8000)
-│   └── package.json
+│   ├── vite.config.js            # Dev server + write proxy (/api → curator-backend:8000)
+│   └── package.json               #   reads go direct to :8001 (VITE_READ_API_BASE)
+│
+├── graphexplorer-frontend/       # Standalone read-only graph visualizer (own Vite app;
+│                                 #   proxies /api → dataexplorer-backend:8001)
 │
 ├── schema/schema.ttl             # Active SHACL schema (source of truth)
 ├── data/                         # vocab.ttl (controlled vocabulary) + data.ttl (test fixtures)
@@ -214,7 +265,10 @@ rfdb-curator/
 ├── garage.toml                   # Object-storage (Garage) configuration
 ├── scripts/                      # Host-side helpers (garage-init.sh, env-init.sh)
 ├── AGENTS.md / .agent-defs/      # Agent instructions
-├── tests/                        # Backend/API validation and integration tests
+├── tests/                        # One subdirectory per Python member, one pytest run each
+│   ├── core/                     #   rfdb-core: store seam, schema, prefixes
+│   ├── curator/                  #   writes, validation, seeding, upload staging
+│   └── dataexplorer/             #   reads, graph, meta, downloads, service contract
 ├── TODO.md
 └── README.md
 ```

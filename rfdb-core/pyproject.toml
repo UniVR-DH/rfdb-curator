@@ -1,0 +1,59 @@
+[project]
+name = "rfdb-core"
+version = "0.1.0"
+description = "Shared library for the RossijskijFeatrDB services: triplestore seam, prefixes, schema extraction, object storage, config, logging"
+requires-python = ">=3.11"
+
+# No fastapi/uvicorn in the base dependency set: rfdb-core is HTTP-framework
+# agnostic so neither the curator (writer) nor dataexplorer (reader) inherits
+# the other's web stack. `app_factory` is the one exception and it is behind the
+# `web` extra below.
+#
+# Versions are pinned to match curator-backend/pyproject.toml exactly — the workspace
+# resolves one version per package across all members, so a drift here would
+# surface as a lock conflict rather than a silent upgrade.
+dependencies = [
+    "rdflib==7.6.0",          # schema_extractor, and the seam's CONSTRUCT results
+    "pydantic==2.13.4",       # config field types
+    "pydantic-settings==2.14.2",
+    "httpx==0.28.1",          # triplestore/oxigraph.py: HTTP SPARQL + Graph Store Protocol
+    "boto3==1.43.64",         # file_storage.py — imported lazily, never on the startup path
+]
+
+# `rfdb_core.app_factory` holds the CORS / access-log / storage-error wiring both
+# FastAPI services must share. It is the only module here that touches a web
+# framework, so the dependency is optional rather than base: importing anything
+# else in this library still costs nothing beyond the pins above.
+[project.optional-dependencies]
+web = ["fastapi==0.141.1"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["rfdb_core"]
+
+[dependency-groups]
+# pyshacl is a *test-only* dependency here: tests/core/ validates schema.ttl's
+# SHACL semantics, which is this library's subject (it owns schema_extractor),
+# but nothing in rfdb_core itself runs a validator — that is a write concern and
+# it lives in curator-backend.
+#
+# pyyaml is likewise test-only: tests/core/test_compose_topology.py reads both
+# compose files to check the profile/depends_on invariant. It is already in the
+# lock as a transitive of uvicorn[standard], but declared here anyway — a test
+# that depends on someone else's dependency breaks for reasons unrelated to what
+# it asserts, which is the drift Task 10 exists to clean up.
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.16.1",
+    "pyshacl==0.40.1",
+    "pyyaml==6.0.3",
+]
+
+[tool.pytest.ini_options]
+# tests/core/ covers this library: the triplestore seam contract, the prefix map,
+# schema extraction, and the schema's own SHACL constraints. One config per
+# workspace member — see decision D2 in the refactor plan.
+testpaths = ["../tests/core"]

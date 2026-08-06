@@ -1,0 +1,26 @@
+# curator-frontend/.dockerignore
+#
+# Prevents these paths from being sent to the Docker build context.
+# Keep this in sync with .gitignore.
+
+# Dependencies — reinstalled cleanly by `npm ci` inside the image.
+node_modules/
+
+# Build output — not needed in the dev image.
+dist/
+build/
+
+# Environment files — must never be baked into an image.
+.env
+.env.*
+!.env.example
+
+# Editor and OS noise.
+.DS_Store
+*.log
+.vscode/
+.idea/
+
+# Git internals.
+.git/
+.gitignore

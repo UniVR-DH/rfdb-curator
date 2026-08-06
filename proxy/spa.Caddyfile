@@ -1,0 +1,48 @@
+# proxy/spa.Caddyfile — the static server inside each frontend's production image.
+#
+# ONE file, COPYed into BOTH frontend images (their build context is the repo
+# root, so both can reach it). Two near-identical copies would drift, and the
+# whole point of the anchor discipline elsewhere in this repo — the
+# READ_ONLY_SHAPES anchor, the single-sourced shape catalogue — is that a value
+# needed in two places should exist in one.
+#
+# This is NOT the edge config. That is proxy/Caddyfile: it terminates TLS,
+# routes the API prefixes, and reverse-proxies to the two servers this file
+# defines. Here there is no TLS, no ACME and no routing — just files on :80,
+# reachable only from the `edge` Docker network.
+#
+# Why Caddy rather than nginx: the stack already pins caddy:2-alpine for the
+# edge proxy, so this adds no image to review, update or trust. A `try_files`
+# nginx.conf would have been the same number of lines and one more base image.
+
+:80 {
+	root * /srv
+
+	# SPA fallback. A client-side route like /entity/Src1 is not a file, so the
+	# server must return index.html and let the router in the bundle resolve it.
+	# Without this, every deep link and every browser refresh is a 404.
+	try_files {path} /index.html
+
+	# Hashed asset filenames (Vite's default) are immutable, so they can be
+	# cached hard. index.html must NOT be, or a browser keeps loading an old
+	# bundle that references assets the new deploy has already deleted.
+	@immutable path /assets/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+	header /index.html Cache-Control "no-cache"
+
+	file_server
+
+	# The edge proxy adds the security headers that depend on the public origin
+	# (HSTS, CSP). These two do not, so they belong with the files they describe.
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		-Server
+	}
+
+	# Access logging happens at the edge, where the real client IP is. Logging
+	# here as well would double every line with a useless proxy-internal source.
+	log {
+		output discard
+	}
+}

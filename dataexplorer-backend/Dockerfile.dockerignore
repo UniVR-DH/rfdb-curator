@@ -1,0 +1,38 @@
+# dataexplorer-backend/.dockerignore
+# (place this file at the repo root if build context is "." in compose)
+#
+# Prevents these paths from being sent to the Docker build context.
+# Keep this in sync with .gitignore.
+
+# Python cache — regenerated automatically, must not pollute the image.
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment files — must never be baked into an image.
+.env
+.env.*
+!.env.example
+
+# Virtual environments — dependencies are installed fresh by pip.
+.venv/
+venv/
+env/
+
+# Test artefacts.
+htmlcov/
+.coverage
+coverage.xml
+
+# Editor and OS noise.
+.DS_Store
+*.log
+.vscode/
+.idea/
+
+# Git internals.
+.git/
+.gitignore

@@ -14,7 +14,7 @@ Because everything downstream (forms, validation, autocomplete, export) is deriv
 
 The model reuses established vocabularies rather than minting local terms wherever a
 suitable one exists. Each is chosen for a specific category of thing; the "used for"
-column is the durable contract, not an exhaustive property list (query `/api/meta/prefixes`
+column is the durable contract, not an exhaustive property list (query `/api/v1/dataexplorer/meta/prefixes`
 for the current namespace bindings).
 
 | Prefix | Vocabulary | Used for |

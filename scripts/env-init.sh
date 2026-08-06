@@ -45,6 +45,12 @@ cat > .env <<EOF
 # Dev-only secrets. Gitignored (.gitignore line 13). Generated $(date +%F).
 # Regenerate freely — dev data is disposable.
 
+# Deploy mode. Read mode is the DEFAULT in docker-compose.yml — base services
+# only, no editor — so day-to-day development sets this to get the whole stack
+# from a bare \`docker compose up\`. Comment it out to run the read-only stack a
+# public instance would run (or pass --profile full per invocation).
+COMPOSE_PROFILES=full
+
 # Garage inter-node RPC secret (openssl rand -hex 32)
 GARAGE_RPC_SECRET=$GARAGE_RPC_SECRET
 

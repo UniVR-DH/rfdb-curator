@@ -7,11 +7,19 @@ on:
     branches: [ main ]
 
 jobs:
-  backend-tests:
+  # One test job per Python workspace member. They are separate jobs, not steps,
+  # because both services own a top-level `api` package: in a single pytest
+  # process `from api.data import …` resolves to whichever service was imported
+  # first. Separate jobs mean separate interpreters, so the ambiguity cannot
+  # arise. See decision D2 in the modular-services refactor plan.
+  #
+  # The repo-wide checks (ruff, schema parse, prefix map) live on the
+  # rfdb-core job so they run exactly once.
+  rfdb-core-tests:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend
+        working-directory: rfdb-core
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,29 +34,111 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install backend dependencies
+      - name: Install workspace dependencies
+        # One sync installs every uv workspace member (rfdb-core, curator-backend,
+        # dataexplorer-backend) into the single root .venv.
         run: uv sync --all-extras --dev
 
+      # Lint/format run from the REPO ROOT, not a service dir: [tool.ruff] lives in
+      # the root pyproject.toml, and its explicit `src` list makes first-party
+      # import detection independent of the working directory. Running from the
+      # root is also what puts every member and tests/ in scope at once.
       - name: Ruff lint
+        working-directory: .
         run: uv run ruff check .
 
       - name: Ruff format check
+        working-directory: .
         run: uv run ruff format --check .
 
       - name: Verify SHACL schema parses
-        run: uv run python -c "from rdflib import Graph; Graph().parse('../schema/schema.ttl', format='turtle'); print('schema.ttl parses OK')"
+        working-directory: .
+        run: uv run python -c "from rdflib import Graph; Graph().parse('schema/schema.ttl', format='turtle'); print('schema.ttl parses OK')"
 
       - name: Check prefix-map coverage
         # Fails if a @prefix declared in any schema/data TTL is missing from or
-        # mismatched against core.prefixes.PREFIXES (served by /api/meta/prefixes).
-        run: uv run python scripts/check_prefixes.py
+        # mismatched against rfdb_core.prefixes.PREFIXES (served by /api/meta/prefixes).
+        # The script lives in curator-backend but only reads rfdb-core + the TTLs.
+        working-directory: .
+        run: uv run python curator-backend/scripts/check_prefixes.py
 
-      - name: Run Python tests
-        # -c pyproject.toml: pytest can't auto-discover backend/ config from
-        # ../tests/, so point it at the backend project's [tool.pytest.ini_options].
-        run: uv run python -m pytest -c pyproject.toml ../tests/
+      - name: Validate both compose files, in both deploy modes
+        # Complements tests/core/test_compose_topology.py rather than repeating it:
+        # that test reads the files and asserts the profile/depends_on invariant
+        # without a Docker daemon, while this catches what only the real parser
+        # sees — unknown keys, bad `${VAR}` interpolation, a merge key that does
+        # not resolve.
+        #
+        # Running prod with --env-file .env.prod.example also pins a second
+        # invariant: every `${VAR:?...}` in the prod file must be present in the
+        # example. A newly required variable that nobody documented fails here,
+        # not on a deploy.
+        working-directory: .
+        run: |
+          set -euo pipefail
+          GARAGE_RPC_SECRET=ci docker compose config -q
+          GARAGE_RPC_SECRET=ci docker compose --profile full config -q
+          PROD=(docker compose -f docker-compose.prod.yml --env-file .env.prod.example)
+          COMPOSE_PROFILES= "${PROD[@]}" config -q
+          COMPOSE_PROFILES=full "${PROD[@]}" config -q
+          echo "both compose files validate in read and full mode"
 
-  frontend-checks:
+      - name: Run rfdb-core tests
+        # -c pyproject.toml: pytest can't auto-discover this project's config from
+        # ../tests/, so point it at [tool.pytest.ini_options] explicitly.
+        run: uv run python -m pytest -c pyproject.toml ../tests/core
+
+  curator-backend-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: curator-backend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: '0.7.2'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install workspace dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Run curator-backend tests
+        run: uv run python -m pytest -c pyproject.toml ../tests/curator
+
+  dataexplorer-backend-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dataexplorer-backend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: '0.7.2'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install workspace dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Run dataexplorer-backend tests
+        run: uv run python -m pytest -c pyproject.toml ../tests/dataexplorer
+
+  curator-frontend-checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -59,21 +149,21 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: curator-frontend/package-lock.json
 
-      - name: Install frontend dependencies
+      - name: Install curator-frontend dependencies
         run: |
-          npm ci --prefix frontend
+          npm ci --prefix curator-frontend
 
-      - name: Lint frontend
+      - name: Lint curator-frontend
         run: |
-          npm run lint --prefix frontend
+          npm run lint --prefix curator-frontend
 
-      - name: Build frontend
+      - name: Build curator-frontend
         run: |
-          npm run build --prefix frontend
+          npm run build --prefix curator-frontend
 
-  explorer-checks:
+  graphexplorer-frontend-checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -84,16 +174,16 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: explorer/package-lock.json
+          cache-dependency-path: graphexplorer-frontend/package-lock.json
 
-      - name: Install explorer dependencies
+      - name: Install graphexplorer-frontend dependencies
         run: |
-          npm ci --prefix explorer
+          npm ci --prefix graphexplorer-frontend
 
-      - name: Lint explorer
+      - name: Lint graphexplorer-frontend
         run: |
-          npm run lint --prefix explorer
+          npm run lint --prefix graphexplorer-frontend
 
-      - name: Build explorer
+      - name: Build graphexplorer-frontend
         run: |
-          npm run build --prefix explorer
+          npm run build --prefix graphexplorer-frontend

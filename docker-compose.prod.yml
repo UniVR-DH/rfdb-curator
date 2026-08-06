@@ -5,37 +5,105 @@
 # Changes from the dev compose file, and why:
 #   - No source bind-mounts, no --reload: containers run only what was
 #     COPYed into the image at build time, nothing from the host fs.
-#   - Oxigraph publishes no port at all. It has no auth of its own, so
-#     anyone who can reach 7878 has full SPARQL read/write access —
-#     it must only be reachable from the backend, over the `internal`
-#     network.
-#   - Backend and frontend also publish no ports. The only host-facing
-#     service is `proxy`, which terminates TLS and reverse-proxies to
-#     both, over the `edge` network. This also lets frontend and
-#     backend share one origin, so CORS becomes a non-issue if you
-#     route /api through the same domain.
-#   - Frontend is built as static assets (`npm run build` / `vite
-#     build`) and served by whatever the Dockerfile's prod stage runs
-#     (e.g. nginx) — not the Vite dev server, which isn't meant to
-#     serve production traffic.
-#   - Config with no safe default uses `${VAR:?message}` so `docker
-#     compose up` fails immediately instead of silently deploying with
-#     a dev value or an empty one.
+#   - Oxigraph and Garage publish no ports at all. Neither has auth of its
+#     own — anyone who can reach 7878 has full SPARQL read/write, anyone who
+#     can reach 3900 has the bucket — so both live on `internal` only, and the
+#     backends are the only things that talk to them.
+#   - No backend or frontend publishes a port either. The only host-facing
+#     service is `proxy`, which terminates TLS and routes by path prefix over
+#     the `edge` network. One origin for everything, so CORS is a non-issue.
+#   - Frontends are static builds (`target: production` → caddy:2-alpine
+#     serving ./dist), never the Vite dev server, which is not built to sit
+#     behind a reverse proxy or take production traffic.
+#   - Config with no safe default uses `${VAR:?message}` so `docker compose up`
+#     fails immediately instead of silently deploying with a dev value.
+#
+# ---------------------------------------------------------------------------
+# TWO MODES, exactly as in dev (Task 9)
+# ---------------------------------------------------------------------------
+#   COMPOSE_PROFILES unset   READ  — oxigraph, garage, dataexplorer-backend,
+#                                    graphexplorer-frontend, proxy
+#   COMPOSE_PROFILES=full    FULL  — the above + curator-backend/-frontend
+#
+# A read-only instance does not deploy the write tier at all: there is no
+# `/api/v1/curator/*` upstream to reach, rather than a service answering 403 per
+# route. That is the payoff of D8 naming each prefix after its owning service.
+# Set it in .env.prod, per instance.
+#
+# ⚠ In read mode the editor is absent, so the proxy has no upstream for `/` or
+# `/api/v1/curator/*`. Point a read-only host's root at the explorer instead:
+#   RFDB_ROOT_UPSTREAM=graphexplorer-frontend:80
+# and build that image with VITE_BASE_PATH=/ (see proxy/Caddyfile).
+#
+# ⚠ INVARIANT: every `depends_on` target must be a base service, so no
+# dependency crosses into an inactive profile. Compose versions disagree on
+# whether that auto-activates the profile or hard-errors.
 #
 # Requires (not included in this file):
-#   - frontend/Dockerfile needs a build stage that runs the production
-#     build and serves ./dist with a real web server.
-#   - proxy/Caddyfile (or nginx.conf + certbot) with your actual domain
-#     and TLS config.
-#   - .env.prod populated from .env.prod.example.
+#   - .env.prod populated from .env.prod.example — including the real domain.
+#   - A one-time Garage bootstrap on each fresh volume set:
+#       COMPOSE_FILE=docker-compose.prod.yml ENV_FILE=.env.prod scripts/garage-init.sh
+#   - DNS for ${RFDB_DOMAIN} resolving to this host BEFORE first start, or
+#     Caddy's ACME challenge cannot complete.
 #
 # Usage:
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 #   docker compose -f docker-compose.prod.yml logs -f
-#   docker compose -f docker-compose.prod.yml down        # keeps volumes
-#   docker compose -f docker-compose.prod.yml down -v     # destroys data too
+#   docker compose -f docker-compose.prod.yml ps            # health of each service
+#   docker compose -f docker-compose.prod.yml down          # keeps volumes
+#   docker compose -f docker-compose.prod.yml down -v       # destroys data too
+
+# ---------------------------------------------------------------------------
+# Shared values, defined once and aliased into each service that needs them.
+# ---------------------------------------------------------------------------
+
+# Per-shape read-only policy. **Both backends must receive the identical value**
+# (D11): the curator enforces it on writes, and the reader needs it because both
+# serve the same shape catalogue with the same `readOnly` flags — the editor
+# fetches that catalogue from the reader so it can start with the write tier
+# down. Two literals that could be edited apart would hand clients different
+# flags depending on which service answered, which is C20 in a quieter form.
+# Mirrors the anchor in docker-compose.yml.
+x-read-only-shapes: &read_only_shapes '["https://rosfeatr.eu/rdf/schema/LanguageShape"]'
+
+# Object storage, identical for both backends: the writer stages and promotes
+# blobs, the reader streams them out. Garage is unauthenticated at the S3 layer
+# and lives on `internal`, so these creds never leave the Docker network.
+x-s3-env: &s3_env
+  S3_ENDPOINT: "http://garage:3900"
+  S3_REGION: garage
+  S3_BUCKET: "${S3_BUCKET:?Set S3_BUCKET in .env.prod}"
+  S3_ACCESS_KEY_ID: "${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID in .env.prod}"
+  S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY in .env.prod}"
+
+# The store, identical for both backends. Mismatched values here are the one
+# misconfiguration that produces no error at all: the reader would simply report
+# an empty store, so they are declared once.
+x-store-env: &store_env
+  TRIPLESTORE: oxigraph
+  OXIGRAPH_URL: http://oxigraph:7878
+  DATA_GRAPH_URI: "https://rosfeatr.eu/rdf/graph/"
+  SCHEMA_PATH: /app/schema/schema.ttl
+
+x-logging-env: &logging_env
+  LOG_FILE: logs/app.jsonl
+  LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+  TRUNCATE_LOG_ON_STARTUP: "false"
+  TRUNCATE_LOG_ON_FRESH_CONTAINER_START: "true"
+
+# Docker's own stdout/stderr capture. Does NOT bound /app/logs/app.jsonl —
+# that is app-level file logging in a named volume and still needs its own
+# rotation (the last open gap in docs/deployment.md).
+x-docker-logging: &docker_logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
 
 services:
+  # ==========================================================================
+  # BASE — no `profiles:` key, so these run in EVERY mode
+  # ==========================================================================
 
   # --------------------------------------------------------------------------
   # Oxigraph — RDF triple store
@@ -62,12 +130,13 @@ services:
     healthcheck:
       # Liveness only, same rationale as dev: distroless image has no
       # shell/curl/wget. HTTP readiness is checked separately by the
-      # backend's own startup retry loop before it seeds data.
+      # curator-backend's own startup retry loop before it seeds data.
       test: ["CMD", "/usr/local/bin/oxigraph", "--help"]
       interval: 10s
       timeout: 3s
       retries: 10
       start_period: 5s
+    logging: *docker_logging
     deploy:
       resources:
         limits:
@@ -79,25 +148,252 @@ services:
       # is silently ignored — use top-level `mem_limit`/`cpus` instead.
 
   # --------------------------------------------------------------------------
-  # Backend — FastAPI + uvicorn
+  # Garage — S3-compatible object storage (digital-copy scans)
   # --------------------------------------------------------------------------
-  backend:
+  # Base, not `full`: the READ tier serves digital-copy downloads
+  # (GET /rdf/data/{id}/content), so storage is required in every mode. The
+  # writer needs it to stage and promote; the reader needs it to stream.
+  #
+  # A fresh volume set has no layout, bucket or key, and none can be declared in
+  # garage.toml — run the one-time bootstrap before first use:
+  #   COMPOSE_FILE=docker-compose.prod.yml ENV_FILE=.env.prod scripts/garage-init.sh
+  garage:
+    image: dxflrs/garage:v1.0.1
+    container_name: rfdb-garage
+    restart: unless-stopped
+    # `internal` ONLY, never `edge`. Garage has no auth at the S3 layer, so a
+    # browser must never be able to reach it; blobs leave only through the
+    # reader's download route, which checks the RDF first (D7).
+    networks:
+      - internal
+    environment:
+      # Read by Garage because garage.toml omits `rpc_secret` (no secret in git).
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?Set GARAGE_RPC_SECRET in .env.prod}
+    volumes:
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+      - ./garage.toml:/etc/garage.toml:ro
+    # No `ports:` — see the network note above. RPC (3901) is internal too.
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      # Distroless: no shell/curl. Exec the binary directly; it reads
+      # /etc/garage.toml + the RPC secret and exits 0 once the local node's RPC
+      # is serving. Liveness for the RPC layer only — the bootstrap script
+      # re-checks `status` itself before touching the layout.
+      test: ["CMD", "/garage", "status"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    logging: *docker_logging
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
+
+  # --------------------------------------------------------------------------
+  # Data Explorer backend — FastAPI + uvicorn, reads only
+  # --------------------------------------------------------------------------
+  # Base: this is the service a read-only instance is *for*. It owns every read
+  # — listing, search, graph traversal, metadata, digital-copy downloads — plus
+  # the whole `/rdf/` data space, which is where the project's permanent public
+  # identifiers resolve.
+  #
+  # It deliberately does NOT depend on curator-backend. That independence is the
+  # point of the split, and it is what makes read mode a matter of not deploying
+  # the writer rather than degrading it.
+  dataexplorer-backend:
     build:
       context: .
-      dockerfile: backend/Dockerfile
-    container_name: rfdb-backend
+      dockerfile: dataexplorer-backend/Dockerfile
+    container_name: rfdb-dataexplorer-backend
     restart: unless-stopped
     depends_on:
+      # Store and blob-storage health ONLY — never a seed or import step. This
+      # service tolerates an empty store (empty lists and zeros, never 500s), so
+      # gating it on data would only make it less available.
       oxigraph:
         condition: service_healthy
+      garage:
+        condition: service_healthy
     networks:
-      - internal   # to reach oxigraph
+      - internal   # to reach oxigraph + garage
       - edge       # to be reached by proxy
     environment:
-      OXIGRAPH_URL: http://oxigraph:7878      
-      DATA_GRAPH_URI: "https://rosfeatr.eu/rdf/graph/"
-      SCHEMA_PATH: /app/schema/schema.ttl
-      VOCAB_PATH: /app/data/vocab.ttl
+      <<: [*store_env, *s3_env, *logging_env]
+      # Looks like a write concern and was filed as one, which was the mistake:
+      # it states which shapes are editable, so any client needs it to render a
+      # UI (D11). Same anchor the curator uses.
+      READ_ONLY_SHAPES: *read_only_shapes
+      # Same-origin behind the proxy, so there is no cross-origin request to
+      # allow. Kept required rather than defaulted: an empty list is a
+      # deliberate statement, and falling back to a dev localhost origin in
+      # production would be worse than failing to start.
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS in .env.prod}
+      # No VOCAB_PATH / DATA_PATH / RESET_DATA_ON_STARTUP / SEED_* / READ_ONLY /
+      # MAX_UPLOAD_MB: every one is a write concern, and this service's Settings
+      # does not define them.
+    volumes:
+      # Schema only. No ./data mount: the reader never loads a seed file, so
+      # giving it the seed data would be an unused mount that implies otherwise.
+      - ./schema:/app/schema:ro
+      - dataexplorer_backend_logs:/app/logs
+    # No `ports:` — only `proxy` reaches this, over `edge`.
+    # --workers is a placeholder: size it to roughly (2 x CPU cores) + 1 for the
+    # actual VM. This tier takes all the public traffic, so it gets more than
+    # the writer.
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "4"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=2)",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    logging: *docker_logging
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
+
+  # --------------------------------------------------------------------------
+  # Graph explorer frontend — static build of the read-only explorer
+  # --------------------------------------------------------------------------
+  # Base: the surface that survives a writer outage, and the public face of a
+  # read-only instance.
+  graphexplorer-frontend:
+    build:
+      context: .
+      dockerfile: graphexplorer-frontend/Dockerfile
+      target: production
+      # Vite inlines VITE_* at BUILD time — there is no server reading env per
+      # request once this is static files, so these MUST be build args. Changing
+      # one requires `up --build`, not a restart.
+      args:
+        # Empty = same origin. The proxy routes /api/v1/dataexplorer/* to the
+        # reader on whatever domain served this bundle, so no absolute base and
+        # no CORS.
+        VITE_API_BASE: ""
+        VITE_APP_TITLE: "${VITE_APP_TITLE:-RFDB Explorer}"
+        # Served under a path, and Vite bakes asset URLs against `base`. Set to
+        # "/" for a read-only host that serves the explorer at the root.
+        VITE_BASE_PATH: "${VITE_EXPLORER_BASE_PATH:-/explorer/}"
+    container_name: rfdb-graphexplorer-frontend
+    restart: unless-stopped
+    depends_on:
+      dataexplorer-backend:
+        condition: service_healthy
+    networks:
+      - edge
+    # No `ports:`, no bind-mounts, no anonymous node_modules volume: this image
+    # is a file server over a directory baked at build time.
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      # Caddy writes its own config/data cache; neither matters for a static
+      # site, but the process still needs somewhere to put them.
+      - /config
+      - /data
+    logging: *docker_logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+
+  # --------------------------------------------------------------------------
+  # Proxy — the only service exposed to the host
+  # --------------------------------------------------------------------------
+  # Terminates TLS (automatic ACME once DNS points here) and routes by path
+  # prefix. Base, because every mode needs an edge; which upstreams exist behind
+  # it is what the profile decides.
+  #
+  # Routing lives in proxy/Caddyfile. D8 is what makes it plain prefix rules
+  # with no method awareness: /api/v1/curator/* → writer, /api/v1/dataexplorer/*
+  # and /rdf/* → reader.
+  proxy:
+    image: caddy:2-alpine
+    container_name: rfdb-proxy
+    restart: unless-stopped
+    depends_on:
+      # Base services only — a `full`-profile dependency here would make the
+      # proxy unstartable in read mode. Caddy resolves upstreams per request, so
+      # a missing curator upstream is a 502 on those paths, not a failed start.
+      dataexplorer-backend:
+        condition: service_healthy
+      graphexplorer-frontend:
+        condition: service_started
+    networks:
+      - edge
+    environment:
+      # Substituted into proxy/Caddyfile by Caddy itself ({$RFDB_DOMAIN}), so the
+      # real domain lives in .env.prod and not in a committed config file.
+      RFDB_DOMAIN: ${RFDB_DOMAIN:?Set RFDB_DOMAIN in .env.prod, e.g. rosfeatr.eu}
+      # Upstream for `/`. The editor in full mode; override to
+      # graphexplorer-frontend:80 for a read-only public host.
+      RFDB_ROOT_UPSTREAM: ${RFDB_ROOT_UPSTREAM:-curator-frontend:80}
+      # Body cap at the edge, so an oversize upload dies here instead of being
+      # spooled to the writer's disk first. Keep in sync with MAX_UPLOAD_MB.
+      RFDB_MAX_UPLOAD: ${MAX_UPLOAD_MB:-500}MB
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and ACME account keys. Losing this volume means re-issuing
+      # certs, which Let's Encrypt rate-limits — back it up or accept the wait.
+      - caddy_data:/data
+      - caddy_config:/config
+    security_opt:
+      - no-new-privileges:true
+    logging: *docker_logging
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512m
+
+  # ==========================================================================
+  # FULL profile — the editing tier. Absent entirely in read mode.
+  # ==========================================================================
+
+  # --------------------------------------------------------------------------
+  # Curator backend — FastAPI + uvicorn (the ONLY service that writes)
+  # --------------------------------------------------------------------------
+  curator-backend:
+    build:
+      context: .
+      dockerfile: curator-backend/Dockerfile
+    container_name: rfdb-curator-backend
+    profiles: ["full"]
+    restart: unless-stopped
+    depends_on:
+      # Both base services, so this dependency is always satisfiable.
+      oxigraph:
+        condition: service_healthy
+      garage:
+        condition: service_healthy
+    networks:
+      - internal   # to reach oxigraph + garage
+      - edge       # to be reached by proxy
+    environment:
+      <<: [*store_env, *s3_env, *logging_env]
+      VOCAB_PATH: '["/app/data/vocab.ttl", "/app/data/glottolog_language.ttl"]'
       DATA_PATH: /app/data/data.ttl
 
       # Hardcoded rather than env-overridable: a stray
@@ -109,33 +405,27 @@ services:
       SEED_VOCAB_ON_STARTUP: "true"
       SEED_TEST_DATA_ON_STARTUP: "false"
 
+      # Orthogonal to the deploy mode: the profile decides whether a writer is
+      # deployed at all, this decides whether a deployed one accepts writes.
+      # `full` + READ_ONLY=true is a valid frozen-editor demo.
       READ_ONLY: "${READ_ONLY:-false}"
-      # Per-shape read-only: mirrors docker-compose.yml (dev) so the seeded
-      # Glottolog language vocabulary stays reference-only in production too.
-      READ_ONLY_SHAPES: '["https://rosfeatr.eu/rdf/schema/LanguageShape"]'
+      READ_ONLY_SHAPES: *read_only_shapes
+      MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-500}"
 
-      # No default on purpose: failing to start is safer than silently
-      # falling back to a dev localhost origin, or to an empty/broken
-      # CORS policy. Set in .env.prod, e.g.
-      # CORS_ORIGINS=["https://rfdb.example.com"]
       CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS in .env.prod}
-
-      LOG_FILE: logs/app.jsonl
-      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
-      TRUNCATE_LOG_ON_STARTUP: "false"
-      TRUNCATE_LOG_ON_FRESH_CONTAINER_START: "true"
     volumes:
-      # No ./backend:/app — the running code is whatever the image
+      # No ./curator-backend:/app — the running code is whatever the image
       # contains, not the host checkout.
       - ./schema:/app/schema:ro
       - ./data:/app/data:ro
       # Persist JSON-lines logs in a Docker-managed volume to avoid
       # host uid/gid permission issues on first deploy.
-      - backend_logs:/app/logs
+      - curator_backend_logs:/app/logs
     # No `ports:` — only `proxy` reaches this, over `edge`.
     # No --reload. --workers is a placeholder: size it to roughly
-    # (2 x CPU cores) + 1 for your actual VM, not this default.
-    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+    # (2 x CPU cores) + 1 for your actual VM, not this default. Fewer than the
+    # reader: this tier serves a handful of curators, not the public.
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
     healthcheck:
       test:
         [
@@ -150,15 +440,7 @@ services:
       start_period: 10s
     security_opt:
       - no-new-privileges:true
-    logging:
-      # Bounds Docker's own captured stdout/stderr. Does NOT bound
-      # /app/logs/app.jsonl — that's app-level file logging in the
-      # backend_logs Docker volume, and needs its own in-volume
-      # cleanup/rotation.
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "5"
+    logging: *docker_logging
     deploy:
       resources:
         limits:
@@ -166,70 +448,61 @@ services:
           memory: 2g
 
   # --------------------------------------------------------------------------
-  # Frontend — static build, served by the prod stage's web server
-  # (e.g. nginx inside the image). Not the Vite dev server: `vite
-  # preview` and the dev server aren't built to sit behind a reverse
-  # proxy and take production traffic.
+  # Curator frontend — static build of the editor
   # --------------------------------------------------------------------------
-  frontend:
+  curator-frontend:
     build:
       context: .
-      dockerfile: frontend/Dockerfile
-      # Vite inlines VITE_* values into the JS bundle at build time.
-      # Unlike the backend, setting these under `environment:` below
-      # would have NO effect on a static build — there's no server
-      # reading env vars per-request once it's just prebuilt HTML/JS.
-      # Must be a build arg, read via ARG/ENV in the Dockerfile before
-      # `npm run build` runs.
+      dockerfile: curator-frontend/Dockerfile
+      target: production
       args:
-        VITE_API_BASE: ${VITE_API_BASE:?Set VITE_API_BASE in .env.prod, e.g. https://rfdb.example.com/api}
-    container_name: rfdb-frontend
+        # Both empty = same origin. The proxy routes /api/v1/curator/* to the
+        # writer and /api/v1/dataexplorer/* to the reader on the domain that
+        # served this bundle, so the editor needs no absolute base and no CORS.
+        #
+        # VITE_READ_API_BASE must be set explicitly even to "": the client's
+        # fallback is http://localhost:8001, and an unset arg would ship a
+        # production bundle pointing every read at the user's own machine.
+        VITE_API_BASE: ""
+        VITE_READ_API_BASE: ""
+        # Browser-facing deep link ("Open in Explorer"), so an absolute URL on
+        # the public domain — not a service name.
+        VITE_EXPLORER_BASE: "https://${RFDB_DOMAIN:?Set RFDB_DOMAIN in .env.prod}/explorer"
+    container_name: rfdb-curator-frontend
+    profiles: ["full"]
     restart: unless-stopped
     depends_on:
-      backend:
+      curator-backend:
+        condition: service_healthy
+      dataexplorer-backend:
         condition: service_healthy
     networks:
       - edge
     # No `ports:` — only `proxy` reaches this.
-    # No bind-mounts, no anonymous node_modules volume: nothing here
-    # watches the filesystem, so neither would do anything useful.
-
-  # --------------------------------------------------------------------------
-  # Proxy — the only service exposed to the host. Terminates TLS and
-  # reverse-proxies to frontend (static assets) and backend (API), so
-  # the browser sees one origin and CORS_ORIGINS above can just be
-  # that domain instead of a second port.
-  #
-  # Caddyfile/nginx.conf not included here — needs your real domain
-  # and cert config before this will work.
-  # --------------------------------------------------------------------------
-  proxy:
-    image: caddy:2-alpine
-    container_name: rfdb-proxy
-    restart: unless-stopped
-    depends_on:
-      - backend
-      - frontend
-    networks:
-      - edge
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /config
+      - /data
+    logging: *docker_logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
 
 # ------------------------------------------------------------------------------
 # Networks
 # ------------------------------------------------------------------------------
 networks:
-  # oxigraph <-> backend only. Nothing else, and nothing on the host,
-  # can reach oxigraph directly.
+  # The data tier: oxigraph + garage + the two backends. Nothing on the host and
+  # nothing in the web tier can reach the store or the bucket directly.
   internal:
     driver: bridge
-  # proxy <-> backend/frontend. Has no route to the host except
-  # through proxy's own published ports.
+  # proxy <-> backends/frontends. No route to the host except through proxy's
+  # own published ports.
   edge:
     driver: bridge
 
@@ -238,6 +511,16 @@ networks:
 # ------------------------------------------------------------------------------
 volumes:
   oxigraph_data:
-  backend_logs:
+    # The curated triples. Back this up on a schedule.
+  garage_meta:
+    # Garage cluster metadata: layout, buckets, keys. Destroyed by `down -v` —
+    # after which the one-time bootstrap must be re-run.
+  garage_data:
+    # The digital-copy bytes. Back this up together with oxigraph_data, or a
+    # restore will have records pointing at blobs that no longer exist.
+  curator_backend_logs:
+  dataexplorer_backend_logs:
+    # Separate volumes so the two services' access logs stay separable — they
+    # answer different halves of the API.
   caddy_data:
   caddy_config:

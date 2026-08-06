@@ -1,4 +1,13 @@
-"""Global pytest bootstrap for backend environment variables.
+"""Root pytest bootstrap: the environment every service's settings need.
+
+Only the variables in ``rfdb_core.config.BaseServiceSettings`` — the ones both
+backends read — are set here. The curator's writer-only variables (seeding,
+reset, write-permission switches) live in ``tests/curator/conftest.py``, because
+a read-service test has no use for them and setting them here would blur which
+service owns what.
+
+``tests/core/`` needs nothing beyond these: its subjects are the schema and the
+triplestore seam.
 
 This keeps test collection independent from external CI environment wiring.
 """
@@ -9,16 +18,12 @@ import os
 
 
 def pytest_configure() -> None:
-    """Provide defaults required by backend Settings at import time.
+    """Provide the defaults BaseServiceSettings requires at import time.
 
-    Existing values from the shell/CI are preserved.
+    Existing values from the shell/CI are preserved, so a live-stack run can
+    point the suite at a real store by exporting the variable.
     """
     os.environ.setdefault("OXIGRAPH_URL", "http://localhost:7878")
     os.environ.setdefault("DATA_GRAPH_URI", "https://rfdb.it/graph/data")
     os.environ.setdefault("SCHEMA_PATH", "schema/schema.ttl")
-    os.environ.setdefault("VOCAB_PATH", '["data/vocab.ttl"]')
-    os.environ.setdefault("DATA_PATH", "data/data.ttl")
-    os.environ.setdefault("RESET_DATA_ON_STARTUP", "false")
-    os.environ.setdefault("SEED_VOCAB_ON_STARTUP", "false")
-    os.environ.setdefault("SEED_TEST_DATA_ON_STARTUP", "false")
     os.environ.setdefault("CORS_ORIGINS", '["http://localhost:5173"]')

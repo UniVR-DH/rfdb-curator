@@ -1,31 +1,36 @@
 # RFDB Curator — Development Workflow
 
 This document covers development workflow for the standalone `rfdb-curator` project
-(package names `rfdb-editor-backend` / `rfdb-editor` internally in `backend/pyproject.toml`
-and `frontend/package.json`).
+(package names `rfdb-curator-backend` / `rfdb-dataexplorer-backend` / `rfdb-editor` internally in the member `pyproject.toml` files
+and `curator-frontend/package.json`).
 
 ---
 
 ## 1. Environment Setup
 
-### Backend
+### Python (uv workspace)
 
-Dependencies are managed with `uv`.
+The repo is a **uv workspace** with three Python members — `rfdb-core/` (shared library),
+`curator-backend/` (writes) and `dataexplorer-backend/` (reads). One lockfile and one
+`.venv`, both at the **repo root**: a single sync installs every member, and an edit to
+`rfdb-core` is picked up by both services with no reinstall.
 
 ```bash
-cd backend
+cd <repo-root>
 uv sync --all-extras --dev
 source .venv/bin/activate
 ```
 
-Use this virtual environment for backend development, tests, linting, and local scripts.
+Use this one virtual environment for all Python development, tests, linting, and local
+scripts. `cd`-ing into a member and running `uv sync` works identically — uv walks up to
+the workspace root.
 
 ### Frontend
 
 Dependencies are managed with `npm`.
 
 ```bash
-cd frontend
+cd curator-frontend
 npm ci
 npm run dev
 ```
@@ -34,7 +39,7 @@ Vite dev server runs on `http://localhost:5173`.
 
 ### Running the full application
 
-Docker Compose is the preferred way to run backend + frontend + Oxigraph + Garage together during development.
+Docker Compose is the preferred way to run both backends + both frontends + Oxigraph + Garage together during development.
 
 On a fresh checkout, do the one-time setup first (requires OpenSSL): generate the gitignored `.env` and bootstrap Garage. Compose fails fast without `.env` (missing `GARAGE_RPC_SECRET`), and file uploads fail until Garage is bootstrapped.
 
@@ -50,6 +55,13 @@ Both scripts are idempotent. After setup, ordinary runs need only:
 ```bash
 docker compose up --build
 ```
+
+`env-init.sh` writes `COMPOSE_PROFILES=full` into `.env`, which is what makes that command
+bring up all six services. Without it — an `.env` that predates the deploy profiles, for
+instance — you get the read-only four and no editor on `:5173`. See
+[deployment.md](deployment.md#deploy-modes--read-vs-full); the short version is that a bare
+`docker compose up` is the mode a public instance runs, and development opts into the write
+tier.
 
 ### Hot reload
 
@@ -69,7 +81,7 @@ Both services use bind-mounts in Docker Compose, so source changes reload automa
 - **Prettier** — frontend formatting
 - **pre-commit** — file hygiene and pre-commit checks
 
-Recommended pre-commit checks: detect unresolved merge-conflict markers, validate TOML/YAML/JSON, normalize final newlines, strip trailing whitespace, run Ruff on backend code, run frontend lint/format checks.
+Recommended pre-commit checks: detect unresolved merge-conflict markers, validate TOML/YAML/JSON, normalize final newlines, strip trailing whitespace, run Ruff across every Python workspace member, run frontend lint/format checks.
 
 ### Local commands
 
@@ -78,13 +90,13 @@ Run directly:
 
 ```bash
 # Backend
-cd backend
+cd curator-backend
 ruff check .
 ruff format .
 python -m pytest
 
 # Frontend
-cd frontend
+cd curator-frontend
 npm run lint
 npm run build
 ```
@@ -125,10 +137,11 @@ pre-commit is meant to catch formatting/hygiene issues before CI does.
 
 **Integration checks (if practical):**
 - start Oxigraph
-- start backend
-- check `/health`
-- check `/api/shapes`
-- run a dry-run validation request
+- start both backends
+- check `/health` on :8000 **and** :8001 (the payloads differ — the writer reports
+  `oxigraph` + `seed`, the reader reports `store`)
+- check `/api/v1/dataexplorer/shapes` on both, and `/api/v1/dataexplorer/entities` on :8001
+- run a dry-run validation request against :8000
 
 ---
 
@@ -141,16 +154,20 @@ When adding/changing shapes, verify:
 
 `sh:targetClass`, `rdfs:label`, `sh:description`, `sh:property`, `sh:path`, `sh:minCount`, `sh:maxCount`, `sh:datatype`, `sh:nodeKind`, `sh:class`, `sh:node`, `sh:or`, `sh:hasValue`, `sh:closed`, `sh:uniqueLang`
 
-The editor discovers updated shapes through the backend schema extractor, exposed via:
+The editor discovers updated shapes through the shared schema extractor
+(`rfdb-core/rfdb_core/schema_extractor.py`), which both services load at startup:
 
 ```
-GET /api/shapes
-GET /api/forms?shapeId=...
+GET /api/v1/dataexplorer/shapes            # both services; the curator's adds the readOnly flag
+GET /api/v1/curator/forms?shapeId=... # curator only — form definitions drive an editing form
 ```
+
+A schema change therefore needs **both** services restarted: each parses `schema.ttl`
+into its own in-memory index at startup.
 
 Two behaviors matter when adding or changing a shape, and both are documented elsewhere:
 
-- **Helper/bridge vs. standalone-entity classification** — whether a shape renders as a top-level record or as a nested inline editor is derived from the schema (whether it declares an `rdfs:label` property), not hardcoded per class name. Check both the SHACL shape and the resulting `/api/shapes` metadata before changing frontend code. See [architecture.md](architecture.md#helperbridge-shape-classification).
+- **Helper/bridge vs. standalone-entity classification** — whether a shape renders as a top-level record or as a nested inline editor is derived from the schema (whether it declares an `rdfs:label` property), not hardcoded per class name. Check both the SHACL shape and the resulting `/api/v1/dataexplorer/shapes` metadata before changing frontend code. See [architecture.md](architecture.md#helperbridge-shape-classification).
 - **Performance and contributor modeling rationale** — the deliberate use of `cidoc:P19_was_intended_use_of` vs `cidoc:P16_used_specific_object`, and of `dcterms:contributor` with `rfdbs:ContributorShape`, should be preserved unless there is an explicit migration plan. See [data-model.md](data-model.md#intentional-modeling-decisions).
 
 ---
@@ -166,14 +183,15 @@ When the RFDB namespaces change, update these locations together:
 
 - `schema/schema.ttl` — authoritative Turtle prefixes and SHACL shape IRIs. Shape IRIs use `rfdbs:` (`https://rosfeatr.eu/rdf/schema/`); data resources use `rfdb:` (`https://rosfeatr.eu/rdf/data/`).
 - `data/vocab.ttl` and `data/data.ttl` — authoritative Turtle data prefixes for seeded and fixture data.
-- `backend/core/blank_node_handler.py` — generated entity IDs use the hardcoded `RFDB_BASE` data namespace.
-- `backend/models/data.py` and `backend/core/config.py` — backend doc examples reference shape/data IRIs.
-- `tests/` Python files — many tests assert full shape or entity IRIs directly; search for `rosfeatr.eu/rdf/` before and after any namespace migration.
+- `curator-backend/core/blank_node_handler.py` — generated entity IDs use the hardcoded `RFDB_BASE` data namespace.
+- `curator-backend/models/data.py`, `rfdb-core/rfdb_core/models_data.py` and the two `core/config.py` files — doc examples reference shape/data IRIs.
+- `rfdb-core/rfdb_core/vocab.py` — `RFDB_BASE` is the data namespace itself, so a migration starts here.
+- `tests/` Python files (all three subdirectories) — many tests assert full shape or entity IRIs directly; search for `rosfeatr.eu/rdf/` before and after any namespace migration.
 
 Quick check from repo root:
 
 ```bash
-rg -n 'https://rosfeatr\.eu/rdf/|https://rfdb\.it/data/' schema data backend tests docs AGENTS.md .agent-defs
+rg -n 'https://rosfeatr\.eu/rdf/|https://rfdb\.it/data/' schema data curator-backend rfdb-core tests docs AGENTS.md .agent-defs
 ```
 
 ---
@@ -192,7 +210,7 @@ Confirm port `7878` is free and the container is `healthy`.
 ### Backend refuses to start
 
 ```bash
-docker compose logs backend
+docker compose logs curator-backend
 ```
 
 Check that all required environment variables are present and valid.
@@ -231,12 +249,13 @@ Check, in order:
 
 ### Log locations
 
-Runtime logs: `/app/logs/app.jsonl` inside the backend container
-(persisted in the `backend_logs` named volume). Container stdout/stderr:
+Runtime logs: `/app/logs/app.jsonl` inside each backend container (persisted in the
+`curator_backend_logs` / `dataexplorer_backend_logs` named volumes). Container
+stdout/stderr:
 
 ```bash
-docker compose logs backend
-docker compose logs frontend
+docker compose logs curator-backend
+docker compose logs curator-frontend
 ```
 
 ---
@@ -246,8 +265,11 @@ docker compose logs frontend
 Before committing:
 
 ```bash
-cd backend && ruff check . && ruff format . && python -m pytest && cd ..
-cd frontend && npm run lint && npm run build && cd ..
+uv run ruff check . && uv run ruff format --check .   # from the repo ROOT
+cd rfdb-core               && uv run python -m pytest -c pyproject.toml ../tests/core
+cd ../curator-backend      && uv run python -m pytest -c pyproject.toml ../tests/curator
+cd ../dataexplorer-backend && uv run python -m pytest -c pyproject.toml ../tests/dataexplorer
+cd curator-frontend && npm run lint && npm run build && cd ..
 pre-commit run --all-files   # if configured
 ```
 
@@ -266,7 +288,9 @@ A good PR description covers: what changed, whether the SHACL schema changed, wh
 ## 8. Quick Regex Log Checks (when UI submit appears to do nothing)
 
 Backend structured logs are written to `/app/logs/app.jsonl` inside the
-`backend_logs` volume. You can query them without entering a container:
+`curator_backend_logs` volume (the reader has its own, `dataexplorer_backend_logs` —
+swap the volume name in the commands below to inspect it). You can query them without
+entering a container:
 
 ```bash
 docker run --rm -v rfdb_backend_logs:/logs alpine ls -l /logs
@@ -279,11 +303,11 @@ docker run --rm -v rfdb_backend_logs:/logs alpine sh -lc \
 	"rg -n -i 'error|exception|traceback|validation|shacl|httpexception' /logs/app.jsonl"
 ```
 
-Check whether POST `/api/data` was hit at all:
+Check whether POST `/api/v1/curator/entities` was hit at all:
 
 ```bash
 docker run --rm -v rfdb_backend_logs:/logs alpine sh -lc \
-	"rg -n 'POST|/api/data|create_or_update_entity|validationReport' /logs/app.jsonl"
+	"rg -n 'POST|/api/v1/curator/entities|create_or_update_entity|validationReport' /logs/app.jsonl"
 ```
 
 Target your example payload text (`Expression 1`, `en`):
@@ -297,14 +321,14 @@ Live-tail only relevant lines while retrying submit in UI:
 
 ```bash
 docker run --rm -v rfdb_backend_logs:/logs alpine sh -lc \
-	"tail -f /logs/app.jsonl" | rg --line-buffered -i 'POST|/api/data|Expression 1|validation|error|exception|shacl'
+	"tail -f /logs/app.jsonl" | rg --line-buffered -i 'POST|/api/v1/curator/entities|Expression 1|validation|error|exception|shacl'
 ```
 
 If using Docker and file logs look empty, check container logs too:
 
 ```bash
-docker compose logs -f backend | rg --line-buffered -i 'POST|/api/data|validation|error|exception|shacl|Expression 1'
+docker compose logs -f curator-backend | rg --line-buffered -i 'POST|/api/v1/curator/entities|validation|error|exception|shacl|Expression 1'
 ```
 
-Tip: if no `POST /api/data` pattern appears when clicking save, the request likely never left the browser (frontend-side issue). If POST appears with SHACL or validation errors, it is a backend/schema rejection.
+Tip: if no `POST /api/v1/curator/entities` pattern appears when clicking save, the request likely never left the browser (frontend-side issue). If POST appears with SHACL or validation errors, it is a curator-backend/schema rejection. If a *read* seems to fail, tail `dataexplorer-backend` instead — the two services log to separate volumes.
 

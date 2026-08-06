@@ -1,0 +1,49 @@
+[project]
+name = "rfdb-dataexplorer-backend"
+version = "0.1.0"
+description = "FastAPI read backend for RossijskijFeatrDB: queries and Linked Data publishing, never writes"
+requires-python = ">=3.11"
+
+# Notably absent, and deliberately so: pyshacl (validation is a write concern),
+# python-multipart (no uploads — downloads stream out, nothing comes in) and
+# pypdf (page counts are derived once, on write). If any of these turns up here,
+# a write concern has leaked into the read service.
+dependencies = [
+    # [web] pulls in rfdb_core.app_factory's fastapi requirement — the shared
+    # CORS / access-log / storage-error wiring this service's app.py calls.
+    "rfdb-core[web]",
+    "fastapi==0.141.1",
+    "uvicorn[standard]==0.52.1",
+    "rdflib==7.6.0",
+    "httpx==0.28.1",
+    "pydantic==2.13.4",
+    "pydantic-settings==2.14.2",
+    "boto3==1.43.64",
+]
+
+# Resolve rfdb-core from the workspace (repo-root pyproject.toml) rather than
+# from an index, so edits to the shared library take effect with no reinstall.
+[tool.uv.sources]
+rfdb-core = { workspace = true }
+
+[dependency-groups]
+# httpx2: see the note in curator-backend/pyproject.toml — TestClient's preferred
+# transport, dev-only, and not a replacement for the `httpx` pin above.
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.16.1",
+    "httpx2==2.9.1",
+]
+
+# NOTE: [tool.ruff] lives in the repo-root pyproject.toml — one lint config for
+# every workspace member. Ruff finds it by walking up from this directory.
+
+[tool.pytest.ini_options]
+# One testpaths per service: both services own a top-level `api` package, so
+# `from api.data import …` is ambiguous in a single pytest process (whichever
+# service is imported first wins sys.modules). Separate runs, separate
+# interpreters, no ambiguity. See decision D2 in the refactor plan.
+testpaths = ["../tests/dataexplorer"]
+filterwarnings = [
+    'ignore:ConjunctiveGraph is deprecated, use Dataset instead\.:DeprecationWarning:rdflib.plugins.parsers.jsonld',
+]

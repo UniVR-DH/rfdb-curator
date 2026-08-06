@@ -1,14 +1,14 @@
 # Deployment & Operations — RossijskijFeatrDB
 
-This document covers two distinct things:
+This document covers three things:
 
 1. **[Development & Testing Deployment](#development--testing-deployment)** — how the
    local `docker-compose.yml` stack is configured, seeded, and reset. This is the
    detailed reference behind the lean [Quick Start](../README.md#quick-start) in the root
    README (which covers only the commands to get running).
-2. **[Production Deployment](#production-deployment-work-in-progress)** — the intended
-   production design and its **work-in-progress** status. There is no working production
-   deployment yet; that section is an implementation plan, not a runbook.
+2. **[Deploy modes](#deploy-modes--read-vs-full)** — read-only vs. full, selected by
+   Compose profile in **either** compose file. Applies to dev and production alike.
+3. **[Production Deployment](#production-deployment)** — the runbook.
 
 ---
 
@@ -18,36 +18,61 @@ The development and testing stack is the `docker-compose.yml` at the repository 
 it running with the [Quick Start](../README.md#quick-start); the sections below document
 the configuration knobs, the data-reset modes, and the seed sources it uses.
 
+> ⚠ **`docker compose up` no longer starts the editor.** Read mode is now the default in
+> both compose files (see [Deploy modes](#deploy-modes--read-vs-full)). For the whole
+> stack, add `COMPOSE_PROFILES=full` to your repo-root `.env` — that is what
+> `scripts/env-init.sh` writes for a fresh checkout, and it refuses to overwrite an
+> existing `.env`, so on an existing clone this is a one-line manual addition. Or pass
+> `--profile full` on each invocation.
+
 ### Configuration
 
-All backend settings are loaded from environment variables. No defaults are hardcoded in
-the Python source; the backend fails fast with a clear validation error if a required
+All settings are loaded from environment variables. No defaults are hardcoded in the
+Python source; each service fails fast with a clear validation error if a required
 variable is missing or has the wrong type.
 
 Configuration source of truth:
 
-- Runtime wiring: `docker-compose.yml`
-- Backend settings model: `backend/core/config.py`
-- Backend dependency set: `backend/pyproject.toml`
+- Runtime wiring: the two `environment:` blocks in `docker-compose.yml`
+- Shared settings base: `rfdb-core/rfdb_core/config.py` (`BaseServiceSettings`)
+- Writer settings: `curator-backend/core/config.py` — the base plus the write surface
+- Reader settings: `dataexplorer-backend/core/config.py` — the base, unchanged
+- Dependency sets: `curator-backend/pyproject.toml`, `dataexplorer-backend/pyproject.toml`
 
-For Docker Compose, edit the `environment:` block in `docker-compose.yml`. `OXIGRAPH_URL`
-uses the Docker-internal hostname since backend and store are separate services;
-`SCHEMA_PATH`/`VOCAB_PATH`/`DATA_PATH` are container paths backed by the `volumes:` mounts
-(change both together).
+**Which variables apply to which service.** The table below marks each one. The base
+ignores unknown variables, so a single shared `.env` is safe: the writer-only values are
+simply invisible to the reader — setting `READ_ONLY=true` has no effect on
+`dataexplorer-backend`, because it has no writes to disable.
 
-| Variable | Required | Description |
-|---|---|---|
-| `OXIGRAPH_URL` | Yes | Base URL of the Oxigraph HTTP endpoint, no trailing slash. `http://localhost:7878` locally, `http://oxigraph:7878` inside Docker. |
-| `DATA_GRAPH_URI` | Yes | Named graph URI where instance data is stored and queried. Every SPARQL read uses `FROM <uri>`; every Turtle load targets `?graph=<uri>`. |
-| `SCHEMA_PATH` | Yes | Path to `schema.ttl` relative to the backend working directory. Docker mounts it at `/app/schema/schema.ttl`. |
-| `VOCAB_PATH` | Yes | Path to `vocab.ttl` (controlled-vocabulary seed). Loaded at startup when `SEED_VOCAB_ON_STARTUP=true`. |
-| `DATA_PATH` | Yes | Path to `data.ttl` (test fixture data). Loaded at startup only when `SEED_TEST_DATA_ON_STARTUP=true`. |
-| `RESET_DATA_ON_STARTUP` | Yes | `true`/`false`. Destructive: clears the named graph before seeding on every startup. Must be `false` in production. |
-| `SEED_VOCAB_ON_STARTUP` | Yes | `true`/`false`. Load `VOCAB_PATH` on every startup. Should be `true` in all environments. |
-| `SEED_TEST_DATA_ON_STARTUP` | Yes | `true`/`false`. Load `DATA_PATH` on startup. `true` in dev/test only. |
-| `READ_ONLY` | No | `true`/`false`. When `true`, rejects `POST /api/data` and `DELETE /api/data/{entityId}` with HTTP 403 while keeping read endpoints available. Default: `false`. |
-| `READ_ONLY_SHAPES` | No | JSON array string of shape IRIs to protect from create/update/delete even when `READ_ONLY` is `false`, e.g. `["https://rosfeatr.eu/rdf/schema/LanguageShape"]`. Default: `[]`. |
-| `CORS_ORIGINS` | Yes | JSON array string of allowed CORS origins, e.g. `["http://localhost:5173"]`. |
+For Docker Compose, edit the relevant `environment:` block. `OXIGRAPH_URL` uses the
+Docker-internal hostname since the store is a separate service; `SCHEMA_PATH` /
+`VOCAB_PATH` / `DATA_PATH` are container paths backed by the `volumes:` mounts (change
+both together). `OXIGRAPH_URL` and `DATA_GRAPH_URI` **must match across the two
+services**, or the reader will correctly report an empty store.
+
+| Variable | Service | Required | Description |
+|---|---|---|---|
+| `TRIPLESTORE` | both | No | Which `TripleStore` implementation to build. Only `oxigraph` ships today; the seam exists so a second one is a config change. Default: `oxigraph`. |
+| `OXIGRAPH_URL` | both | Yes | Base URL of the Oxigraph HTTP endpoint, no trailing slash. `http://localhost:7878` locally, `http://oxigraph:7878` inside Docker. Must match across services. |
+| `DATA_GRAPH_URI` | both | Yes | Named graph URI where instance data is stored and queried. Every SPARQL read uses `FROM <uri>`; every Turtle load targets `?graph=<uri>`. Must match across services. |
+| `OXIGRAPH_LOAD_TIMEOUT` | both | No | Read timeout (seconds) for bulk Turtle loads. Only the writer loads, but the field is in the shared base. Default: `300`. |
+| `SCHEMA_PATH` | both | Yes | Path to `schema.ttl` relative to the service working directory. Docker mounts it at `/app/schema/schema.ttl`. |
+| `CORS_ORIGINS` | both | Yes | JSON array string of allowed CORS origins, e.g. `["http://localhost:5173"]`. Must not contain `"*"` — the app aborts at import time if it does. The reader needs **both** frontend origins. |
+| `S3_ENDPOINT` | both | No | Object-storage endpoint for digital copies. Empty disables it: `GET /api/v1/dataexplorer/meta/files` then reports `configured: false` instead of erroring. |
+| `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | both | No | Object-storage credentials. The writer stages and promotes objects; the reader streams them out. |
+| `LOG_FILE`, `LOG_LEVEL`, `TRUNCATE_LOG_ON_STARTUP`, `TRUNCATE_LOG_ON_FRESH_CONTAINER_START` | both | Yes / No | Structured JSON-lines logging. Each service writes to its own volume. |
+| `VOCAB_PATH` | **curator** | Yes | Path to `vocab.ttl` (controlled-vocabulary seed). Loaded at startup when `SEED_VOCAB_ON_STARTUP=true`. |
+| `DATA_PATH` | **curator** | Yes | Path to `data.ttl` (test fixture data). Loaded at startup only when `SEED_TEST_DATA_ON_STARTUP=true`. |
+| `RESET_DATA_ON_STARTUP` | **curator** | Yes | `true`/`false`. Destructive: clears the named graph before seeding on every startup. Must be `false` in production. |
+| `SEED_VOCAB_ON_STARTUP` | **curator** | Yes | `true`/`false`. Load `VOCAB_PATH` on every startup. Should be `true` in all environments. |
+| `SEED_TEST_DATA_ON_STARTUP` | **curator** | Yes | `true`/`false`. Load `DATA_PATH` on startup. `true` in dev/test only. |
+| `READ_ONLY` | **curator** | No | `true`/`false`. When `true`, rejects `POST /api/v1/curator/entities` and `DELETE /api/v1/curator/entities/{entityId}` with HTTP 403. Reads are unaffected — they are on the other service. Default: `false`. |
+| `READ_ONLY_SHAPES` | **both** | No | JSON array string of shape IRIs to protect from create/update/delete even when `READ_ONLY` is `false`, e.g. `["https://rosfeatr.eu/rdf/schema/LanguageShape"]`. Also drives the `readOnly` flag on both services' shapes route. **Give both backends the same value** — `docker-compose.yml` uses a single YAML anchor for exactly this reason; if they drift, clients get different flags depending on which service they asked. Default: `[]`. |
+| `MAX_UPLOAD_MB` | **curator** | No | Per-file ceiling for staged uploads; `0` disables the cap. |
+
+Seeding does not require a running web server: `python curator-backend/scripts/seed.py`
+performs the same readiness-poll → optional-reset → seed sequence as the lifespan, so a
+deployment can populate the store as a one-shot job.
 | `LOG_LEVEL` | No | Minimum log level for file and console handlers. Default: `INFO`. One of `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. |
 
 The S3/object-storage (`S3_*`) and Garage (`GARAGE_RPC_SECRET`) variables consumed by the
@@ -56,7 +81,8 @@ compose file are generated into `.env` by `scripts/env-init.sh`; see the
 [development.md](development.md).
 
 `LOG_FILE` (the JSON-lines log path) isn't listed above: it's pinned to the
-`backend_logs` Docker volume mount in the compose files and isn't meant to be
+`curator_backend_logs` / `dataexplorer_backend_logs` volume mounts in the compose
+files and isn't meant to be
 overridden in the supported deployments — changing it without also updating
 the volume mount would write logs outside the persisted volume.
 
@@ -97,77 +123,258 @@ policy: seed vocabulary on, seed test data off, preserve existing data on.
 
 ---
 
-## Production Deployment (Work in Progress)
+## Deploy modes — read vs. full
 
-> **Status — not production ready.** A hardened production deployment is **planned but not
-> yet functional.** `docker-compose.prod.yml` exists as a draft, but the pieces it depends
-> on are missing (see [Open gaps](#open-gaps) below) and it also predates the object-storage
-> subsystem. Do not deploy this stack to a public or shared environment. This section
-> documents the intended design and the work remaining, not a procedure you can run today.
+Which *kind* of instance this is, is a deploy-time choice with no code change and no
+separate compose file. That is possible because the reader/writer boundary is a **service**
+boundary: `dataexplorer-backend` owns every read plus the whole `/rdf/` data space and
+never depends on the write tier, so the write tier can simply be absent.
+
+| Mode | Command | Services |
+|---|---|---|
+| **read** — public browse/explore | `docker compose up` *(no flag)* | oxigraph, garage, dataexplorer-backend, graphexplorer-frontend *(+ proxy in prod)* |
+| **full** — curate + browse | `docker compose --profile full up` | the above **plus** curator-backend, curator-frontend |
+
+Base services carry **no `profiles:` key**, so read mode needs no flag; only `curator-*`
+are gated. Set `COMPOSE_PROFILES=full` in `.env` / `.env.prod` to make full mode the
+default for an instance.
+
+In read mode a public deployment omits the **entire `/api/v1/curator/*` namespace** rather
+than deploying a service that refuses each route with a 403. That works because
+[D8](architecture.md#api-reference) names every prefix after the service that owns it — see
+[the proxy section](#the-proxy) for what the edge does with those paths when nothing is
+behind them.
+
+**Read mode is orthogonal to `READ_ONLY`.** The mode decides whether a writer is deployed
+at all; `READ_ONLY=true` freezes a writer that *is* deployed. `full` + `READ_ONLY=true` is
+a valid frozen-editor demo.
+
+### The dependency invariant
+
+Every `depends_on` target must be a **base** service, so no dependency ever points into a
+profile its own service does not activate. Compose versions disagree about what happens
+then — some silently activate the dependency's profile (so read mode quietly starts the
+editor), some hard-error (so read mode will not start at all). Either way the failure shows
+up at deploy time on someone else's machine.
+
+`curator-frontend` → `curator-backend` is fine, because both are `full`. Nothing base may
+depend on anything `full`. This is checked automatically by
+`tests/core/test_compose_topology.py`, which reads both compose files, so an edit that
+breaks it fails the ordinary test gate rather than a deploy.
+
+### Populating a read-only instance
+
+A read instance serves data it did not create, across **two** stores: triples in Oxigraph
+and digital-copy blobs in Garage. Bringing up a fresh read host therefore has a
+prerequisite and a populate step, in this order:
+
+0. **Bootstrap Garage** (once per fresh `garage_*` volume set, in *every* mode). A fresh
+   volume has no layout, bucket or key, and none can be declared in `garage.toml`:
+
+   ```bash
+   scripts/garage-init.sh                                                    # dev
+   COMPOSE_FILE=docker-compose.prod.yml ENV_FILE=.env.prod scripts/garage-init.sh   # prod
+   ```
+
+   Without it, `GET /rdf/data/{id}/content` fails with a `StorageNotInitialized` 503 whose
+   operator hint points at this script.
+
+Then populate both stores one of three ways:
+
+- **(a) Snapshot import.** The only path that gives a fresh host the curated triples
+  **and** their attached blobs in one consistent step. **Not built yet** — it is the
+  import/restore counterpart of the snapshot-export item in [TODO.md](../TODO.md), and it
+  is what a standalone read deploy on a brand-new host is waiting on.
+- **(b) Carried-over volumes.** The `oxigraph_data` + `garage_*` volumes persist from a
+  prior `full` run on the same host, so a read bring-up reuses them as-is. No import
+  needed. **This path works today.**
+- **(c) External SPARQL endpoint (triples only).** The reader uses only the `TripleStore`
+  read subset, so `OXIGRAPH_URL` can point at an already-populated remote store and
+  `oxigraph` can be dropped. Garage still needs its blobs by (a) or (b), or digital-copy
+  downloads 404.
+
+A vocabulary-only bare demo host can also be seeded directly, without a running writer:
+
+```bash
+docker compose run --rm curator-backend python scripts/seed.py    # needs --profile full
+```
+
+That loads vocab/fixtures only — never curated data or blobs. (It is
+`python scripts/seed.py`, not a bare `seed`: the image has no entrypoint dispatcher.)
+
+---
+
+## Production Deployment
+
+> **Status — complete but never deployed.** Every piece the stack needs now exists and the
+> whole topology has been exercised locally: both frontend production images build, and the
+> real `proxy/Caddyfile` was run against them plus live backends, checking each route (see
+> [Verify](#5-verify)). What has *not* happened is a real deployment — no host, no domain,
+> no certificate, no data. Treat the procedure below as tested-in-parts rather than
+> battle-worn, and expect the first run to surface something about DNS, TLS or file
+> ownership that a local run cannot. **One known gap remains:** log rotation, at the end of
+> this section.
 
 ### Target topology
 
-A single Docker host running `docker-compose.prod.yml`:
+A single Docker host running `docker-compose.prod.yml`. Seven services in full mode, five
+in read mode:
 
-- A **`proxy`** service (Caddy) terminates TLS and reverse-proxies `/` to the frontend and
-  `/api` to the backend; it is the only service that publishes ports (80/443).
-- **`oxigraph`**, **`backend`**, and **`frontend`** run on an internal network with no
-  published ports — reachable only through the proxy.
-- Automatic HTTPS via Caddy/ACME (Let's Encrypt), so the domain's DNS must resolve to the
-  host's public IP before the proxy starts.
-- The only stateful volume is `oxigraph_data`; back it up on a schedule.
+| Service | Network | Ports | Notes |
+|---|---|---|---|
+| `proxy` (Caddy) | `edge` | **80, 443** | The only host-facing service. Terminates TLS, routes by path prefix. |
+| `curator-frontend` | `edge` | — | Static build of the editor, served by `caddy:2-alpine`. `full` only. |
+| `graphexplorer-frontend` | `edge` | — | Static build of the explorer, same. Base. |
+| `curator-backend` | `internal` + `edge` | — | The only writer. `full` only. |
+| `dataexplorer-backend` | `internal` + `edge` | — | All reads plus the `/rdf/` data space. Base. |
+| `oxigraph` | `internal` | — | Unauthenticated; must never be reachable from outside. |
+| `garage` | `internal` | — | Unauthenticated at the S3 layer; blobs leave only through the reader. |
 
-### Open gaps
+- Neither store is on `edge` at all, so nothing in the web tier can reach them and a
+  browser cannot reach them under any circumstances.
+- Automatic HTTPS via Caddy/ACME (Let's Encrypt), so `RFDB_DOMAIN`'s DNS must resolve to the
+  host's public IP **before** the proxy starts.
+- Stateful volumes: `oxigraph_data` (triples), `garage_data` + `garage_meta` (digital-copy
+  bytes and the cluster's bucket/key metadata), `caddy_data` (certificates). Back up the
+  first three **together** — a restore of triples without blobs leaves records pointing at
+  files that do not exist.
 
-These must be built before the production stack can run:
+### The proxy
 
-- **`proxy/Caddyfile` does not exist.** Needs the real domain and routing rules (frontend
-  for `/`, backend for `/api`).
-- **The production `frontend/Dockerfile` build stage does not exist.** The current
-  Dockerfile only runs the Vite dev server; production needs a stage that runs
-  `npm run build` and serves `dist/` from a static web server (e.g. nginx).
-- **Object storage (Garage) is absent from `docker-compose.prod.yml`.** The dev stack
-  depends on Garage for digital-copy (PDF) uploads, but the prod compose file defines only
-  oxigraph/backend/frontend/proxy and no `S3_*` configuration. Digital-copy upload and
-  retrieval would be non-functional until a production object-storage service and its
-  bootstrap/secret handling are added.
-- **`.env.prod` scope is incomplete.** `.env.prod.example` currently covers only
-  `CORS_ORIGINS`, `VITE_API_BASE`, `READ_ONLY`, and `LOG_LEVEL`; it needs the object-storage
-  credentials and any other secrets once the gap above is closed.
-- **Log rotation.** `/app/logs/app.jsonl` (in the `backend_logs` volume) is not rotated by
-  Docker; a rotation/cleanup job or a switch to stdout-only logging is needed.
+`proxy/Caddyfile` routes the whole surface by path prefix, with no method awareness:
 
-### Planned procedure
+| Prefix | Upstream |
+|---|---|
+| `/api/v1/curator/*` | `curator-backend:8000` (plus the body cap) |
+| `/api/v1/dataexplorer/*` | `dataexplorer-backend:8001` |
+| `/rdf/*` | `dataexplorer-backend:8001` |
+| `/explorer/*` | `graphexplorer-frontend:80` (prefix stripped) |
+| everything else | `$RFDB_ROOT_UPSTREAM`, default `curator-frontend:80` |
 
-Once the gaps above are closed, the intended deployment procedure is roughly:
+That it *can* be a prefix table is the payoff of [D8](architecture.md#api-reference). Before the
+URL re-cut, `GET /api/data/{id}` was the reader and `DELETE /api/data/{id}` the writer — the
+same path on two services, which no prefix-keyed proxy can split. This document used to say
+"the proxy must also learn to split `/api` by route ... This is new work in prod." It is not
+work any more; it is five `handle` blocks.
 
-1. **Host prerequisites** — Docker Engine + Compose v2 (`docker compose version` shows v2.x).
-   Firewall: allow inbound 80/443 only; explicitly close 7878/8000/5173 if a prior dev
-   deployment opened them.
-2. **Get the files onto the host** — clone the repo; `chmod o+r -R schema data` (the backend
-   runs as uid 1001 and mounts them read-only). Decide whether to reuse or discard any
-   existing `oxigraph_data` volume from prior dev runs.
-3. **Write the missing pieces** — the production `frontend/Dockerfile` build stage and
-   `proxy/Caddyfile` (see [Open gaps](#open-gaps)).
-4. **Configure environment** — `cp .env.prod.example .env.prod`, fill in real values. The
-   compose file refuses to start if `CORS_ORIGINS` or `VITE_API_BASE` are unset.
-   `READ_ONLY_SHAPES` is hardcoded consistently in both compose files, so it needs no
-   env-file knob.
-5. **Build and start** — `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build`.
-6. **Verify** — all services healthy (`docker compose -f docker-compose.prod.yml ps`);
-   `curl -I https://<domain>` and `https://<domain>/api/health` succeed; confirm from
-   outside the host that 7878/8000/5173 are unreachable.
+Three details that are load-bearing rather than stylistic:
+
+- **`/rdf/*` must be served by this domain and no other.** Those URLs are the permanent
+  public identifiers stored inside the triples. A second origin serving them would give
+  every resource two URLs, which is what a stable identifier is not. Keep `RFDB_DOMAIN`
+  equal to the namespace in `rfdb-core/rfdb_core/vocab.py`.
+- **The explorer's image must be built with `VITE_BASE_PATH=/explorer/`** to match the route
+  that serves it. Vite bakes asset URLs against `base` at build time, so a bundle built for
+  `/` would request `/assets/…`, hit the fallback route, and be handed the *editor's*
+  `index.html` — a blank page rather than an honest 404.
+- **Unmatched `/api/**` and `/health` return an explicit 404.** Without those two blocks the
+  SPA fallback answers them with `200` and an HTML page, because that is what makes
+  client-side routing work. A `/health` that returns `200` with both backends down is worse
+  than no `/health` at all, and it is why health is deliberately not proxied — see the note
+  at the foot of the Caddyfile.
+
+The **body cap is enforced at the edge**, not only by `MAX_UPLOAD_MB`. The app-level cap does
+return 413, but Starlette spools the entire multipart body to a temp file *before* the
+handler runs, so it protects the Garage volume while the writer's disk absorbs the whole
+upload first. `.env.prod` derives the proxy's `request_body max_size` from the same variable,
+so the two cannot drift.
+
+### 1. Host prerequisites
+
+Docker Engine + Compose v2 (`docker compose version` shows v2.x). Firewall: allow inbound
+80/443 only, and explicitly close 7878/8000/8001/5173 if a prior dev deployment opened
+them. (Dev's `graphexplorer-frontend` also publishes on 80, same as prod's `proxy` — that
+one can't be told apart at the firewall, so make sure no dev stack is still running before
+this host goes live.) DNS for the domain must already point here.
+
+### 2. Get the files onto the host
+
+Clone the repo, then `chmod o+r -R schema data` — each backend runs as uid 1001 and mounts
+those read-only. Decide whether to reuse or discard any `oxigraph_data` volume from prior
+dev runs.
+
+### 3. Configure environment
+
+```bash
+cp .env.prod.example .env.prod && chmod 600 .env.prod
+```
+
+Fill in real values. Every `${VAR:?…}` in the compose file must be set or the stack refuses
+to start — that is deliberate, so a missing value fails immediately instead of deploying a
+dev default. `.env.prod.example` documents each one, including which variables are
+intentionally *not* env knobs (`READ_ONLY_SHAPES` is one YAML anchor per compose file, per
+`D11`; `S3_ENDPOINT`/`S3_REGION` are fixed by the topology).
+
+Set `COMPOSE_PROFILES` to pick the [mode](#deploy-modes--read-vs-full) for this instance.
+
+### 4. Bootstrap and start
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+COMPOSE_FILE=docker-compose.prod.yml ENV_FILE=.env.prod scripts/garage-init.sh   # ONCE per fresh garage volume
+```
+
+The bootstrap is the same script dev uses, parametrized rather than forked — the four steps
+(layout → bucket → key import → grant) are identical, and two copies would drift exactly
+where a mistake is least recoverable, since a layout version cannot be re-applied. It is
+idempotent, and needed again only after `down -v`.
+
+A read-mode host also needs a populate step; see
+[Populating a read-only instance](#populating-a-read-only-instance).
+
+### 5. Verify
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod ps    # every service healthy
+D=https://<domain>
+curl -sI  $D/                                        # 200, the app
+curl -s   $D/api/v1/dataexplorer/meta/prefixes       # 200 JSON, the read tier
+curl -sI  $D/explorer/                               # 200, the explorer
+curl -s   $D/api/v1/curator/shapes | head -c 80      # 200 JSON, the write tier (full mode)
+curl -sI  -H 'Accept: text/turtle' $D/rdf/data/<id>  # 200 text/turtle, the data space
+curl -sI  $D/health                                  # 404 — not exposed, by design
+```
+
+Health is checked with `ps` rather than over HTTP: the containers run their own
+healthchecks, and the curator's `/health` payload includes a seed report, which is operator
+information. Then confirm from **outside** the host that 7878/8000/8001/5173 are
+unreachable.
+
+### Remaining gap — log rotation
+
+`/app/logs/app.jsonl` in each backend's logs volume is **not rotated**. Docker's `json-file`
+`max-size`/`max-file` (set on every service) bounds only captured stdout/stderr, not the
+app's own file log, so that file grows without limit. Two ways out, neither built: an
+in-volume rotation job, or switching the file logger to stdout and letting Docker's rotation
+handle it. The second is simpler and loses the structured file in a named volume.
 
 ### Ongoing operations (once live)
 
-- **Redeploy after code changes**: `git pull`, then repeat step 5 — `--build` rebuilds only
-  changed images.
-- **Back up `oxigraph_data`** on a schedule matching your data-loss tolerance:
+- **Redeploy after code changes**: `git pull`, then repeat [step 4](#4-bootstrap-and-start)
+  without the bootstrap — `--build` rebuilds only changed images.
+- **A frontend change needs `--build`, not `restart`.** Vite inlines every `VITE_*` value
+  into the JS bundle at build time; once the image is static files there is no server reading
+  env per request. The same goes for changing `RFDB_DOMAIN`, since the editor's "Open in
+  Explorer" link is derived from it at build time.
+- **A `proxy/Caddyfile` change** needs only
+  `docker compose -f docker-compose.prod.yml --env-file .env.prod restart proxy`. Prefer that
+  over `caddy reload` inside the container: reload re-adapts the file, and an env var that is
+  unset at that moment becomes an *empty token* rather than an error — a `reverse_proxy` with
+  no upstream, which serves empty `200`s and logs nothing. The Caddyfile carries an in-file
+  default for exactly this reason.
+- **Back up the three data volumes together**, on a schedule matching your data-loss
+  tolerance. Separately is worse than useless: triples restored without their blobs leave
+  records pointing at files that do not exist.
 
   ```bash
-  docker run --rm -v rfdb_oxigraph_data:/data -v $(pwd):/backup \
-    alpine tar czf /backup/oxigraph_data_$(date +%F).tar.gz -C /data .
+  for v in oxigraph_data garage_data garage_meta; do
+    docker run --rm -v "rfdb_$v:/data" -v "$(pwd):/backup" \
+      alpine tar czf "/backup/${v}_$(date +%F).tar.gz" -C /data .
+  done
   ```
 
-- **`docker compose down -v` destroys `oxigraph_data`** (and, in the dev stack, the Garage
-  volumes). Use `docker compose down` without `-v` for routine stop/start.
+  `caddy_data` holds the certificates and ACME account key. Losing it means re-issuing, which
+  Let's Encrypt rate-limits — back it up too, or accept the wait.
+- **`docker compose down -v` destroys every one of those volumes.** Use `docker compose down`
+  without `-v` for routine stop/start, and remember that `-v` also means re-running
+  `garage-init.sh`.

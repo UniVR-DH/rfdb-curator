@@ -1,0 +1,172 @@
+# proxy/Caddyfile — the edge for a production RossijskijFeatrDB deployment.
+#
+# Mounted read-only into the `proxy` service by docker-compose.prod.yml. Caddy
+# substitutes {$VAR} from that service's environment, so the real domain lives in
+# .env.prod and never in this committed file.
+#
+#   RFDB_DOMAIN         the public domain, e.g. rosfeatr.eu
+#   RFDB_ROOT_UPSTREAM  what serves `/` — curator-frontend:80 in full mode
+#   RFDB_MAX_UPLOAD     body cap at the edge, from MAX_UPLOAD_MB
+#
+# ---------------------------------------------------------------------------
+# WHY THIS FILE IS BORING, WHICH IS THE POINT
+# ---------------------------------------------------------------------------
+# Every rule below is a plain path prefix. No method awareness, no per-route
+# tables, no rewriting to disambiguate. That is the whole payoff of D8: the URL
+# space is partitioned by the service that owns it, so routing is a prefix match.
+#
+# Before D8 this file could not have been written. `GET /api/data/{id}` was the
+# reader and `DELETE /api/data/{id}` the writer — the same path on two services,
+# which a prefix-keyed proxy cannot split. docs/deployment.md recorded that as
+# "the proxy must also learn to split /api by route ... This is new work in
+# prod." It is not new work any more; it is four `handle` blocks.
+#
+# ---------------------------------------------------------------------------
+# TLS
+# ---------------------------------------------------------------------------
+# Automatic HTTPS: Caddy obtains and renews a Let's Encrypt certificate on first
+# start, which requires {$RFDB_DOMAIN} to already resolve to this host. If it
+# does not, startup logs an ACME failure and the site serves nothing — check DNS
+# before blaming this file. Certificates live in the caddy_data volume; losing it
+# means re-issuing, and Let's Encrypt rate-limits that.
+#
+# For a staging run against the ACME test endpoint, add inside the site block:
+#   tls { ca https://acme-staging-v02.api.letsencrypt.org/directory }
+
+{$RFDB_DOMAIN} {
+	encode zstd gzip
+
+	log {
+		output stdout
+		format json
+	}
+
+	# ---- security headers ---------------------------------------------------
+	# These depend on the public origin, so they belong here rather than in
+	# proxy/spa.Caddyfile (which each frontend image serves itself).
+	header {
+		# One year, and only sent over HTTPS. Do not add `preload` until you are
+		# certain the domain will stay HTTPS-only — that submission is hard to
+		# undo.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	# ---- the write tier — /api/v1/curator/* ---------------------------------
+	# `full` mode only. In read mode there is no such upstream and these paths
+	# answer 502: a read-only instance omits the namespace rather than deploying
+	# a service that refuses each route.
+	handle /api/v1/curator/* {
+		# The body cap belongs at the edge, not only in the app. MAX_UPLOAD_MB
+		# does return 413 — but Starlette spools the entire multipart body to a
+		# temp file *before* the handler runs, so the app-level cap protects the
+		# Garage volume while the writer's disk absorbs the whole upload first.
+		# Capping here means an oversize request dies before it is buffered.
+		# Keep RFDB_MAX_UPLOAD and MAX_UPLOAD_MB in sync — .env.prod derives the
+		# former from the latter.
+		request_body {
+			max_size {$RFDB_MAX_UPLOAD}
+		}
+		reverse_proxy curator-backend:8000
+	}
+
+	# ---- the read tier ------------------------------------------------------
+	# Two prefixes, one upstream, for two different contracts:
+	#
+	#   /api/v1/dataexplorer/*  our own apps' operational surface. Versioned, and
+	#                           named after its owner so no path means two things
+	#                           depending on which service answers.
+	#   /rdf/*                  THE DATA. Public, permanent, unversioned
+	#                           identifiers — every entity IRI and every
+	#                           schema:contentUrl points in here, so these URLs
+	#                           can never move. This is what makes RFDB's IRIs
+	#                           dereferenceable: production serves the host they
+	#                           name.
+	#
+	# /rdf/* must be served by THIS domain and no other. A second origin serving
+	# it would give every resource two URLs, which is precisely what a stable
+	# identifier is not.
+	handle /api/v1/dataexplorer/* {
+		reverse_proxy dataexplorer-backend:8001
+	}
+
+	handle /rdf/* {
+		reverse_proxy dataexplorer-backend:8001
+	}
+
+	# ---- the explorer at a path --------------------------------------------
+	# handle_path strips the /explorer prefix, so the upstream sees /index.html
+	# and /assets/… — which is what the static server in that image serves.
+	#
+	# The image must be built with VITE_BASE_PATH=/explorer/ to match: Vite bakes
+	# asset URLs against `base`, and a bundle built for `/` would request
+	# /assets/… at the domain root, hit the fallback block below, and receive the
+	# *editor's* index.html — a blank page rather than an honest 404.
+	handle_path /explorer/* {
+		reverse_proxy graphexplorer-frontend:80
+	}
+
+	# ---- unmatched API and health paths must NOT reach the SPA ---------------
+	# These two blocks exist because of what the fallback below does. A single-page
+	# app answers *every* unmatched path with 200 + index.html — that is what makes
+	# client-side routing work, and it is why /entity/Src1 is not a 404. But it
+	# also means anything not routed above gets a 200 and an HTML body:
+	#
+	#   /health          would look healthy to an uptime check with both backends
+	#                    down. Verified: it returned "200 text/html" before this
+	#                    block existed. A monitor cannot tell that apart from a
+	#                    working service, which is worse than not exposing health
+	#                    at all — see the note at the end of this file for why it
+	#                    is not exposed.
+	#   /api/v2/…        a wrong version or a typo'd service name would answer 200
+	#                    with a web page, defeating the D8 property that a
+	#                    misdirected API call fails as a legible 404.
+	#
+	# Caddy orders `handle` blocks by matcher specificity, not by position, so
+	# these lose to the exact prefixes above and win against the bare fallback.
+	handle /api/* {
+		respond "Not found. This deployment serves /api/v1/curator/* and /api/v1/dataexplorer/*." 404
+	}
+
+	handle /health* {
+		respond "Health is not exposed at the edge; see docs/deployment.md." 404
+	}
+
+	# ---- everything else ---------------------------------------------------
+	# The editor in full mode. For a read-only public instance set
+	# RFDB_ROOT_UPSTREAM=graphexplorer-frontend:80 in .env.prod and build that
+	# image with VITE_EXPLORER_BASE_PATH=/ — then the explorer is the site root
+	# and /explorer/* above becomes a harmless second address for it.
+	# The default is not belt-and-braces — it is the fix for a silent failure.
+	# An unset {$VAR} in a Caddyfile is an *empty token*, not an error, so
+	# `reverse_proxy` adapts to a handler with **zero upstreams**: Caddy starts
+	# clean, logs nothing, and answers every request `200` with an empty body.
+	# Observed while verifying this file, and it is indistinguishable from a
+	# working deploy until someone opens the site. With a default, the same
+	# mistake serves the editor instead of nothing.
+	handle {
+		reverse_proxy {$RFDB_ROOT_UPSTREAM:curator-frontend:80}
+	}
+}
+
+# ---------------------------------------------------------------------------
+# DELIBERATELY NOT ROUTED: /health
+# ---------------------------------------------------------------------------
+# Both backends serve /health, and neither is exposed here. Two reasons:
+#
+#  1. It would be the one path that means different things on the two services —
+#     exactly what D8 partitioned the URL space to prevent. Exposing it would
+#     need an invented public name for each.
+#  2. The curator's payload includes a seed report (paths and counts). That is
+#     operator information, not public information.
+#
+# Health is already checked where it matters: each service has a Docker
+# healthcheck running inside its own container, so
+# `docker compose -f docker-compose.prod.yml ps` reports it. From outside, verify
+# with real requests instead — they exercise this routing as well:
+#
+#   curl -sI  https://<domain>/                                  # the app
+#   curl -s   https://<domain>/api/v1/dataexplorer/meta/prefixes  # the read tier
+#   curl -sI  https://<domain>/rdf/data/<some-id>                 # the data space

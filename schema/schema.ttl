@@ -411,7 +411,7 @@ rfdbs:DigitalCopyShape
     sh:minCount 1 ;
     sh:maxCount 1 ;
     sh:datatype xsd:anyURI ;
-    sh:description "Stable backend-relative download path (/api/sources/{id}/files/{fileId})" ;
+    sh:description "Absolute, dereferenceable URL of the bytes: https://rosfeatr.eu/rdf/data/{fileId}/content." ;
   ] ;
   sh:property [
     sh:path schema:contentSize ;

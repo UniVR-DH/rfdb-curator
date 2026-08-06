@@ -1,0 +1,51 @@
+[project]
+name = "rfdb-curator-backend"
+version = "0.1.0"
+description = "FastAPI write backend for the RossijskijFeatrDB curator (the only service that mutates the store)"
+requires-python = ">=3.11"
+dependencies = [
+    # [web] pulls in rfdb_core.app_factory's fastapi requirement — the shared
+    # CORS / access-log / storage-error wiring this service's app.py calls.
+    "rfdb-core[web]",
+    "fastapi==0.141.1",
+    "uvicorn[standard]==0.52.1",
+    "rdflib==7.6.0",
+    "pyshacl==0.40.1",
+    "httpx==0.28.1",
+    "pydantic==2.13.4",
+    "pydantic-settings==2.14.2",
+    "python-multipart==0.0.32",
+    "boto3==1.43.64",
+    "pypdf==6.14.2",
+]
+
+# Resolve rfdb-core from the workspace (repo-root pyproject.toml) rather than
+# from an index, so edits to the shared library take effect with no reinstall.
+[tool.uv.sources]
+rfdb-core = { workspace = true }
+
+[dependency-groups]
+# httpx2 is here for `fastapi.testclient` only. Starlette's TestClient prefers it
+# and warns when it is absent, so declaring it is what silences that warning at
+# the source instead of in `filterwarnings`. It does NOT replace `httpx` above:
+# the Oxigraph seam still speaks httpx 0.28, and moving a production HTTP client
+# to a new major is a separate decision from clearing a test-time warning.
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.16.1",
+    "httpx2==2.9.1",
+]
+
+# NOTE: [tool.ruff] moved to the repo-root pyproject.toml when rfdb-core became a
+# second workspace member — one lint config for every member. Ruff still finds it
+# by walking up from this directory.
+
+[tool.pytest.ini_options]
+# One testpaths per service: both services own a top-level `api` package, so
+# `from api.data import …` is ambiguous in a single pytest process (whichever
+# service is imported first wins sys.modules). Separate runs, separate
+# interpreters, no ambiguity. See decision D2 in the refactor plan.
+testpaths = ["../tests/curator"]
+filterwarnings = [
+    'ignore:ConjunctiveGraph is deprecated, use Dataset instead\.:DeprecationWarning:rdflib.plugins.parsers.jsonld',
+]

@@ -1,15 +1,26 @@
 #!/usr/bin/env bash
-# scripts/garage-init.sh — DEV Garage bootstrap (runs on the HOST).
+# scripts/garage-init.sh — Garage bootstrap for DEV or PROD (runs on the HOST).
 #
 # WHEN TO RUN
 #   Once, after the FIRST `docker compose up` on a fresh Garage volume:
-#     • the very first time you bring the dev stack up, or
+#     • the very first time you bring a stack up, or
 #     • any time after `docker compose down -v` (that destroys garage_data +
 #       garage_meta, so the cluster is empty again).
 #   Idempotent — safe to re-run; every step is a no-op if already done.
 #
 #   You do NOT run it on ordinary `up`/`down` (without -v): the named volumes
 #   survive, so the layout, bucket, and key are still there.
+#
+# DEV (defaults — docker-compose.yml + .env):
+#   scripts/garage-init.sh
+#
+# PROD (point it at the other compose file and env file):
+#   COMPOSE_FILE=docker-compose.prod.yml ENV_FILE=.env.prod scripts/garage-init.sh
+#
+#   Parametrized rather than forked: the four steps (layout → bucket → key
+#   import → grant) are identical in both environments, and two copies of this
+#   logic would drift exactly where a mistake is least recoverable — a wrong
+#   layout version cannot be re-applied.
 #
 # WHY IT EXISTS
 #   Garage keeps its cluster layout, buckets, and access keys in its metadata
@@ -24,36 +35,50 @@
 #     the repo-root .env — the SAME predefined creds the backend reads, so
 #     there is no generated secret to copy back.
 #
-# PROD: do not use this file as-is (different compose file, env file, network,
-#   and hardening). See .temp/temp-garage-prod-bootstrap-20260716.md.
-
 set -euo pipefail
 
-cd "$(dirname "$0")/.."          # repo root, so `docker compose` finds the file + .env
+cd "$(dirname "$0")/.."          # repo root, so `docker compose` finds the files
 
-# Read a var from the current environment first, else from .env. We extract
-# only the three keys we need rather than sourcing .env, because .env may hold
-# values (JSON arrays, spaces) that are not safe to `source` in bash.
+ENV_FILE="${ENV_FILE:-.env}"
+[ -f "$ENV_FILE" ] || { echo "✗ env file '$ENV_FILE' not found (set ENV_FILE=…)"; exit 1; }
+
+# Assembled as an array so an unset COMPOSE_FILE/ENV_FILE contributes no empty
+# argument. `docker compose` reads -f/--env-file before the subcommand.
+COMPOSE=(docker compose)
+[ -n "${COMPOSE_FILE:-}" ] && COMPOSE+=(-f "$COMPOSE_FILE")
+COMPOSE+=(--env-file "$ENV_FILE")
+
+echo "› using: ${COMPOSE[*]}"
+
+# Read a var from the current environment first, else from the env file. We
+# extract only the three keys we need rather than sourcing it, because the file
+# may hold values (JSON arrays, spaces) that are not safe to `source` in bash.
 from_env() {
   local v="${!1-}"
   [ -n "$v" ] && { printf '%s' "$v"; return; }
-  grep -E "^$1=" .env 2>/dev/null | tail -n1 | cut -d= -f2-
+  grep -E "^$1=" "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2-
 }
 
 S3_BUCKET="$(from_env S3_BUCKET)"; : "${S3_BUCKET:=sources}"
 S3_ACCESS_KEY_ID="$(from_env S3_ACCESS_KEY_ID)"
 S3_SECRET_ACCESS_KEY="$(from_env S3_SECRET_ACCESS_KEY)"
-[ -n "$S3_ACCESS_KEY_ID" ]     || { echo "✗ S3_ACCESS_KEY_ID not set (env or .env)";     exit 1; }
-[ -n "$S3_SECRET_ACCESS_KEY" ] || { echo "✗ S3_SECRET_ACCESS_KEY not set (env or .env)"; exit 1; }
+[ -n "$S3_ACCESS_KEY_ID" ]     || { echo "✗ S3_ACCESS_KEY_ID not set (env or $ENV_FILE)";     exit 1; }
+[ -n "$S3_SECRET_ACCESS_KEY" ] || { echo "✗ S3_SECRET_ACCESS_KEY not set (env or $ENV_FILE)"; exit 1; }
 
 # Every Garage command is one exec of the distroless binary (-T: no TTY).
-g() { docker compose exec -T garage /garage "$@"; }
+g() { "${COMPOSE[@]}" exec -T garage /garage "$@"; }
 
 echo "› waiting for garage RPC…"
 tries=0
 until g status >/dev/null 2>&1; do
   tries=$((tries + 1))
-  [ "$tries" -gt 60 ] && { echo "✗ garage not reachable via 'docker compose exec garage' — is the service defined and up?"; exit 1; }
+  # Bounded, and it prints why on the way out rather than only that it gave up.
+  [ "$tries" -gt 60 ] && {
+    echo "✗ garage not reachable after ${tries}s. Last attempt said:"
+    g status || true
+    echo "  (is the service defined in ${COMPOSE_FILE:-docker-compose.yml} and up?)"
+    exit 1
+  }
   sleep 1
 done
 

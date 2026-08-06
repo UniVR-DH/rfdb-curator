@@ -5,8 +5,10 @@ validation_reports/
 .tmp/
 .temp/
 
-backend/logs/*
-!backend/logs/.gitkeep
+curator-backend/logs/*
+!curator-backend/logs/.gitkeep
+dataexplorer-backend/logs/*
+!dataexplorer-backend/logs/.gitkeep
 
 # Node.js
 node_modules/
@@ -85,6 +87,13 @@ cython_debug/
 *.swp
 *.swo
 *~
+
+# Agent tooling — local, per-tool state only. Agent instructions in this repo are
+# vendor-neutral (AGENTS.md + .agent-defs/); no tool-specific instruction files.
+.claude/
+.cursor/
+.aider*
+.github/copilot-instructions.md
 
 # OS
 .DS_Store

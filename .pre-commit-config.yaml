@@ -4,34 +4,38 @@
 # Run manually against everything:
 #   pre-commit run --all-files
 #
-# The hooks run ruff FROM backend/ (like CI's `working-directory: backend`), so
-# ruff's cwd-dependent first-party import detection matches CI exactly and the
-# ruff version comes from backend/pyproject.toml's dev dependency — nothing to
-# keep in sync here. `env -u VIRTUAL_ENV` drops any stale activated-venv var so
-# uv resolves backend/.venv cleanly without a warning. `pass_filenames: false`
-# lets ruff pick the files (`.` = the backend project); the hook only fires when
-# a backend .py is staged.
+# The hooks run ruff FROM THE REPO ROOT, matching CI. [tool.ruff] lives in the
+# root pyproject.toml, and its explicit src = ["curator-backend", "rfdb-core"] means
+# first-party import detection no longer depends on the working directory — so
+# there is nothing to keep in sync by cd-ing into a member. Running from the root
+# is also what brings rfdb-core/ and tests/ into scope.
+#
+# The ruff version comes from the curator-backend project's dev dependency, resolved
+# through the workspace's single root .venv. `env -u VIRTUAL_ENV` drops any stale
+# activated-venv var so uv resolves that venv cleanly without a warning.
+# `pass_filenames: false` lets ruff pick the files (`.` = the whole repo); each
+# hook only fires when a matching .py is staged.
 repos:
   - repo: local
     hooks:
       - id: ruff-check
-        name: ruff check (backend)
+        name: ruff check (workspace)
         language: system
-        entry: bash -c 'cd backend && env -u VIRTUAL_ENV uv run ruff check --fix .'
+        entry: bash -c 'env -u VIRTUAL_ENV uv run ruff check --fix .'
         pass_filenames: false
-        files: ^backend/.*\.py$
+        files: ^((curator|dataexplorer)-backend|rfdb-core|tests)/.*\.py$
       - id: ruff-format
-        name: ruff format (backend)
+        name: ruff format (workspace)
         language: system
-        entry: bash -c 'cd backend && env -u VIRTUAL_ENV uv run ruff format .'
+        entry: bash -c 'env -u VIRTUAL_ENV uv run ruff format .'
         pass_filenames: false
-        files: ^backend/.*\.py$
-      # Keep core.prefixes.PREFIXES (served by /api/meta/prefixes) in sync with
+        files: ^((curator|dataexplorer)-backend|rfdb-core|tests)/.*\.py$
+      # Keep rfdb_core.prefixes.PREFIXES (served by /api/meta/prefixes) in sync with
       # the @prefix declarations across the schema/data TTL files. Fires only
       # when a TTL or the curated map itself changes; the script picks the files.
       - id: prefix-map-check
-        name: prefix-map coverage (backend/core/prefixes.py vs TTL files)
+        name: prefix-map coverage (rfdb-core/rfdb_core/prefixes.py vs TTL files)
         language: system
-        entry: bash -c 'cd backend && env -u VIRTUAL_ENV uv run python scripts/check_prefixes.py'
+        entry: bash -c 'env -u VIRTUAL_ENV uv run python curator-backend/scripts/check_prefixes.py'
         pass_filenames: false
-        files: ^(schema/.*\.ttl|data/.*\.ttl|backend/core/prefixes\.py)$
+        files: ^(schema/.*\.ttl|data/.*\.ttl|rfdb-core/rfdb_core/prefixes\.py)$

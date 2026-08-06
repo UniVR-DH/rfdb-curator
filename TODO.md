@@ -11,10 +11,10 @@ on it; where an open task builds on something already shipped, that context is n
 
 - [ ] Auto-refresh entity lists (e.g. "has place" relations) when backend data changes behind the scenes.
 - [ ] Records pagination with a default page size of 20 (frontend side; pairs with cursor-based SPARQL pagination under [Backend](#backend)).
-- [x] Entity relationship graph visualization — **shipped** as the read-only Graph Explorer (`explorer/`): a schema-driven lineage/relationship graph over `GET /api/graph/node`, with search-seeded entry, expand-on-demand (pre-fetched link counts), and an "Open in Explorer" deep-link from the editor. Deliberately a *simple* read-only visualizer, consistent with [Non-Goals](#non-goals) ("provide complex graph visualization") — not an interactive graph editor.
-- [ ] Real-time validation — debounced SHACL checking on blur/change via `POST /api/validate`.
+- [x] Entity relationship graph visualization — **shipped** as the read-only Graph Explorer (`graphexplorer-frontend/`): a schema-driven lineage/relationship graph over `GET /api/v1/dataexplorer/graph/node`, with search-seeded entry, expand-on-demand (pre-fetched link counts), and an "Open in Explorer" deep-link from the editor. Deliberately a *simple* read-only visualizer, consistent with [Non-Goals](#non-goals) ("provide complex graph visualization") — not an interactive graph editor.
+- [ ] Real-time validation — debounced SHACL checking on blur/change via `POST /api/v1/curator/validate`.
 - [ ] Warn on duplicate `owl:sameAs`: when a same-as value is entered, check whether another record already has it and warn the user (needs a backend lookup).
-- [ ] Data Context Panel enhancements on top of the shipped read-only baseline (the panel plus its metadata API — `GET /api/meta/prefixes`, `GET /api/meta/graphs` with per-graph active/empty status, `GET /api/meta/files`):
+- [ ] Data Context Panel enhancements on top of the shipped read-only baseline (the panel plus its metadata API — `GET /api/v1/dataexplorer/meta/prefixes`, `GET /api/v1/dataexplorer/meta/graphs` with per-graph active/empty status, `GET /api/v1/dataexplorer/meta/files`):
   - [ ] Prefixes: per-entry `source` attribution (`schema` / `jsonld-context` / `runtime`); explicit prefix-drift warnings when mappings differ across schema, JSON-LD context, and runtime; copy Turtle prefix declaration / copy namespace IRI; search by prefix or namespace substring.
   - [ ] Phase 2 — operational guardrails: store health indicators, metadata freshness timestamp, schema/context mismatch diagnostics, actionable hints.
   - [ ] Phase 3 (optional, gated) — advanced operations: graph snapshot export, non-destructive graph diagnostics, controlled operational utilities. Keep the panel read-only in the baseline deployment; do not add delete/clear actions unless separately designed and approved.
@@ -27,7 +27,7 @@ on it; where an open task builds on something already shipped, that context is n
 
 - [ ] **REQUIRES BRAINSTORM + USER APPROVAL — optimize startup bulk load of large vocab files.**
   The ~38 MB `data/glottolog_language.ttl` is re-loaded via `POST /store` on every startup
-  ([backend/core/seeder.py](backend/core/seeder.py), [backend/core/oxigraph_client.py](backend/core/oxigraph_client.py) `load_turtle`).
+  ([curator-backend/core/seeder.py](curator-backend/core/seeder.py), [rfdb-core/rfdb_core/triplestore/oxigraph.py](rfdb-core/rfdb_core/triplestore/oxigraph.py) `load_turtle`).
   This is slow and previously timed out (mitigated for now by the configurable `OXIGRAPH_LOAD_TIMEOUT`,
   default 300s). Options to brainstorm: skip re-seeding when the graph already holds the vocab
   (idempotency check), one-time offline load into a persisted Oxigraph volume, Oxigraph
@@ -65,9 +65,9 @@ on it; where an open task builds on something already shipped, that context is n
 - [ ] Replace OFFSET-based pagination with cursor-based SPARQL pagination for large graphs.
 - [ ] **Investigate graph/explorer read-path performance (measure before optimizing).** Several
   unmeasured costs worth profiling: (a) `relation_predicates()` re-derives the relation-predicate
-  set from all shapes on every `GET /api/graph/node` call — memoizing it on `app.state` was
+  set from all shapes on every `GET /api/v1/dataexplorer/graph/node` call — memoizing it on `app.state` was
   considered but is of **dubious** benefit until measured, and would need to invalidate on schema
-  reload; (b) the explorer eagerly prefetches one `GET /api/graph/node` per collapsed node, so
+  reload; (b) the explorer eagerly prefetches one `GET /api/v1/dataexplorer/graph/node` per collapsed node, so
   expanding a high-degree hub fans out into many concurrent requests (browser-throttled, deduped,
   but chatty) — consider a concurrency cap or hover-gated prefetch; (c) that endpoint returns a
   node's full edge list even when the client only needs a link *count*, so a cheap degree/COUNT
@@ -76,10 +76,15 @@ on it; where an open task builds on something already shipped, that context is n
 - [ ] Smarter search ranking that favours edit distance without relying on a server-side cap or limit.
 - [ ] Bulk import (Excel/CSV → RDF).
 - [ ] Data export (RDF, JSON-LD, CSV) — the triples-only export, distinct from the full snapshot below.
+  **Already served at *resource* granularity:** `GET /rdf/data/{id}` returns any single
+  resource as Turtle, JSON-LD, RDF/XML or N-Triples (`?_mediatype=`, or an `Accept` header).
+  What remains here is *dataset* granularity — a whole graph or a shape's worth of entities in
+  one file — plus CSV, which the conneg layer deliberately does not do because a tabular
+  projection of a graph needs a chosen shape, not a serializer.
 - [ ] **REQUIRES BRAINSTORM — full snapshot export (schema + data + files).** A consistent,
   restorable export of the whole curated state — SHACL schema graph, the data graph(s), and the
   Garage-stored digital-copy blobs — not just a triples dump. Leaning toward a background export
-  script (`backend/scripts/`) producing versioned/timestamped snapshots rather than a UI feature.
+  script (`curator-backend/scripts/`) producing versioned/timestamped snapshots rather than a UI feature.
   Open questions: bundle format (tar of `schema.ttl` + `data.ttl`/`data.nq` + `files/` + a manifest
   linking digital-copy IRIs → blob keys); point-in-time consistency across Oxigraph + Garage
   (snapshot ordering / brief read lock vs. reconcile-after); trigger (cron via the existing
@@ -98,33 +103,55 @@ on it; where an open task builds on something already shipped, that context is n
   File-id minting is already race-safe (random 8-hex suffixes, never reused).
 - [ ] **FUTURE — storage.** Evaluate LanceDB for digital-copy storage once basic PDF upload (Garage)
   ships in production. Idea: store PDF text + page embeddings alongside blobs to make scanned
-  sources semantically searchable, not just downloadable. Kept low-risk by the `core/file_storage.py`
+  sources semantically searchable, not just downloadable. Kept low-risk by the `rfdb_core/file_storage.py`
   seam — a later, isolated swap. Trade-offs: embedded (no separate S3 service) and unlocks semantic
   search, but is not blob-first, has no S3 API, and needs an OCR/embedding pipeline.
-- [ ] **REQUIRES BRAINSTORM — decouple the backend from the triplestore so Oxigraph can be swapped.**
-  Today Oxigraph is reached directly via `backend/core/oxigraph_client.py` (HTTP SPARQL +
-  `load_turtle`) from routes and seeders. Introduce a `TripleStore` interface
-  (query / update / load / graph management) with Oxigraph as the first implementation — mirroring
-  the `core/file_storage.py` seam that already isolates Garage — so another store (Fuseki/Jena,
-  Blazegraph, GraphDB, Qlever, RDF4J, an embedded lib, …) can be dropped in via config. Open
-  questions: how much to lean on plain SPARQL 1.1 vs. per-store adapters; the bulk-load path (ties
-  into the startup bulk-load gap above); transaction/atomicity semantics that differ across stores;
-  and a conformance test suite each backend must pass.
+- [x] **DONE — decouple the services from the triplestore so Oxigraph can be swapped.**
+  The `TripleStore` seam ships in [rfdb-core/rfdb_core/triplestore/](rfdb-core/rfdb_core/triplestore/):
+  a runtime-checkable Protocol (`base.py`), `OxigraphStore` as the first implementation, and a
+  `build_triplestore(settings)` factory keyed on the `TRIPLESTORE` env var — so a second store is a
+  config change, not an edit to a handler. Both services reach the store only through
+  `app.state.store`; `oxigraph_client.py` is gone. The conformance suite this item asked for is
+  [tests/core/test_triplestore_contract.py](tests/core/test_triplestore_contract.py) (24 cases:
+  Protocol conformance, graph-scoping strings, transport request shape/parsing, plus a live
+  round-trip that skips without a store). Writing it found a real pre-existing bug: `construct()`
+  caught `rdflib.exceptions.Error`, but malformed Turtle raises `BadSyntax`, which derives from
+  `SyntaxError` — so the documented `ValueError` never fired.
+  Still open, and deliberately deferred until a second implementation is actually attempted:
+  - [ ] **Seam method naming.** The Protocol keeps today's names (`query`, `construct`, `update`,
+    `load_turtle`, `clear_store`, `health`, `from_clause`, `with_clause`, `graph`) because renaming
+    would touch ~20 call sites and ~12 test doubles for zero behavioural gain. Revisit when a store
+    with a different scoping model is added — that is the moment names get tested against reality
+    rather than taste. Candidates: `query` → `query_select` (it only does SELECT), `construct` →
+    `query_construct`, and replacing the raw `from_clause()`/`with_clause()` SPARQL fragments with a
+    scoping object. (Decision D6 of the modular-services refactor.)
+  - [ ] **Bulk-load path** — ties into the startup bulk-load item above; `load_turtle` currently
+    assumes the Graph Store Protocol.
+  - [ ] **Transaction/atomicity semantics** differ across stores and are not modelled by the seam.
+  - [ ] **How much to lean on plain SPARQL 1.1 vs. per-store adapters** — unanswerable until there
+    are two adapters.
 
 ---
 
 ## DevOps
 
 > Context — the digital-copy upload-first subsystem (staging → `registered/` promotion,
-> `core/file_storage.py`, `scripts/cleanup_files.py`, `GET /api/meta/files`) is shipped and
-> live-verified in dev. The first two items below cover its production deployment and operation.
+> `rfdb_core/file_storage.py`, `curator-backend/scripts/cleanup_files.py`, `GET /api/v1/dataexplorer/meta/files`)
+> is shipped and live-verified in dev. Note that after the writer/reader split the upload lands on
+> `curator-backend` and the **published** download on `dataexplorer-backend` — a copy becomes
+> published when a parent entity references it in RDF, never by which storage prefix holds its
+> bytes. Until then it is curator working state, previewable only via
+> `GET :8000/api/v1/curator/files/staged/{fileId}`. A file referenced in RDF but still under `staged/` means a
+> promotion did not complete: it still downloads, but with `X-RFDB-File-State: awaiting-promotion`
+> and a warning — treat that header as a signal the cleanup run below is overdue. The first two
+> items below cover production deployment and operation.
 
-- [ ] **OPERATIONAL — run the file-storage cleanup periodically:** `docker compose exec backend python scripts/cleanup_files.py` (add `--dry-run` to preview). Purges abandoned staged uploads (>24h), unreferenced registered files (>24h grace), and orphaned digital-copy nodes. The Data Context Panel "File storage" section shows when counts grow.
-- [ ] Production digital-copy storage: add `garage` to `docker-compose.prod.yml` (internal-only, hardened), a Caddy `request_body max_size`, and the matching DEV/DEPLOY/README docs. See [deployment.md](docs/deployment.md#production-deployment-work-in-progress).
+- [ ] **OPERATIONAL — run the file-storage cleanup periodically:** `docker compose exec curator-backend python scripts/cleanup_files.py` (add `--dry-run` to preview). Purges abandoned staged uploads (>24h), unreferenced registered files (>24h grace), and orphaned digital-copy nodes. The Data Context Panel "File storage" section shows when counts grow.
+- [x] **DONE — production digital-copy storage.** `garage` is in [docker-compose.prod.yml](docker-compose.prod.yml) on the `internal` network only (never on `edge`), with `read_only`, `no-new-privileges` and tmpfs hardening; [proxy/Caddyfile](proxy/Caddyfile) sets `request_body max_size {$RFDB_MAX_UPLOAD}` on the curator prefix, which is the only prefix that accepts uploads; the S3 wiring reaches both backends from one YAML anchor. Docs updated in [deployment.md](docs/deployment.md#production-deployment) (topology table + runbook) and this README. **Not yet deployed anywhere** — see the status note at that heading.
 - [ ] Investigate what dominates build/deploy time (backend especially) and whether it can be sped up.
 - [ ] Set up automated release to GitHub Releases and the GitHub package registry.
 - [ ] Verify versioning and commit tagging work with GitHub Actions (automatic release from tagged commits).
-- [ ] Configure Docker Compose for production: Caddy reverse proxy + TLS termination, internal-only triple/object stores. See the [production deployment plan](docs/deployment.md#production-deployment-work-in-progress).
+- [x] **DONE — Docker Compose configured for production.** Seven services in [docker-compose.prod.yml](docker-compose.prod.yml), with a `proxy` service running [proxy/Caddyfile](proxy/Caddyfile): one origin, automatic TLS from `{$RFDB_DOMAIN}`, and plain prefix rules per service (`/api/v1/curator/*` → writer, `/api/v1/dataexplorer/*` and `/rdf/*` → reader). Oxigraph and Garage are on the `internal` network only. Read-vs-full is a Compose profile in both files, asserted by [tests/core/test_compose_topology.py](tests/core/test_compose_topology.py). Runbook: [deployment.md](docs/deployment.md#production-deployment). **One gap remains:** log rotation for `app.jsonl` (Docker's `json-file` limits bound only stdout) — see [Remaining gap](docs/deployment.md#remaining-gap--log-rotation).
 
 ---
 
