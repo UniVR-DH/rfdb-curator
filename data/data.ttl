@@ -1,19 +1,28 @@
 @prefix cidoc: <http://www.cidoc-crm.org/cidoc-crm/> .
 @prefix core: <https://w3id.org/polifonia/ontology/core/> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
 @prefix lrmoo: <http://iflastandards.info/ns/lrm/lrmoo/> .
 @prefix mm: <https://w3id.org/polifonia/ontology/music-meta/> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix prism: <http://prismstandard.org/namespaces/basic/2.0/> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix rfdb: <https://rosfeatr.eu/rdf/data/> .
+@prefix schema: <http://schema.org/> .
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 @prefix source: <https://w3id.org/polifonia/ontology/source/> .
 @prefix wd: <http://www.wikidata.org/entity/> .
+@prefix wdt: <http://www.wikidata.org/prop/direct/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 # TEST FIXTURE DATA ONLY.
 # Canonical runtime vocabulary seeding is sourced from data/vocab.ttl.
+
+<http://glottolog.org/resource/languoid/id/ital1282> a dcterms:LinguisticSystem ;
+    rdfs:label "Italian"@en .
+
+<http://glottolog.org/resource/languoid/id/stan1295> a dcterms:LinguisticSystem ;
+    rdfs:label "German"@en .
 
 rfdb:LibrettoManoscritto a core:Type ;
     rdfs:label "Libretto Manoscritto"@en .
@@ -23,29 +32,61 @@ rfdb:LibrettoStampa a core:Type ;
 
 rfdb:Libretto_11 a lrmoo:F2_Expression ;
     rdfs:label "La *forza dell'amore e dell'odio"@en ;
-    core:hasAgentRole rfdb:AR_3 ;
-    cidoc:P148i_is_component_of rfdb:T11 .
+    cidoc:P148i_is_component_of rfdb:T11 ;
+    lrmoo:R76_is_derivative_of rfdb:Libretto_11d_expression ;
+    core:hasAgentRole rfdb:AR_3 .
 
 rfdb:Libretto_11_manifestation a lrmoo:F3_Manifestation ;
     rdfs:label "La *forza dell'amore e dell'odio printed manifestation"@en ;
+    rdfs:comment "Printed manifestation of the libretto expression for the musical work 'La *forza dell'amore e dell'odio'."^^xsd:string ;
     lrmoo:R4_embodies rfdb:Libretto_11 .
 
 rfdb:Libretto_11a a source:Source, lrmoo:F5_Item ;
     rdfs:label "La *forza dell'amore e dell'odio"@en ;
+    rdfs:seeAlso <https://primo.nlr.ru/permalink/f/df0lai/07NLR_LMS009858715> ;
     prism:publicationDate "1736"^^xsd:gYear ;
     dcterms:identifier "Rossica 13.8.5.44"^^xsd:string ;
+    dcterms:language <http://glottolog.org/resource/languoid/id/ital1282>,
+        <http://glottolog.org/resource/languoid/id/stan1295> ;
     lrmoo:R7_exemplifies rfdb:Libretto_11_manifestation ;
     cidoc:P51_has_former_or_current_owner rfdb:HO_1 ;
     core:hasPlace rfdb:Place_P1 ;
-    core:hasType rfdb:Libretto .
+    core:hasType rfdb:Libretto ;
+    dcterms:contributor rfdb:Contributor_1 ;
+    cidoc:P138i_has_representation rfdb:DigitalCopy_11a .
+
+rfdb:Libretto_11d_expression a lrmoo:F2_Expression ;
+    rdfs:label "La *forza dell'amore e dell'odio"@it ;
+    cidoc:P148i_is_component_of rfdb:T11 ;
+    core:hasAgentRole rfdb:AR_3 .
+
+rfdb:Libretto_11d_manifestation a lrmoo:F3_Manifestation ;
+    rdfs:label "La *forza dell'amore e dell'odio printed manifestation (1734, Milano)"@en ;
+    rdfs:comment "Printed manifestation of the libretto expression for the musical work 'La *forza dell'amore e dell'odio'."^^xsd:string ;
+    lrmoo:R4_embodies rfdb:Libretto_11d_expression .
+
+rfdb:Libretto_11d_item a source:Source, lrmoo:F5_Item ;
+    rdfs:label "La *forza dell'amore e dell'odio"@it ;
+    prism:publicationDate "1734"^^xsd:gYear ;
+    dcterms:identifier "Lo.00298"^^xsd:string ;
+    dcterms:language <http://glottolog.org/resource/languoid/id/ital1282> ;
+    core:text """LA / FORZA / DELL'AMORE, / E / DELL'ODIO / DRAMA / Da rappresentarsi del Regio Ducal / Teatro di Milano / SOTTO IL REALE PATROCINIO / DELLA / SACRA REALA MAESTA' / DI / CARLO EMANUELE / Rè di Sardegna, di Cipro, / di Gierusalemme, e / Duca &c. &c. &c. / Nel Carnovale dell'anno 1734. / IN MILANO, MDCCXXXIV / Nella R.D.C., Per Giuseppe Richino Malatesta / Stampatore Regio Camerale. / Con licenza de' Superiori."""@it ;
+    lrmoo:R7_exemplifies rfdb:Libretto_11d_manifestation ;
+    cidoc:P51_has_former_or_current_owner rfdb:HO_2 ;
+    core:hasPlace rfdb:Place_P2 ;
+    core:hasType rfdb:Libretto ;
+    dcterms:contributor rfdb:Contributor_1 ;
+    cidoc:P138i_has_representation rfdb:DigitalCopy_11d .
 
 rfdb:Person_1 a core:Person ;
     rdfs:label "Pallavicino, Stefano Benedetto"@en ;
-    owl:sameAs wd:Q321084 .
+    owl:sameAs wd:Q321084 ;
+    wdt:P214 <https://viaf.org/viaf/44588699> .
 
 rfdb:Person_3 a core:Person ;
     rdfs:label "Metastasio, Pietro"@en ;
-    owl:sameAs wd:Q29473 .
+    owl:sameAs wd:Q29473 ;
+    wdt:P214 <https://viaf.org/viaf/64192672> .
 
 rfdb:Place_P2 a core:Place ;
     rdfs:label "Milano"@en ;
@@ -57,11 +98,20 @@ rfdb:Traduttore a core:Role ;
 rfdb:Compositore a core:Role ;
     rdfs:label "Compositore"@en .
 
+rfdb:Cantante a core:Role ;
+    rdfs:label "Cantante"@it ;
+    skos:altLabel "Singer"@en .
+
 rfdb:HO_1 a core:Organization ;
-    rdfs:label "Rus-SPsc"@en ;
+    rdfs:label "Russian National Library"@en ;
     owl:sameAs wd:Q267566 ;
     core:hasPlace rfdb:Place_P1 ;
-    skos:altLabel "Russian National Library"@en .
+    skos:altLabel "Rus-SPsc"@en .
+
+rfdb:HO_2 a core:Organization ;
+    rdfs:label "Biblioteca Nazionale Braidense"@it ;
+    core:hasPlace rfdb:Place_P2 ;
+    skos:altLabel "I-Bc"@it .
 
 rfdb:Librettista a core:Role ;
     rdfs:label "Librettista"@en .
@@ -70,10 +120,11 @@ rfdb:Libretto a core:Type ;
     rdfs:label "Libretto"@en .
 
 rfdb:Person_2 a core:Person ;
-    rdfs:label "Prata, Franceso"@en .
+    rdfs:label "Prata, Francesco"@en .
 
 rfdb:Person_4 a core:Person ;
-    rdfs:label "Araja,Francesco"@en .
+    rdfs:label "Araja, Francesco"@en ;
+    wdt:P214 <https://viaf.org/viaf/100995617> .
 
 rfdb:Place_P1 a core:Place ;
     rdfs:label "San Pietroburgo"@en ;
@@ -82,6 +133,7 @@ rfdb:Place_P1 a core:Place ;
 rfdb:T11 a mm:MusicEntity, lrmoo:F1_Work ;
     rdfs:label "La *forza dell'amore e dell'odio"@en ;
     owl:sameAs wd:Q55064333 ;
+    dcterms:date "1734"^^xsd:gYear ;
     core:hasAgentRole rfdb:AR_1,
         rfdb:AR_2 .
 
@@ -96,5 +148,41 @@ rfdb:AR_2 a core:AgentRole ;
 rfdb:AR_3 a core:AgentRole ;
     core:hasAgent rfdb:Person_2 ;
     core:hasRole rfdb:Librettista .
+
+rfdb:Performance_1734 a lrmoo:F31_Performance ;
+    rdfs:label "La *forza dell'amore e dell'odio, Milano 1734"@en ;
+    lrmoo:R80_performed rfdb:T11 ;
+    dcterms:date "1734"^^xsd:gYear ;
+    core:hasPlace rfdb:Place_P2 ;
+    cidoc:P16_used_specific_object rfdb:Libretto_11d_manifestation .
+
+rfdb:Performance_1736 a lrmoo:F31_Performance ;
+    rdfs:label "La *forza dell'amore e dell'odio, San Pietroburgo 1736"@en ;
+    lrmoo:R80_performed rfdb:T11 ;
+    dcterms:date "1736"^^xsd:gYear ;
+    core:hasPlace rfdb:Place_P1 ;
+    cidoc:P16_used_specific_object rfdb:Libretto_11_manifestation .
+
+rfdb:Contributor_1 a foaf:Person ;
+    rdfs:label "Anna Giust"@en ;
+    foaf:name "Prof. Anna Giust"@en .
+
+# TEST DATA ONLY: placeholder digital copy, not a real scan.
+rfdb:DigitalCopy_11a a schema:DigitalDocument ;
+    rdfs:comment "Test copy: placeholder digital copy fixture, not a real scan."^^xsd:string ;
+    schema:name "libretto_11a_test.pdf"^^xsd:string ;
+    schema:encodingFormat "application/pdf" ;
+    schema:contentUrl "https://rosfeatr.eu/files/a1c9_example.pdf"^^xsd:anyURI ;
+    schema:contentSize "102400"^^xsd:integer ;
+    schema:sha256 "TEST-PLACEHOLDER-a1c9"^^xsd:string .
+
+# TEST DATA ONLY: placeholder digital copy, not a real scan.
+rfdb:DigitalCopy_11d a schema:DigitalDocument ;
+    rdfs:comment "Test copy: placeholder digital copy fixture, not a real scan."^^xsd:string ;
+    schema:name "libretto_11d_test.pdf"^^xsd:string ;
+    schema:encodingFormat "application/pdf" ;
+    schema:contentUrl "https://rosfeatr.eu/files/7f3e_example.pdf"^^xsd:anyURI ;
+    schema:contentSize "98304"^^xsd:integer ;
+    schema:sha256 "TEST-PLACEHOLDER-7f3e"^^xsd:string .
 
 

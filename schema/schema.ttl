@@ -16,7 +16,7 @@
 @prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
 @prefix source:  <https://w3id.org/polifonia/ontology/source/> .
 @prefix wdt:     <http://www.wikidata.org/prop/direct/> .
-@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .  
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
 
 # ================================
 # Shape for Place
@@ -181,6 +181,15 @@ rfdbs:ExpressionShape
     sh:class lrmoo:F1_Work ;
     sh:node rfdbs:MusicalWorkShape ;
     sh:description "The Musical Work this expression is a component of (e.g. the opera a libretto belongs to). Inverse of cidoc:P148_has_component; gives a single child→parent link direction across the WEMI chain." ;
+  ] ;
+  sh:property [
+    sh:path lrmoo:R76_is_derivative_of ;
+    sh:minCount 0 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:class lrmoo:F2_Expression ;
+    sh:node rfdbs:ExpressionShape ;
+    sh:description "Source expression this one derives from, e.g. a translated libretto's R76 is derivative of the original-language libretto (LRMoo R76 is derivative of / has derivative)." ;
   ] ;
   sh:property [
     sh:path skos:altLabel ;
@@ -411,7 +420,7 @@ rfdbs:DigitalCopyShape
     sh:minCount 1 ;
     sh:maxCount 1 ;
     sh:datatype xsd:anyURI ;
-    sh:description "Absolute, dereferenceable URL of the bytes: https://rosfeatr.eu/rdf/data/{fileId}/content." ;
+    sh:description "Stable backend-relative download path (/api/sources/{id}/files/{fileId})" ;
   ] ;
   sh:property [
     sh:path schema:contentSize ;
