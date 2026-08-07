@@ -168,6 +168,21 @@ export const apiClient = {
    */
   fileDownloadUrl: (fileId) => `${READ_BASE}/rdf/data/${encodeURIComponent(fileId)}/content`,
 
+  /**
+   * Browser URL for an entity's human-readable HTML description page —
+   * the same `/rdf/data/{id}` route content-negotiated for a browser instead
+   * of a client that sent an RDF `Accept` header. `iri` is always absolute
+   * (an entity id), so only the re-basing `resolveFileUrl` does for absolute
+   * `contentUrl`s applies; there is no staged-relative case here.
+   */
+  entityPageUrl: (iri) => {
+    try {
+      return `${READ_BASE}${new URL(iri).pathname}`
+    } catch {
+      return null
+    }
+  },
+
   /** Digital-copy storage stats (staged/registered/orphans) for the Data Context Panel. */
   getFileStats: () => readHttp.get(`${READ_API}/meta/files`).then((r) => r.data),
 

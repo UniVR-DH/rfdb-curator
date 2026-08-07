@@ -22,6 +22,19 @@
 }
 
 .inspector-id {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-focus);
+}
+
+/* Small "open the HTML entity page" icon-link next to the inspector id. */
+.inspector-page-link {
+  display: inline-flex;
+  color: var(--color-ambient-2);
+}
+
+.inspector-page-link:hover {
   color: var(--color-focus);
 }
 

@@ -22,10 +22,30 @@ import axios from 'axios'
 const BASE_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE ?? '')
 const API = '/api/v1/dataexplorer'
 
+// Absolute even in dev, unlike BASE_URL: this is used for a page navigation
+// (window location, not an axios call proxied by the Vite dev server), and the
+// dev server only proxies /api — not /rdf. Behind the production edge proxy,
+// /rdf/* lives on the same origin regardless of which frontend served the
+// page, so VITE_READ_API_BASE is built as "" there. See the equivalent
+// devnote in curator-frontend/src/api/client.js.
+const READ_BASE = import.meta.env.VITE_READ_API_BASE ?? 'http://localhost:8001'
+
 const http = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 })
+
+/**
+ * Browser URL for an entity's human-readable HTML description page
+ * (dataexplorer-backend's content-negotiated `/rdf/data/{id}`).
+ */
+export function entityPageUrl(iri) {
+  try {
+    return `${READ_BASE}${new URL(iri).pathname}`
+  } catch {
+    return null
+  }
+}
 
 export const api = {
   /** CURIE prefix → namespace map (hydrates compaction at startup). */

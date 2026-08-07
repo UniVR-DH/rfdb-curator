@@ -52,6 +52,10 @@ FROM development AS build
 # `environment:` entries. Empty API base = same origin, which is what the edge
 # proxy provides.
 ARG VITE_API_BASE=""
+# Entity-page link base — see the client.js devnote. Defaults to the dev
+# backend port so a plain `npm run build` still produces a working link;
+# docker-compose.prod.yml overrides this to "" (same-origin).
+ARG VITE_READ_API_BASE="http://localhost:8001"
 ARG VITE_APP_TITLE="RFDB Explorer"
 
 # The one arg the editor does not need. Production serves this app under a path
@@ -62,6 +66,7 @@ ARG VITE_APP_TITLE="RFDB Explorer"
 ARG VITE_BASE_PATH="/"
 
 ENV VITE_API_BASE=$VITE_API_BASE \
+    VITE_READ_API_BASE=$VITE_READ_API_BASE \
     VITE_APP_TITLE=$VITE_APP_TITLE \
     VITE_BASE_PATH=$VITE_BASE_PATH
 

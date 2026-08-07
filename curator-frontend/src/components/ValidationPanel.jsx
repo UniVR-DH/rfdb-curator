@@ -17,6 +17,7 @@
  */
 import { useEffect, useState } from 'react'
 import { apiClient } from '../api/client.js'
+import Icon from './Icon.jsx'
 import { compactIri } from '../utils/prefixes.js'
 import './ValidationPanel.css'
 
@@ -107,7 +108,19 @@ export default function ValidationPanel({ validation, record, onNavigate }) {
         <h3 className="inspector-title">Inspector</h3>
         {record ? (
           <>
-            <p className="inspector-id mono">{compactIri(record.id)}</p>
+            <p className="inspector-id mono">
+              {compactIri(record.id)}
+              <a
+                className="inspector-page-link"
+                href={apiClient.entityPageUrl(record.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open entity page"
+                aria-label="Open entity page"
+              >
+                <Icon name="FileText" size={13} />
+              </a>
+            </p>
             <p className="inspector-label">
               {record.label ??
                 entity?.triples?.find((t) => t.predicate === RDFS_LABEL)?.object ??

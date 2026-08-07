@@ -3,8 +3,32 @@
  * directions, click to jump), and any external-authority links. Relation rows
  * resolve the neighbour's label from the shared node map so they read naturally.
  */
+import { entityPageUrl } from '../api/client.js'
 import { compactIri } from '../utils/prefixes.js'
 import { kindColor, predicateLabel } from '../utils/types.js'
+
+// Minimal file/document glyph (lucide's "file-text" outline) — inline rather
+// than a dependency, since this is the only icon this app needs.
+function DocumentIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  )
+}
 
 export default function Inspector({ node, edges, nodesById, onSelectNeighbor, onHide, onClose }) {
   if (!node) return null
@@ -22,7 +46,19 @@ export default function Inspector({ node, edges, nodesById, onSelectNeighbor, on
           {node.typeLabel}
         </span>
         <h3 className="inspector-title">{node.label}</h3>
-        <div className="inspector-iri">{compactIri(node.id)}</div>
+        <div className="inspector-iri">
+          {compactIri(node.id)}
+          <a
+            className="inspector-page-link"
+            href={entityPageUrl(node.id)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open entity page"
+            aria-label="Open entity page"
+          >
+            <DocumentIcon />
+          </a>
+        </div>
       </div>
 
       <div className="inspector-body">

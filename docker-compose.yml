@@ -445,6 +445,15 @@ services:
       VITE_API_BASE: http://localhost:8001
       # Vite dev-server proxy target (inside Docker → service name, not localhost).
       VITE_PROXY_TARGET: http://dataexplorer-backend:8001
+      # ----------------------------------------------------------------------
+      # Entity-page link base (browser-facing) — dataexplorer-backend
+      # ----------------------------------------------------------------------
+      # Used to open an entity's HTML description page (/rdf/data/{id}) in a
+      # new tab from the Inspector. Absolute even in dev: the Vite dev server
+      # above proxies only /api, not /rdf, so a relative link would 404. Must
+      # be browser-reachable — localhost and the published port, matching
+      # VITE_READ_API_BASE in curator-frontend.
+      VITE_READ_API_BASE: http://localhost:8001
       # Branding only — the graphexplorer-frontend code is domain-agnostic.
       VITE_APP_TITLE: RFDB Explorer
     volumes:

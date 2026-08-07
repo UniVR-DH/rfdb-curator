@@ -287,6 +287,14 @@ services:
         # reader on whatever domain served this bundle, so no absolute base and
         # no CORS.
         VITE_API_BASE: ""
+        # Same reasoning: /rdf/* is routed to the reader on this same domain
+        # (proxy/Caddyfile), regardless of which frontend served the page, so
+        # the entity-page link needs no absolute base either. Must be set
+        # explicitly even to "" — the client's fallback is
+        # http://localhost:8001, and an unset arg would ship a production
+        # bundle whose "open entity page" link points at the visitor's own
+        # machine.
+        VITE_READ_API_BASE: ""
         VITE_APP_TITLE: "${VITE_APP_TITLE:-RFDB Explorer}"
         # Served under a path, and Vite bakes asset URLs against `base`. Set to
         # "/" for a read-only host that serves the explorer at the root.

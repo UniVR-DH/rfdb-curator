@@ -421,11 +421,25 @@ body {
 }
 
 .inspector-iri {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-dim);
   word-break: break-all;
   margin-top: 4px;
+}
+
+/* Small "open the HTML entity page" icon-link next to the inspector iri. */
+.inspector-page-link {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-dim);
+}
+
+.inspector-page-link:hover {
+  color: var(--slate);
 }
 
 .inspector-body {
