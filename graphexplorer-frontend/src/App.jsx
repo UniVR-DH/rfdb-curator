@@ -18,7 +18,7 @@ import GraphView from './components/GraphView.jsx'
 import Inspector from './components/Inspector.jsx'
 import SourcePicker from './components/SourcePicker.jsx'
 import { compactIri, hydratePrefixes } from './utils/prefixes.js'
-import { entityKind, hydrateSchema, predicateLabel } from './utils/types.js'
+import { entityKind, hydrateSchema, isBridgeType, predicateLabel } from './utils/types.js'
 
 // Deployment-branding only; the code itself is domain-agnostic.
 const APP_TITLE = import.meta.env.VITE_APP_TITLE || 'Graph Explorer'
@@ -30,6 +30,7 @@ function stubNode(id) {
     types: [],
     kind: null,
     typeLabel: 'Entity',
+    isBridge: false,
     expanded: false,
     loading: false,
     edgeCount: null, // null = link count not known yet; a number (incl. 0) once fetched
@@ -88,6 +89,7 @@ export default function App() {
         types: data.types,
         kind: kind.kind,
         typeLabel: kind.label,
+        isBridge: isBridgeType(data.types),
         loading: false,
         edgeCount: data.edges.length,
         truncated: !!data.truncated,
@@ -105,6 +107,7 @@ export default function App() {
               types: nb.types,
               kind: nk.kind,
               typeLabel: nk.label,
+              isBridge: isBridgeType(nb.types),
               expanded: false,
               loading: false,
               edgeCount: null,
@@ -194,6 +197,7 @@ export default function App() {
             types: meta.types || [],
             kind: kind.kind,
             typeLabel: kind.label,
+            isBridge: isBridgeType(meta.types || []),
             expanded: false,
             loading: false,
             edgeCount: null,

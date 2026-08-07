@@ -33,14 +33,27 @@ const nodeTypes = { entity: EntityNode }
 const EDGE_DEFAULT = '#c7bfb0'
 const EDGE_ACTIVE = '#6b4c7a'
 
-function toData(model, selectedId, onExpand) {
+// `model.edgeCount` is the entity's total incident-edge count from the API — it
+// includes the edge that already brought this node onto the canvas (drawn when
+// its parent was expanded). The expand button/badge should only advertise links
+// still worth revealing, so we subtract edges already present in the rendered
+// graph (`edges`) to get `pendingCount`.
+function toData(model, edges, selectedId, onExpand) {
+  const incident = edges.reduce(
+    (n, e) => n + (e.source === model.id || e.target === model.id ? 1 : 0),
+    0
+  )
+  const pendingCount =
+    typeof model.edgeCount === 'number' ? Math.max(0, model.edgeCount - incident) : null
   return {
     label: model.label,
     kind: model.kind,
     typeLabel: model.typeLabel,
+    isBridge: model.isBridge,
     expanded: model.expanded,
     loading: model.loading,
     edgeCount: model.edgeCount,
+    pendingCount,
     truncated: model.truncated,
     selected: model.id === selectedId,
     onExpand,
@@ -105,7 +118,7 @@ export default function GraphView({ nodes, edges, selectedId, onSelect, onExpand
         id: n.id,
         type: 'entity',
         position: positions.current.get(n.id) || { x: 0, y: 0 },
-        data: toData(n, selectedId, onExpand),
+        data: toData(n, edges, selectedId, onExpand),
       }))
 
     const fresh = nodes.filter((n) => !positions.current.has(n.id))
@@ -147,7 +160,7 @@ export default function GraphView({ nodes, edges, selectedId, onSelect, onExpand
     setRfNodes((cur) =>
       cur.map((rn) => {
         const model = nodes.find((n) => n.id === rn.id)
-        return model ? { ...rn, data: toData(model, selectedId, onExpand) } : rn
+        return model ? { ...rn, data: toData(model, edges, selectedId, onExpand) } : rn
       })
     )
     setRfEdges((cur) => cur.map((re) => styleEdge(re, selectedId)))

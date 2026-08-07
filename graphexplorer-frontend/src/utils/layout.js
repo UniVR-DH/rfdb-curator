@@ -12,6 +12,13 @@ const elk = new ELK()
 const NODE_W = 220
 const NODE_H = 92
 
+// Bridge badges (EntityNode's compact variant for helper-bridge entities) are
+// much smaller than a full card — sizing elk's slot for them to match is what
+// actually reclaims canvas space; leaving NODE_W/NODE_H here would still
+// space them out as if they were full cards.
+const BRIDGE_W = 90
+const BRIDGE_H = 34
+
 const LAYOUT_OPTIONS = {
   'elk.algorithm': 'force',
   'elk.force.iterations': '120',
@@ -28,7 +35,11 @@ export async function applyElkLayout(nodes, edges) {
   const graph = {
     id: 'root',
     layoutOptions: LAYOUT_OPTIONS,
-    children: nodes.map((n) => ({ id: n.id, width: NODE_W, height: NODE_H })),
+    children: nodes.map((n) => ({
+      id: n.id,
+      width: n.data?.isBridge ? BRIDGE_W : NODE_W,
+      height: n.data?.isBridge ? BRIDGE_H : NODE_H,
+    })),
     edges: edges.map((e, i) => ({
       id: e.id || `e${i}`,
       sources: [e.source],

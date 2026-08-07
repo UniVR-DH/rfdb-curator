@@ -17,14 +17,20 @@ import { localName } from './prefixes.js'
 let typeLabels = new Map()
 /** @type {Map<string,string>} full predicate URI -> human label (property sh:name). */
 let predLabels = new Map()
+/** @type {Set<string>} full class URIs targeted by a helper-bridge shape (no own rdfs:label). */
+let bridgeTypes = new Set()
 
 /** Build the label maps from `GET /api/v1/dataexplorer/shapes` (call once at startup). */
 export function hydrateSchema(shapes = []) {
   typeLabels = new Map()
   predLabels = new Map()
+  bridgeTypes = new Set()
   for (const shape of shapes) {
     if (shape.targetClassUri && shape.label) {
       typeLabels.set(shape.targetClassUri, shape.label)
+    }
+    if (shape.targetClassUri && shape.shapeRole === 'helper-bridge') {
+      bridgeTypes.add(shape.targetClassUri)
     }
     for (const prop of shape.properties || []) {
       if (prop.pathUri && prop.name && !predLabels.has(prop.pathUri)) {
@@ -51,6 +57,18 @@ export function entityKind(types = []) {
   const t = primaryType(types)
   if (!t) return { kind: null, label: 'Entity' }
   return { kind: t, label: typeLabels.get(t) || localName(t) }
+}
+
+/**
+ * Whether a node is a helper-bridge entity (schema's shape-role policy: a
+ * shape with no `rdfs:label` property, existing only to connect other
+ * entities — e.g. `AgentRole`). Its own id/CURIE is never worth showing, so
+ * the graph renders it as a small badge instead of a full card.
+ *
+ * @param {string[]} types - Full RDF class URIs.
+ */
+export function isBridgeType(types = []) {
+  return types.some((t) => bridgeTypes.has(t))
 }
 
 /**

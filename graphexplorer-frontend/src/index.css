@@ -331,14 +331,6 @@ body {
   color: var(--text-dim);
 }
 
-.entity-node__count {
-  display: inline-block;
-  margin-top: 4px;
-  font-size: 11px;
-  color: var(--plum);
-  font-weight: 600;
-}
-
 .entity-node__expand {
   display: block;
   width: 100%;
@@ -379,6 +371,54 @@ body {
   text-transform: uppercase;
   color: var(--text-dim);
   opacity: 0.65;
+}
+
+/* Bridge badge — the compact form for a helper-bridge entity (e.g. AgentRole):
+   no card, no id/CURIE text, just a coloured pill naming the type. */
+.entity-node--bridge {
+  width: auto;
+  background: none;
+  border: none;
+  overflow: visible;
+}
+
+.entity-node--bridge.selected .entity-node__bridge {
+  box-shadow: 0 0 0 3px rgba(107, 76, 122, 0.35);
+}
+
+.entity-node__bridge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--parchment);
+  white-space: nowrap;
+}
+
+.entity-node__bridge-hint {
+  opacity: 0.8;
+  font-weight: 600;
+}
+
+.entity-node__bridge-expand {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.18);
+  border: none;
+  border-radius: 999px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+
+.entity-node__bridge-expand:hover {
+  background: rgba(0, 0, 0, 0.32);
 }
 
 /* ── Inspector ───────────────────────────────────────────────────── */
