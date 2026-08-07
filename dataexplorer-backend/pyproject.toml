@@ -4,10 +4,11 @@ version = "0.1.0"
 description = "FastAPI read backend for RossijskijFeatrDB: queries and Linked Data publishing, never writes"
 requires-python = ">=3.11"
 
-# Notably absent, and deliberately so: pyshacl (validation is a write concern),
-# python-multipart (no uploads — downloads stream out, nothing comes in) and
-# pypdf (page counts are derived once, on write). If any of these turns up here,
-# a write concern has leaked into the read service.
+# Notably absent from *runtime*, and deliberately so: pyshacl (validation is a
+# write concern), python-multipart (no uploads — downloads stream out, nothing
+# comes in) and pypdf (page counts are derived once, on write). If any of these
+# turns up here, a write concern has leaked into the read service. (pypdf is a
+# dev-group dependency below, for fixture construction only — see that note.)
 dependencies = [
     # [web] pulls in rfdb_core.app_factory's fastapi requirement — the shared
     # CORS / access-log / storage-error wiring this service's app.py calls.
@@ -29,10 +30,18 @@ rfdb-core = { workspace = true }
 [dependency-groups]
 # httpx2: see the note in curator-backend/pyproject.toml — TestClient's preferred
 # transport, dev-only, and not a replacement for the `httpx` pin above.
+#
+# pypdf: test_digital_copies_read.py builds real PDF bytes for fixtures (see
+# `_make_pdf`) even though the read service itself never parses one. A dev-group
+# pin gets it into this member's test environment without reaching
+# requirements.txt or the Docker image — see the runtime-dependencies comment
+# above. Pinned to the same version as curator-backend's runtime dependency;
+# the workspace resolver requires one version per package across all members.
 dev = [
     "pytest==9.1.1",
     "ruff==0.16.1",
     "httpx2==2.9.1",
+    "pypdf==6.14.2",
 ]
 
 # NOTE: [tool.ruff] lives in the repo-root pyproject.toml — one lint config for

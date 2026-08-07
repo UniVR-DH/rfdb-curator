@@ -71,9 +71,10 @@ class _FakeStore:
 def _make_pdf(pages: int = 1) -> bytes:
     """Return valid PDF bytes with the given number of blank pages.
 
-    pypdf is a *curator* dependency (page counts are derived once, on write), so
-    it is imported lazily here and only for fixture construction — the read
-    service never parses a PDF.
+    pypdf is a *curator* runtime dependency (page counts are derived once, on
+    write); dataexplorer-backend only pulls it into its dev dependency group,
+    for fixture construction, so it is imported lazily here — the read service
+    itself never parses a PDF.
     """
     from pypdf import PdfWriter
 
