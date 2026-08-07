@@ -169,7 +169,7 @@ services:
       # Set false only if you are managing vocabulary loading manually.
       SEED_VOCAB_ON_STARTUP: "true"
       # Test fixture data — dev/test only, must be false in production.
-      SEED_TEST_DATA_ON_STARTUP: "false"
+      SEED_TEST_DATA_ON_STARTUP: "${SEED_TEST_DATA_ON_STARTUP:-false}"
       # Object storage (Garage) for source PDF scans. garage-internal hostname;
       # creds are the predefined key imported by scripts/garage-init.sh.
       S3_ENDPOINT: "http://garage:3900"

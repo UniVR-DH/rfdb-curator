@@ -173,7 +173,10 @@ export default function DataContextPanel() {
       <section className="dc-section">
         <h3 className="dc-section-title">Digital copies</h3>
         {fileStats == null ? (
-          <p className="dc-muted">Storage stats unavailable.</p>
+          <p className="dc-muted">
+            Storage stats unavailable — ask an administrator to verify the storage service
+            is correctly initialized.
+          </p>
         ) : !fileStats.configured ? (
           <p className="dc-muted">File storage is not configured.</p>
         ) : (
