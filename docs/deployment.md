@@ -340,14 +340,6 @@ healthchecks, and the curator's `/health` payload includes a seed report, which 
 information. Then confirm from **outside** the host that 7878/8000/8001/5173 are
 unreachable.
 
-### Remaining gap — log rotation
-
-`/app/logs/app.jsonl` in each backend's logs volume is **not rotated**. Docker's `json-file`
-`max-size`/`max-file` (set on every service) bounds only captured stdout/stderr, not the
-app's own file log, so that file grows without limit. Two ways out, neither built: an
-in-volume rotation job, or switching the file logger to stdout and letting Docker's rotation
-handle it. The second is simpler and loses the structured file in a named volume.
-
 ### Ongoing operations (once live)
 
 - **Redeploy after code changes**: `git pull`, then repeat [step 4](#4-bootstrap-and-start)

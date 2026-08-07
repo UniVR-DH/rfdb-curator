@@ -120,6 +120,12 @@ The API is split by responsibility: `curator-backend` is the only service that
 mutates the store. `dataexplorer-backend` answers every read and can run without
 the writer at all.
 
+A third user-facing surface lives inside `dataexplorer-backend` rather than as its own
+service: visiting an entity's IRI in a browser — e.g.
+<http://localhost:8001/rdf/data/{local_name}> — renders an HTML description page (labels,
+properties, outbound/inbound links). The same URL serves Turtle, JSON-LD, RDF/XML or
+N-Triples to a non-browser client via content negotiation; see [API Reference](#api-reference).
+
 Startup seeding, data-reset modes, and the full environment-variable reference live in the [development & testing deployment guide](docs/deployment.md#development--testing-deployment).
 
 ---
@@ -187,7 +193,7 @@ The core of the schema-driven pipeline is a handful of endpoints, split by which
 | `POST` | `/api/v1/curator/entities` | curator | Create or update an entity (JSON-LD → SHACL validate → Turtle load) |
 | `POST` | `/api/v1/curator/validate` | curator | Dry-run SHACL validation without persisting |
 | `GET` | `/api/v1/dataexplorer/entities/get?id=<iri>` | dataexplorer | All triples for one entity, in the editor's JSON shape |
-| `GET` | `/rdf/data/{id}` | dataexplorer | The same entity as **RDF**, content-negotiated (Turtle / JSON-LD / RDF-XML / N-Triples) |
+| `GET` | `/rdf/data/{id}` | dataexplorer | The same entity, content-negotiated: **HTML** for a browser, or Turtle / JSON-LD / RDF-XML / N-Triples otherwise |
 
 Two URL spaces, deliberately: `/rdf/…` holds the **data** — public, permanent, unversioned identifiers that are stored inside triples and can never move — while `/api/v1/{service}/…` is this project's own operational surface, named after whichever service owns it so no path ever means two things.
 
@@ -207,7 +213,7 @@ The root README is the entry point (overview, setup, schema, API, configuration)
 | [docs/data-model.md](docs/data-model.md) | Modeling principles and design decisions: the vocabularies used and for what, WEMI layering, the bridge-node pattern, and the literal/language/date/IRI policies. Per-shape fields live in `schema/schema.ttl`. |
 | [docs/architecture.md](docs/architecture.md) | System design: the schema-driven pipeline, the writer/reader service split and what each owns, the API endpoint reference, SHACL extraction, validation and delete behavior, the metadata API, and the storage stack. |
 | [docs/development.md](docs/development.md) | Development workflow: environment setup, code quality, CI, schema and data change workflows, troubleshooting, and the commit checklist. |
-| [docs/deployment.md](docs/deployment.md) | Deployment & operations: the development/testing configuration, data-reset modes, and seed sources; the read-vs-full deploy modes; plus the production runbook, its complete-but-never-deployed status, and the remaining log-rotation gap. |
+| [docs/deployment.md](docs/deployment.md) | Deployment & operations: the development/testing configuration, data-reset modes, and seed sources; the read-vs-full deploy modes; plus the production runbook and its complete-but-never-deployed status. |
 
 The live task list lives in the root `TODO.md`.
 

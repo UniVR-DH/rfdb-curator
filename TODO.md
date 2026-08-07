@@ -11,7 +11,6 @@ on it; where an open task builds on something already shipped, that context is n
 
 - [ ] Auto-refresh entity lists (e.g. "has place" relations) when backend data changes behind the scenes.
 - [ ] Records pagination with a default page size of 20 (frontend side; pairs with cursor-based SPARQL pagination under [Backend](#backend)).
-- [x] Entity relationship graph visualization — **shipped** as the read-only Graph Explorer (`graphexplorer-frontend/`): a schema-driven lineage/relationship graph over `GET /api/v1/dataexplorer/graph/node`, with search-seeded entry, expand-on-demand (pre-fetched link counts), and an "Open in Explorer" deep-link from the editor. Deliberately a *simple* read-only visualizer, consistent with [Non-Goals](#non-goals) ("provide complex graph visualization") — not an interactive graph editor.
 - [ ] Real-time validation — debounced SHACL checking on blur/change via `POST /api/v1/curator/validate`.
 - [ ] Warn on duplicate `owl:sameAs`: when a same-as value is entered, check whether another record already has it and warn the user (needs a backend lookup).
 - [ ] Data Context Panel enhancements on top of the shipped read-only baseline (the panel plus its metadata API — `GET /api/v1/dataexplorer/meta/prefixes`, `GET /api/v1/dataexplorer/meta/graphs` with per-graph active/empty status, `GET /api/v1/dataexplorer/meta/files`):
@@ -97,15 +96,17 @@ on it; where an open task builds on something already shipped, that context is n
 
 - [ ] **FUTURE — multi-user editing.** The editor assumes a single concurrent curator. No optimistic
   locking or transactions: concurrent edits to the same entity can interleave (delete-then-insert
-  update flow in `api/data.py`), and cross-store operations (Oxigraph triples + Garage objects) are
-  not atomic. Needed before multiple curators work simultaneously: conflict detection (e.g.
-  ETag/version triple per entity) and a saga/compensation pattern for file-upload + triple-write.
-  File-id minting is already race-safe (random 8-hex suffixes, never reused).
+  update flow in `curator-backend/api/data.py`), and cross-store operations (Oxigraph triples +
+  Garage objects) are not atomic. Needed before multiple curators work simultaneously: conflict
+  detection (e.g. ETag/version triple per entity) and a saga/compensation pattern for
+  file-upload + triple-write. File-id minting is already race-safe (random 8-hex suffixes,
+  never reused).
 - [ ] **FUTURE — storage.** Evaluate LanceDB for digital-copy storage once basic PDF upload (Garage)
   ships in production. Idea: store PDF text + page embeddings alongside blobs to make scanned
-  sources semantically searchable, not just downloadable. Kept low-risk by the `rfdb_core/file_storage.py`
-  seam — a later, isolated swap. Trade-offs: embedded (no separate S3 service) and unlocks semantic
-  search, but is not blob-first, has no S3 API, and needs an OCR/embedding pipeline.
+  sources semantically searchable, not just downloadable. Kept low-risk by the
+  `rfdb-core/rfdb_core/file_storage.py` seam — a later, isolated swap. Trade-offs: embedded (no
+  separate S3 service) and unlocks semantic search, but is not blob-first, has no S3 API, and
+  needs an OCR/embedding pipeline.
 - [x] **DONE — decouple the services from the triplestore so Oxigraph can be swapped.**
   The `TripleStore` seam ships in [rfdb-core/rfdb_core/triplestore/](rfdb-core/rfdb_core/triplestore/):
   a runtime-checkable Protocol (`base.py`), `OxigraphStore` as the first implementation, and a
@@ -136,7 +137,7 @@ on it; where an open task builds on something already shipped, that context is n
 ## DevOps
 
 > Context — the digital-copy upload-first subsystem (staging → `registered/` promotion,
-> `rfdb_core/file_storage.py`, `curator-backend/scripts/cleanup_files.py`, `GET /api/v1/dataexplorer/meta/files`)
+> `rfdb-core/rfdb_core/file_storage.py`, `curator-backend/scripts/cleanup_files.py`, `GET /api/v1/dataexplorer/meta/files`)
 > is shipped and live-verified in dev. Note that after the writer/reader split the upload lands on
 > `curator-backend` and the **published** download on `dataexplorer-backend` — a copy becomes
 > published when a parent entity references it in RDF, never by which storage prefix holds its
@@ -151,7 +152,6 @@ on it; where an open task builds on something already shipped, that context is n
 - [ ] Investigate what dominates build/deploy time (backend especially) and whether it can be sped up.
 - [ ] Set up automated release to GitHub Releases and the GitHub package registry.
 - [ ] Verify versioning and commit tagging work with GitHub Actions (automatic release from tagged commits).
-- [x] **DONE — Docker Compose configured for production.** Seven services in [docker-compose.prod.yml](docker-compose.prod.yml), with a `proxy` service running [proxy/Caddyfile](proxy/Caddyfile): one origin, automatic TLS from `{$RFDB_DOMAIN}`, and plain prefix rules per service (`/api/v1/curator/*` → writer, `/api/v1/dataexplorer/*` and `/rdf/*` → reader). Oxigraph and Garage are on the `internal` network only. Read-vs-full is a Compose profile in both files, asserted by [tests/core/test_compose_topology.py](tests/core/test_compose_topology.py). Runbook: [deployment.md](docs/deployment.md#production-deployment). **One gap remains:** log rotation for `app.jsonl` (Docker's `json-file` limits bound only stdout) — see [Remaining gap](docs/deployment.md#remaining-gap--log-rotation).
 
 ---
 
