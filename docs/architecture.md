@@ -289,20 +289,29 @@ Vite proxy rule sends all of `/api` to
 knowledge of the curator. That is what makes it the outage-resilient surface: it keeps working
 with the write tier stopped.
 
-**`curator-frontend` (:5173)** — needs both. The split *used* to defeat the dev proxy: `GET` and
-`DELETE /api/data/{id}` were the same path on different services, and Vite's proxy keys on path
-prefixes, so no rule could separate them. Naming the owner in the path removed that collision, so
-a single prefix rule now could route both. The client keeps two bases anyway, because it makes the
-two upstreams visible in the Network tab and exercises the same cross-origin path production uses:
+**`curator-frontend` (:5173)** — talks to both tiers, over one origin. The split *used* to defeat
+the dev proxy: `GET` and `DELETE /api/data/{id}` were the same path on different services, and
+Vite's proxy keys on path prefixes, so no rule could separate them. Naming the owner in the path
+removed that collision, and the dev server now routes both by prefix — the same three rules
+`proxy/Caddyfile` applies in production:
 
-| | Base | Dev behaviour |
+| | Prefix | Dev routing |
 |---|---|---|
-| Writes + writer-only reads | `VITE_API_BASE` | Relative (`''`) → through the Vite proxy to `curator-backend:8000` |
-| All other reads | `VITE_READ_API_BASE` | **Absolute even in dev** (`http://localhost:8001`) → straight to the reader from the browser |
+| Writes + writer-only reads | `/api/v1/curator/*` | Vite proxy → `curator-backend:8000` |
+| Operational reads | `/api/v1/dataexplorer/*` | Vite proxy → `dataexplorer-backend:8001` |
+| The data space (entity pages, file content) | `/rdf/*` | Vite proxy → `dataexplorer-backend:8001` |
 
-Making only the production base configurable would have silently kept every dev read on the
-writer, where those routes do not exist. Going direct works because `dataexplorer-backend`'s
-`CORS_ORIGINS` allows the dev-server origins.
+Both bases (`VITE_API_BASE`, `VITE_READ_API_BASE`) are therefore relative in dev *and* in
+production, and that is the property worth protecting: **no browser-facing value names a host**, so
+one config runs on localhost, on a LAN IP, through an SSH tunnel, or behind a domain, and the app's
+own frontends need no `CORS_ORIGINS` entry at all.
+
+`VITE_READ_API_BASE` was absolute in dev for a long time after the collision that required it was
+gone, kept for Network-tab visibility. The bill arrived the first time the stack ran anywhere but
+`localhost`: a remote dev host served the bundle, the browser resolved every read against *its own*
+machine, and the editor reported `Failed to load shapes: Network Error`. Set a non-empty base only
+for a deployment whose reader genuinely sits on another origin — which then needs the matching
+`CORS_ORIGINS` entry on that reader.
 
 Two consequences worth knowing:
 

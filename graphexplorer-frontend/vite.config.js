@@ -1,15 +1,21 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Read-only Explorer dev server. The browser only ever talks to this origin, so
-// CORS is a non-issue in dev: the Vite server (Node) proxies /api onward.
+// Read-only Explorer dev server. The browser only ever talks to this origin —
+// the Vite server (Node) proxies both prefixes onward — so CORS is a non-issue
+// in dev and nothing browser-facing has to name the host.
 //
-// Unlike the editor, a single proxy rule is sufficient here — the explorer issues
-// nothing but reads, so every route it uses lives on dataexplorer-backend. The
-// editor needs two bases precisely because it mixes reads and writes over the
-// same paths; see the devnote in curator-frontend/src/api/client.js.
+// Both prefixes share one upstream, because everything this app touches is a
+// read. They stay separate rules because they are separate contracts (the same
+// two proxy/Caddyfile routes): /api/v1/dataexplorer is the versioned
+// operational surface, /rdf is the public permanent data space.
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+
+  // Evaluated by the Vite dev server (Node), not the browser — so this uses the
+  // Docker service name. Override with VITE_PROXY_TARGET when running the
+  // backend elsewhere (e.g. http://localhost:8001 on host).
+  const read = env.VITE_PROXY_TARGET || 'http://dataexplorer-backend:8001'
 
   return {
     plugins: [react()],
@@ -22,13 +28,9 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5174,
       proxy: {
-        '/api': {
-          // Evaluated by the Vite dev server (Node), not the browser — so this
-          // uses the Docker service name. Override with VITE_PROXY_TARGET when
-          // running the backend elsewhere (e.g. http://localhost:8001 on host).
-          target: env.VITE_PROXY_TARGET || 'http://dataexplorer-backend:8001',
-          changeOrigin: true,
-        },
+        '/api': { target: read, changeOrigin: true },
+        // Entity HTML pages and file content, reached by page navigation.
+        '/rdf': { target: read, changeOrigin: true },
       },
     },
   }

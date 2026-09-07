@@ -126,10 +126,10 @@ export default function ValidationPanel({ validation, record, onNavigate }) {
                 entity?.triples?.find((t) => t.predicate === RDFS_LABEL)?.object ??
                 'Untitled record'}
             </p>
-            {import.meta.env.VITE_EXPLORER_BASE && (
+            {apiClient.explorerRecordUrl(record.id) && (
               <a
                 className="triple-link inspector-explorer-link"
-                href={`${import.meta.env.VITE_EXPLORER_BASE}/?id=${encodeURIComponent(record.id)}`}
+                href={apiClient.explorerRecordUrl(record.id)}
                 target="_blank"
                 rel="noopener noreferrer"
               >

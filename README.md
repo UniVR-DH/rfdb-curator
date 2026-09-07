@@ -258,11 +258,11 @@ rfdb-curator/
 ├── curator-frontend/
 │   ├── src/                      # React components, API client, JSON-LD/prefix utils
 │   ├── Dockerfile
-│   ├── vite.config.js            # Dev server + write proxy (/api → curator-backend:8000)
-│   └── package.json               #   reads go direct to :8001 (VITE_READ_API_BASE)
+│   ├── vite.config.js            # Dev server + proxy: /api/v1/curator → :8000,
+│   └── package.json               #   /api/v1/dataexplorer + /rdf → :8001
 │
 ├── graphexplorer-frontend/       # Standalone read-only graph visualizer (own Vite app;
-│                                 #   proxies /api → dataexplorer-backend:8001)
+│                                 #   proxies /api + /rdf → dataexplorer-backend:8001)
 │
 ├── schema/schema.ttl             # Active SHACL schema (source of truth)
 ├── data/                         # vocab.ttl (controlled vocabulary) + data.ttl (test fixtures)

@@ -11,14 +11,21 @@
  * fails with a clean 404 rather than a 405 from a path that exists on both
  * services for different methods.
  *
- * devnote: `READ_BASE` is **absolute even in dev**, unlike `BASE_URL`. That began
- * as a workaround — `GET` and `DELETE /api/data/{id}` were the same path on
- * different services, so Vite's prefix-keyed proxy could not split them. D8
- * removed that collision, so a single relative `/api` proxy *could* now route both
- * by prefix. Keeping the absolute read base anyway: it makes the two upstreams
- * visible in the Network tab, and it is what production does, so dev exercises the
- * same cross-origin path (which is why dataexplorer's CORS_ORIGINS lists the dev
- * server).
+ * Both bases are **relative in dev and in production**, deliberately: every
+ * request goes to the origin that served the page, so nothing browser-facing
+ * names a host and one config runs on localhost, on an IP, through an SSH
+ * tunnel, or behind a domain. Routing lives where hostnames are stable — the
+ * Vite dev server's proxy (vite.config.js) and proxy/Caddyfile in prod, which
+ * split the identical prefixes.
+ *
+ * `READ_BASE` used to be absolute even in dev, working around `GET` and
+ * `DELETE /api/data/{id}` being the same path on two services — which a
+ * prefix-keyed proxy cannot split. D8 removed that collision; the workaround
+ * outlived it, and every non-local deployment paid for it, because a remote dev
+ * host would serve this bundle and the browser would then resolve its reads
+ * against *its own* machine. A non-empty base is now only for a build whose
+ * reader genuinely sits on another origin — which also needs a matching
+ * CORS_ORIGINS entry on that reader.
  *
  * All methods return the unwrapped `data` field from the axios response so
  * callers work directly with the JSON payload.
@@ -26,7 +33,21 @@
 import axios from 'axios'
 
 const BASE_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE ?? '')
-const READ_BASE = import.meta.env.VITE_READ_API_BASE ?? 'http://localhost:8001'
+const READ_BASE = import.meta.env.DEV ? '' : (import.meta.env.VITE_READ_API_BASE ?? '')
+
+/**
+ * Cross-app deep link to the standalone Explorer. Unlike the two bases above,
+ * this one cannot be relative in dev: the Explorer is a *different origin*
+ * there (published on :80 while this app is on :5173), where production serves
+ * it as a path on the one domain. So derive it from the browser's own hostname
+ * instead of pinning a host. Unset outside dev → '' and callers render no link.
+ *
+ * devnote: the derived form assumes the dev Explorer is on the default port.
+ * Set VITE_EXPLORER_BASE explicitly if you republish it somewhere else.
+ */
+const EXPLORER_BASE =
+  import.meta.env.VITE_EXPLORER_BASE ??
+  (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}` : '')
 
 /** Writer surface. */
 const WRITE_API = '/api/v1/curator'
@@ -182,6 +203,13 @@ export const apiClient = {
       return null
     }
   },
+
+  /**
+   * Deep link into the Explorer for one record, or '' when this deployment has
+   * no Explorer configured — callers render the link only when it is truthy.
+   */
+  explorerRecordUrl: (id) =>
+    EXPLORER_BASE ? `${EXPLORER_BASE}/?id=${encodeURIComponent(id)}` : '',
 
   /** Digital-copy storage stats (staged/registered/orphans) for the Data Context Panel. */
   getFileStats: () => readHttp.get(`${READ_API}/meta/files`).then((r) => r.data),
