@@ -22,13 +22,14 @@ import axios from 'axios'
 const BASE_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE ?? '')
 const API = '/api/v1/dataexplorer'
 
-// Absolute even in dev, unlike BASE_URL: this is used for a page navigation
-// (window location, not an axios call proxied by the Vite dev server), and the
-// dev server only proxies /api — not /rdf. Behind the production edge proxy,
-// /rdf/* lives on the same origin regardless of which frontend served the
-// page, so VITE_READ_API_BASE is built as "" there. See the equivalent
-// devnote in curator-frontend/src/api/client.js.
-const READ_BASE = import.meta.env.VITE_READ_API_BASE ?? 'http://localhost:8001'
+// Relative, exactly like BASE_URL. This is used for a page navigation (window
+// location) rather than an axios call, which is why it used to be absolute in
+// dev: the dev server proxied only /api, so a relative /rdf/* would 404. It now
+// proxies /rdf as well (vite.config.js), so the path resolves against whichever
+// origin served this page — the same thing the production edge does, where /rdf
+// lives on the one domain regardless of which frontend served the page. See the
+// equivalent devnote in curator-frontend/src/api/client.js.
+const READ_BASE = import.meta.env.DEV ? '' : (import.meta.env.VITE_READ_API_BASE ?? '')
 
 const http = axios.create({
   baseURL: BASE_URL,

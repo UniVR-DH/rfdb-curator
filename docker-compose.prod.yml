@@ -289,11 +289,9 @@ services:
         VITE_API_BASE: ""
         # Same reasoning: /rdf/* is routed to the reader on this same domain
         # (proxy/Caddyfile), regardless of which frontend served the page, so
-        # the entity-page link needs no absolute base either. Must be set
-        # explicitly even to "" — the client's fallback is
-        # http://localhost:8001, and an unset arg would ship a production
-        # bundle whose "open entity page" link points at the visitor's own
-        # machine.
+        # the entity-page link needs no absolute base either. Kept explicit
+        # rather than omitted: the client defaults to relative now, so this
+        # states the deployment's intent instead of relying on that default.
         VITE_READ_API_BASE: ""
         VITE_APP_TITLE: "${VITE_APP_TITLE:-RFDB Explorer}"
         # Served under a path, and Vite bakes asset URLs against `base`. Set to
@@ -468,9 +466,9 @@ services:
         # writer and /api/v1/dataexplorer/* to the reader on the domain that
         # served this bundle, so the editor needs no absolute base and no CORS.
         #
-        # VITE_READ_API_BASE must be set explicitly even to "": the client's
-        # fallback is http://localhost:8001, and an unset arg would ship a
-        # production bundle pointing every read at the user's own machine.
+        # Both stay explicit rather than omitted: the client defaults to
+        # relative now, so these state the deployment's intent instead of
+        # relying on that default.
         VITE_API_BASE: ""
         VITE_READ_API_BASE: ""
         # Browser-facing deep link ("Open in Explorer"), so an absolute URL on

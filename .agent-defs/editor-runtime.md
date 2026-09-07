@@ -154,11 +154,13 @@ browser — same rule as Browser Verification above.
 - **Frontend proxy errors (`/api` 502/504):** check which service owns the route first — a
   read failing means `dataexplorer-backend`, a save failing means `curator-backend`. The
   route ownership tables are in [docs/architecture.md](../docs/architecture.md#api-reference).
-  Note the two apps route differently: the **explorer** proxies all of `/api` to the reader,
-  while the **editor** proxies `/api` to the writer and sends reads *straight* to
-  `VITE_READ_API_BASE` (:8001) from the browser, bypassing the proxy. So an editor read
-  failing is a CORS or read-base problem, not a proxy problem — check the Network tab's
-  request origin before touching `vite.config.js`.
+  Both apps now proxy everything the browser asks for, so a failing read *is* a proxy
+  problem: the editor routes `/api/v1/curator` to the writer and `/api/v1/dataexplorer`
+  plus `/rdf` to the reader, and the explorer sends `/api` and `/rdf` to the reader. Every
+  request goes to the origin that served the page, so a read failure is an upstream or
+  routing fault, not CORS. If you see reads aimed at `localhost:8001` in the Network tab
+  while the app is served from anywhere else, a `VITE_READ_API_BASE` has been reintroduced
+  somewhere — the dev stack sets none by design.
 - **A 404 on a route you expect to exist:** most likely you asked the wrong service, and the
   path says which one — `/api/v1/curator/*` is the writer (:8000), `/api/v1/dataexplorer/*`
   and all of `/rdf/*` are the reader (:8001). `shapes` is the only route both serve, with an
