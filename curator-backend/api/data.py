@@ -17,7 +17,7 @@ from rdflib import XSD, Graph, Literal, URIRef
 
 from core.blank_node_handler import assign_entity_id, skolemize
 from core.config import settings
-from core.validation_merge import _build_validation_construct
+from core.validation_merge import _build_validation_construct, bridge_link_predicates
 from models.data import (
     DataCreateResponse,
     EntityData,
@@ -298,6 +298,21 @@ def create_or_update_entity(payload: EntityData, request: Request):
         for obj in data_graph.objects()
         if isinstance(obj, URIRef) and _is_non_vocab_iri(str(obj))
     }
+
+    # Same reasoning as include_root_entity, one hop down: an inline bridge node
+    # (e.g. AgentRole) that the payload describes is payload-authoritative — the
+    # editor always sends the whole node and the write below replaces its stored
+    # triples — so merging the store's copy would only re-introduce the value the
+    # curator just changed and fail sh:maxCount on the node they edited. Nodes
+    # merely *referenced* by IRI stay seeded: their constraints still need the
+    # store's triples.
+    bridge_predicates = bridge_link_predicates(request.app.state.shape_dep_graph, payload.shapeId)
+    seed_iris -= {
+        str(obj)
+        for pred in bridge_predicates
+        for obj in data_graph.objects(predicate=URIRef(pred))
+        if isinstance(obj, URIRef) and (obj, None, None) in data_graph
+    }
     logger.debug("Validation merge seed IRIs (%d): %s", len(seed_iris), sorted(seed_iris))
 
     # Build the validation graph by merging the payload with the referenced
@@ -369,6 +384,29 @@ def create_or_update_entity(payload: EntityData, request: Request):
         wc = store.with_clause()
         for pred_uri in predicates_to_delete:
             _validate_iri(pred_uri)
+            if pred_uri in bridge_predicates:
+                # A helper-bridge node (e.g. AgentRole) has no existence apart
+                # from the link being rewritten: deleting only the link would
+                # leave its triples in the store as an orphan the editor can no
+                # longer reach but validation merges can still pull in. Delete
+                # the node too — unless any link other than the one being
+                # rewritten points at it, in which case it is shared and stays.
+                # Payload-asserted bridge nodes are re-written by the load below,
+                # so this replaces (rather than accumulates) their values on edit.
+                store.update(
+                    f"""
+                    {wc}
+                    DELETE {{ ?bridge ?bp ?bo . }}
+                    WHERE  {{
+                        <{entity_id}> <{pred_uri}> ?bridge .
+                        ?bridge ?bp ?bo .
+                        FILTER NOT EXISTS {{
+                            ?other ?op ?bridge .
+                            FILTER(?other != <{entity_id}> || ?op != <{pred_uri}>)
+                        }}
+                    }}
+                    """
+                )
             store.update(
                 f"""
                 {wc}
@@ -447,7 +485,9 @@ def delete_entity(
     #   SHACL validation failures on unrelated entities that trigger a merge
     #   including those IRIs.  Deletion of helper nodes must happen before the
     #   entity delete to avoid leaving orphans if a partial failure occurs.
-    #   Guard with FILTER NOT EXISTS to avoid deleting shared helper nodes.
+    #   Guard with FILTER NOT EXISTS to avoid deleting shared helper nodes —
+    #   the update path above already does exactly that for the predicates in
+    #   bridge_link_predicates(); reuse that query shape here.
     delete_query = f"""
         {store.with_clause()}
         DELETE {{ <{entity_id}> ?p ?o . }}

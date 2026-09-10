@@ -28,6 +28,15 @@ class _ShapeEdge:
     predicate_uri: str
     target_shape_id: str
     class_constraint: str | None = None
+    # True when the hop lands on a helper-bridge shape edited inline (field type
+    # ``nested``, e.g. AgentRole): the node exists only to connect its parent to
+    # other entities and the payload always describes it in full, so the parent
+    # owns it and the write path may delete it along with the link.
+    # Deliberately False for ``file-list`` (digital copies), whose nested shape
+    # is label-less too but whose node metadata is owned by the *store*
+    # (``_reconcile_digital_copies`` strips it from the payload) — deleting those
+    # nodes on a rewrite would destroy the file metadata.
+    inline_bridge: bool = False
 
 
 @dataclass
@@ -57,11 +66,33 @@ def _build_shape_dep_graph(extractor) -> dict[str, _ShapeNode]:
             nested = prop.get("nestedShape")
             cls = prop.get("classConstraint")
             if predicate and nested:
-                node.edges.append(_ShapeEdge(predicate, nested, cls))
+                node.edges.append(
+                    _ShapeEdge(
+                        predicate,
+                        nested,
+                        cls,
+                        prop.get("nestedShapeRole") == "helper-bridge"
+                        and prop.get("type") == "nested",
+                    )
+                )
 
         nodes[sid] = node
 
     return nodes
+
+
+def bridge_link_predicates(dep_graph: dict[str, _ShapeNode], shape_id: str) -> set[str]:
+    """Predicates of ``shape_id`` whose objects are inline helper-bridge nodes.
+
+    Used by the write path to decide which old objects it may delete outright
+    when a predicate is rewritten: a bridge node unlinked from its only parent
+    is garbage, while a standalone entity (or a store-owned digital copy) must
+    survive. See :class:`_ShapeEdge.inline_bridge` for the exact rule.
+    """
+    node = dep_graph.get(shape_id)
+    if not node:
+        return set()
+    return {edge.predicate_uri for edge in node.edges if edge.inline_bridge}
 
 
 def _bfs_shape_edges(

@@ -113,7 +113,7 @@ def test_startup_initialization_order_populates_services_before_seeding(
     def build_shape_dep_graph_stub(extractor):
         assert isinstance(extractor, SchemaExtractorStub)
         calls.append("shape_dep_graph")
-        return {"urn:shape:root": {"edges": []}}
+        return {"urn:shape:root": SimpleNamespace(target_class_uri=None, edges=[])}
 
     def seed_store_stub(**_kwargs):
         assert calls == ["schema_extractor", "shape_dep_graph", "validator", "store"]
@@ -192,7 +192,7 @@ def test_reset_data_on_startup_clears_store_before_seeding(
     def build_shape_dep_graph_stub(extractor):
         assert isinstance(extractor, SchemaExtractorStub)
         calls.append("shape_dep_graph")
-        return {"urn:shape:root": {"edges": []}}
+        return {"urn:shape:root": SimpleNamespace(target_class_uri=None, edges=[])}
 
     def seed_store_stub(**_kwargs):
         assert calls == [
@@ -271,7 +271,7 @@ def test_first_write_can_read_shape_dep_graph_after_startup(
             raise AssertionError("load_turtle should not run in this readiness test")
 
     def build_shape_dep_graph_stub(extractor):
-        return {"urn:shape:manifestation": {"edges": []}}
+        return {"urn:shape:manifestation": SimpleNamespace(target_class_uri=None, edges=[])}
 
     def seed_store_stub(**_kwargs):
         return {"seedVocab": False, "seedTestData": False, "results": []}
