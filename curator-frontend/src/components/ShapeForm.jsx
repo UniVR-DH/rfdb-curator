@@ -571,10 +571,24 @@ export default function ShapeForm({
   // Track dirty predicates to build a minimal originalTriples delete set on update.
   const { dirtyFields } = formState
 
-  function isFieldDirty(field) {
-    // Nested/bridge fields are managed by AnonymousEntityEditor and must never
-    // be included in originalTriples — exclude them unconditionally.
-    if (field.type === 'nested') return false
+  function isFieldDirty(field, submitted) {
+    if (field.type === 'nested') {
+      // Bridge fields are driven by AnonymousEntityEditor through useFieldArray,
+      // whose dirtyFields entry does not reliably report an appended/removed
+      // card. Compare the bridge-node IRIs the record was loaded with against
+      // the ones still in the form instead: any difference means the link
+      // predicate must be rewritten, which is what puts it in originalTriples.
+      // Without this, removing a connection sent no delete for the link, the
+      // store kept it, and the "removed" connection came back on reload.
+      if (dirtyFields[field.path]) return true
+      const loaded = (record?.triples ?? [])
+        .filter((t) => t.predicate === field.pathUri && t.objectType === 'iri')
+        .map((t) => t.object)
+      const current = new Set(
+        (submitted?.[field.path] ?? []).map((entry) => entry?.['@id']).filter(Boolean)
+      )
+      return loaded.length !== current.size || loaded.some((iri) => !current.has(iri))
+    }
 
     if (field.type === 'lang-string-list') {
       const df = dirtyFields[field.path]
@@ -607,12 +621,14 @@ export default function ShapeForm({
       const newData = buildJsonLdEntity(formSchema.shape, formSchema.fields, formDataWithId)
 
       // Build originalTriples: only for predicates the user actually changed.
-      // Nested/bridge fields are excluded via isFieldDirty returning false for type === 'nested'.
       // On create, record is null so changedOriginalTriples stays null and no delete runs.
+      // Not gated on dirtyFields being non-empty: a bridge card removed through
+      // useFieldArray may leave it empty, and an empty result is equivalent to
+      // null for the backend (neither triggers a delete).
       let changedOriginalTriples = null
-      if (record && record.triples && Object.keys(dirtyFields).length > 0) {
+      if (record && record.triples) {
         const dirtyPathUris = new Set(
-          formSchema.fields.filter((f) => isFieldDirty(f)).map((f) => f.pathUri)
+          formSchema.fields.filter((f) => isFieldDirty(f, formData)).map((f) => f.pathUri)
         )
         // Type selector changed: drop all existing rdf:type triples so the
         // stale concrete type (and re-asserted targetClass) don't linger

@@ -31,6 +31,7 @@ def _load_backend_symbols() -> SimpleNamespace:
         _build_validation_construct,
         _ShapeEdge,
         _ShapeNode,
+        bridge_link_predicates,
     )
     from rfdb_core.triplestore import OxigraphStore
 
@@ -39,6 +40,7 @@ def _load_backend_symbols() -> SimpleNamespace:
         ShapeEdge=_ShapeEdge,
         ShapeNode=_ShapeNode,
         bfs_shape_edges=_bfs_shape_edges,
+        bridge_link_predicates=bridge_link_predicates,
         build_shape_dep_graph=_build_shape_dep_graph,
         build_validation_construct=_build_validation_construct,
     )
@@ -369,3 +371,49 @@ def test_planner_scale_topologies_have_stable_runtime(topology: str) -> None:
     assert len(query) > 1000
     # Keep this intentionally generous to avoid flaky CI due to host variance.
     assert elapsed < 2.0
+
+
+def test_bridge_link_predicates_only_covers_inline_nested_links() -> None:
+    """Only inline-edited bridge links are deletable-with-the-link.
+
+    The write path deletes a bridge node when its link is rewritten, so this set
+    decides what may be destroyed. ``file-list`` nested shapes (digital copies)
+    are label-less too, hence also "helper-bridge", but their node metadata lives
+    in the store — including them here would wipe a kept file's metadata on the
+    next save of its parent.
+    """
+    symbols = _load_backend_symbols()
+
+    extractor = _DummyExtractor(
+        [
+            {
+                "id": "urn:shape:root",
+                "targetClassUri": "urn:class:root",
+                "properties": [
+                    {
+                        "pathUri": "urn:pred:agentrole",
+                        "nestedShape": "urn:shape:bridge",
+                        "nestedShapeRole": "helper-bridge",
+                        "type": "nested",
+                    },
+                    {
+                        "pathUri": "urn:pred:digitalcopy",
+                        "nestedShape": "urn:shape:bridge",
+                        "nestedShapeRole": "helper-bridge",
+                        "type": "file-list",
+                    },
+                    {
+                        "pathUri": "urn:pred:place",
+                        "nestedShape": "urn:shape:standalone",
+                        "nestedShapeRole": "standalone-entity",
+                        "type": "entity-search",
+                    },
+                ],
+            },
+        ]
+    )
+    dep_graph = symbols.build_shape_dep_graph(extractor)
+
+    assert symbols.bridge_link_predicates(dep_graph, "urn:shape:root") == {"urn:pred:agentrole"}
+    # Unknown shape: nothing is deletable (fail safe, not fail destructive).
+    assert symbols.bridge_link_predicates(dep_graph, "urn:shape:absent") == set()

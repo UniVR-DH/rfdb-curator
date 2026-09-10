@@ -7,6 +7,10 @@ one Role. These tests create a Work with a nested AgentRole and confirm the
 bridge node keeps its stable IRI in the written Turtle — the property that lets
 an update re-reference it instead of regenerating it — and that dropping the
 explicit @type is rejected.
+
+Removal is covered too: unlinking a bridge node must delete the node itself, not
+just the parent's link, or the editor keeps showing a connection the curator
+removed and an orphan stays in the store.
 """
 
 from __future__ import annotations
@@ -27,7 +31,9 @@ if str(BACKEND_DIR) not in sys.path:
 
 from api.data import create_or_update_entity  # noqa: E402
 from core.shacl_validator import ShaclValidator  # noqa: E402
-from models.data import EntityData  # noqa: E402
+from core.validation_merge import _build_shape_dep_graph  # noqa: E402
+from models.data import EntityData, TripleObject  # noqa: E402
+from rfdb_core.schema_extractor import SchemaExtractor  # noqa: E402
 
 CORE = "https://w3id.org/polifonia/ontology/core/"
 DATA = "https://rosfeatr.eu/rdf/data/"
@@ -131,3 +137,173 @@ def test_agent_role_without_type_is_rejected() -> None:
     del payload.data["core:hasAgentRole"]["@type"]
     response = create_or_update_entity(payload, _request(_CapturingOxigraph()))
     assert response.success is False
+
+
+class _GraphOxigraph:
+    """Oxigraph double backed by a real rdflib graph, so updates actually run.
+
+    ``_CapturingOxigraph`` above is enough for create flows; removal is an update
+    and needs the store to hold pre-existing triples that the DELETE has to hit.
+    """
+
+    def __init__(self, turtle: str = "") -> None:
+        self.g = Graph()
+        if turtle:
+            self.g.parse(data=turtle, format="turtle")
+
+    def from_clause(self) -> str:
+        """Empty SPARQL FROM clause (the double has no named graph)."""
+        return ""
+
+    def with_clause(self) -> str:
+        """Empty SPARQL WITH clause (the double has no named graph)."""
+        return ""
+
+    def construct(self, sparql: str) -> Graph:
+        """Run the CONSTRUCT against the in-memory graph."""
+        return self.g.query(sparql).graph or Graph()
+
+    def load_turtle(self, turtle: str) -> None:
+        """Merge the written Turtle into the in-memory graph."""
+        self.g.parse(data=turtle, format="turtle")
+
+    def update(self, sparql: str) -> None:
+        """Run a SPARQL update against the in-memory graph."""
+        self.g.update(sparql)
+
+
+_STORED_WORK = f"""
+@prefix core: <{CORE}> .
+@prefix lrmoo: <http://iflastandards.info/ns/lrm/lrmoo/> .
+@prefix mm: <https://w3id.org/polifonia/ontology/music-meta/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rfdb: <{DATA}> .
+
+rfdb:stored_work a mm:MusicEntity, lrmoo:F1_Work ;
+  rdfs:label "Stored Work"@en ;
+  core:hasAgentRole rfdb:stored_work_ar_0 .
+
+rfdb:stored_work_ar_0 a core:AgentRole ;
+  core:hasAgent rfdb:person_y ;
+  core:hasRole rfdb:role_librettist .
+
+rfdb:person_y a core:Person ;
+  rdfs:label "Librettist Y"@en .
+
+rfdb:role_librettist a core:Role ;
+  rdfs:label "Librettist"@en .
+"""
+
+
+def _work_without_agent_role() -> EntityData:
+    """The stored work re-saved with its only connection removed in the form."""
+    return EntityData(
+        shapeId=WORK_SHAPE,
+        data={
+            "@context": {
+                "mm": "https://w3id.org/polifonia/ontology/music-meta/",
+                "lrmoo": "http://iflastandards.info/ns/lrm/lrmoo/",
+                "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+                "core": CORE,
+            },
+            "@id": DATA + "stored_work",
+            "@type": ["mm:MusicEntity", "lrmoo:F1_Work"],
+            "rdfs:label": {"@value": "Stored Work", "@language": "en"},
+        },
+        originalTriples=[
+            TripleObject(
+                predicate=str(HAS_AGENT_ROLE),
+                object=DATA + "stored_work_ar_0",
+                objectType="iri",
+            )
+        ],
+    )
+
+
+def _dep_request(oxigraph: _GraphOxigraph) -> SimpleNamespace:
+    """Request object carrying the real shape dependency graph."""
+    extractor = SchemaExtractor(str(SCHEMA_PATH))
+    return SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(
+                store=oxigraph,
+                shape_dep_graph=_build_shape_dep_graph(extractor),
+                shacl_validator=ShaclValidator(str(SCHEMA_PATH)),
+            )
+        )
+    )
+
+
+def test_removing_agent_role_drops_link_and_orphan_bridge_node() -> None:
+    """Removing a connection in the editor deletes the link *and* the bridge node.
+
+    The bridge node exists only to connect the work to a person/role, so leaving
+    its triples behind would keep an orphan in the store that later validation
+    merges can pull back in.  The person and role it referenced are standalone
+    entities and must survive.
+    """
+    store = _GraphOxigraph(_STORED_WORK)
+    response = create_or_update_entity(_work_without_agent_role(), _dep_request(store))
+    assert response.success is True
+
+    work = URIRef(DATA + "stored_work")
+    agent_role = URIRef(DATA + "stored_work_ar_0")
+
+    assert (work, HAS_AGENT_ROLE, agent_role) not in store.g
+    assert list(store.g.triples((agent_role, None, None))) == []
+    # Standalone entities are untouched.
+    assert (URIRef(DATA + "person_y"), RDF.type, URIRef(CORE + "Person")) in store.g
+    assert (URIRef(DATA + "role_librettist"), RDF.type, URIRef(CORE + "Role")) in store.g
+
+
+def test_shared_bridge_node_survives_removal_from_one_parent() -> None:
+    """A bridge node still referenced by another entity keeps its own triples."""
+    store = _GraphOxigraph(
+        _STORED_WORK
+        + """
+rfdb:other_work a mm:MusicEntity, lrmoo:F1_Work ;
+  rdfs:label "Other Work"@en ;
+  core:hasAgentRole rfdb:stored_work_ar_0 .
+"""
+    )
+    response = create_or_update_entity(_work_without_agent_role(), _dep_request(store))
+    assert response.success is True
+
+    agent_role = URIRef(DATA + "stored_work_ar_0")
+    assert (URIRef(DATA + "stored_work"), HAS_AGENT_ROLE, agent_role) not in store.g
+    assert (URIRef(DATA + "other_work"), HAS_AGENT_ROLE, agent_role) in store.g
+    assert (agent_role, HAS_AGENT, URIRef(DATA + "person_y")) in store.g
+
+
+def test_editing_the_person_on_a_connection_replaces_the_old_one() -> None:
+    """Re-pointing an existing connection at another person replaces the value.
+
+    The bridge node keeps its IRI, so the store already holds ``hasAgent
+    person_y`` while the payload asserts ``hasAgent person_z``. Both the
+    validation merge and the write must treat the payload as authoritative for a
+    bridge node it describes, or the save is rejected for exceeding
+    ``sh:maxCount 1`` on a node the curator only edited.
+    """
+    store = _GraphOxigraph(
+        _STORED_WORK
+        + """
+rfdb:person_z a core:Person ;
+  rdfs:label "Librettist Z"@en .
+"""
+    )
+    payload = _work_without_agent_role()
+    payload.data["core:hasAgentRole"] = {
+        "@id": DATA + "stored_work_ar_0",
+        "@type": "core:AgentRole",
+        "core:hasAgent": {"@id": DATA + "person_z"},
+        "core:hasRole": {"@id": DATA + "role_librettist"},
+    }
+
+    response = create_or_update_entity(payload, _dep_request(store))
+    assert response.validationReport.conforms is True
+    assert response.success is True
+
+    agent_role = URIRef(DATA + "stored_work_ar_0")
+    assert (agent_role, HAS_AGENT, URIRef(DATA + "person_z")) in store.g
+    assert (agent_role, HAS_AGENT, URIRef(DATA + "person_y")) not in store.g
+    assert (agent_role, HAS_ROLE, URIRef(DATA + "role_librettist")) in store.g
