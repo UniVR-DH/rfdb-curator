@@ -1,65 +1,260 @@
-# Git Workflow
+# Git workflow
 
-## Commit Pattern
+## Permission
 
-Every bot-generated commit should include `[BOT]`:
+Requires explicit permission, every time: `git commit`, `git push`, `git tag`,
+`git reset --hard`, `git clean -f`, `git stash drop`, `git rebase`,
+`git cherry-pick`, `git commit --amend` on anything pushed, anything that
+rewrites history, opening or updating a PR, switching branch (`git switch`,
+`git checkout <branch>`), creating one (`git switch -c`, `git branch <name>`).
 
-```bash
-git commit -m "[BOT] <area>: <description>"
-```
+Free without asking, all read-only: `git status`, `git diff`, `git log`,
+`git show`, `git branch --list`, `git branch --show-current`, `git blame`,
+`git remote -v`.
 
-## Grouping Rules
+`git checkout -- <path>` discards a file's changes. That is a destructive file
+operation, not a branch switch, and it needs permission too.
 
-- Same topic -> one commit
-- Different topics -> separate commits
-- Large changes -> group by area (backend, frontend, docs)
+## Staging
 
-### Shared files across commits (Mandatory)
-
-If a proposed multi-commit split would put edits to the **same file** into two
-different commits, **STOP and ask the user** how to proceed. Do not try to
-separate the changes yourself.
-
-- The default resolution is simple: **assign the shared file to one of the two
-  commits, or make a single combined commit.** The user picks.
-- **Never** perform manual hunk-splitting workarounds — no backup→revert→
-  re-apply, no `git checkout HEAD -- <file>` then re-add, no hand-authored
-  partial patches, no per-region reverts to fake a clean split. Interactive
-  `git add -p` is unavailable in this environment, and these substitutes are
-  error-prone and have caused rework.
-- Only ever attempt such a split process on a **double-confirmed, explicit**
-  user request that names the process — otherwise ask and take the simple path.
-
-## Non-Interactive Mode
+Never `git add -A`, `git add .`, `git add --all`, `git add -u`, `git commit -a`
+or `git commit -am`. Always enumerate:
 
 ```bash
-git rebase --continue --no-edit
+git add src/components/Nav.tsx src/styles/nav.css
 ```
 
-Never rely on interactive editors during automated flows.
+A repository has large ignored trees sitting next to the source: build output,
+dependency directories, data dumps, `.env` files. A bulk add is one
+`.gitignore` gap away from committing a build artifact or a secret. Enumerating
+paths makes that impossible.
 
-## Before Every Commit
+Run `git status --short` before staging and read it. Run
+`git diff --cached --stat` after, and confirm the list is exactly what you
+meant.
+
+Never split one file across two commits, and never reconstruct, stash-juggle or
+partially undo finished work to produce a tidier history. Stage whole files. If
+that means a commit covers slightly more than its topic, say so in the message
+rather than surgically dividing the file.
+
+## One commit per topic
+
+Three unrelated changes in the tree means three commits with three messages,
+not one commit called "update".
+
+- Do not mix a source change with an unrelated content or docs change.
+- Do not mix a refactor with a behaviour change.
+- Do not mix a config or `.gitignore` change with feature work.
+- Do not fold in "while I was there" edits. Commit them separately, or leave
+  them unstaged and mention them.
+
+State the intended commit split to the user **before** asking for permission,
+so they approve a plan and not a surprise.
+
+## One commit per command
+
+Run each `git commit` in its own tool call. Never chain two commits in one
+command, and never chain a commit with the `git add` for the next topic. A
+chain keeps going past a commit that failed, and a failed commit leaves its
+files staged, so the next commit in the chain sweeps them up under the wrong
+message. Undoing that means rewriting history.
+
+Immediately before each commit, run `git diff --cached --name-only` and compare
+it with the paths meant for that commit. If anything else is staged, stop.
+
+When a commit fails, for any reason (a hook rejection, a signing error, anything
+else), stop. Stage and commit nothing more until the failure is understood and
+the index holds exactly what that commit was meant to hold.
+
+Pass a multi-line message with `-F <file>`, the file in the session scratchpad
+directory, or with a heredoc that ends the command:
 
 ```bash
-git status --short
-uv run ruff check . && uv run ruff format --check .        # from the repo ROOT
-cd curator-frontend && npm run lint                        # when frontend code changed
+git commit -F - <<'EOF'
+feat(cli): add the export subcommand [BOT]
+
+Explain why, wrapped at 72 columns.
+EOF
 ```
 
-Plus the three Python suites — one run per workspace member, commands in
-[testing.md](testing.md) → "Running Tests".
+Nothing follows the terminator. Never put `&& \` on the line that opens the
+heredoc: the continuation pulls the next line into the command, the body starts
+a line late, and the message that reaches the commit is garbled.
 
-Adjust checks to changed areas (for example frontend-only updates). One exception: a
-change to `rfdb-core/` affects **both** services, so run all three suites.
+The `PreToolUse` hook rejects a command holding more than one `git commit`, and
+a `git commit` that follows a heredoc opened on a continued line.
 
-## Destructive Commands and File Deletion (Mandatory)
+## Message format
 
-In `AGENTS.md` §7, alongside the staging rules — same scoping, one place. It covers data as
-well as files: `docker compose down -v`, `RESET_DATA_ON_STARTUP=true` and a loose
-`DELETE WHERE` are deletions too.
+Every commit **you** author carries the `[BOT]` marker, so a human reader can
+tell agent-authored commits from hand-authored ones at a glance.
 
-## Hook Notes
+```
+<type>(<scope>): <subject> [BOT]
 
-The repo tracks `.pre-commit-config.yaml` (ruff lint + format, scoped to every Python workspace member plus `tests/`). It is **opt-in** — each clone must run `pre-commit install` once to activate the git hook; it is not enforced automatically. Run manually with `pre-commit run --all-files`.
+<optional body: why, not what, wrapped at 72 columns>
+```
 
-The hooks run `uv run ruff …` **from the repo root**, matching CI. That used to require `cd backend`, because ruff inferred first-party imports from the working directory; since `[tool.ruff]` moved to the root `pyproject.toml` with an explicit `src = ["curator-backend", "rfdb-core"]`, the classification no longer depends on cwd — and running from the root is the only invocation that also covers `rfdb-core/` and `tests/`. The ruff version comes from curator-backend's dev dependency, resolved through the workspace's single root `.venv`. The hook drops any stale `VIRTUAL_ENV` (`env -u`) so `uv` resolves that venv without a warning.
+- **type**: feat fix docs refactor perf test build ci chore data
+- **scope**: optional, a real part of this repository
+- **subject**: imperative ("add", not "added" or "adds"), lowercase first
+  letter, no trailing period
+- **`[BOT]`**: literal, uppercase, the **last** token of the subject line
+- subject line 72 characters or fewer, including `[BOT]`
+
+```
+fix(nav): keep the mobile menu open across route changes [BOT]
+docs(readme): document the preview-build environment variables [BOT]
+refactor(theme): move colour tokens into a single CSS layer [BOT]
+```
+
+Not acceptable: `update`, `wip`, `fixes`, `Update Nav.tsx`, anything in past
+tense, anything without `[BOT]`.
+
+The marker goes at the end rather than the start so the subject stays parseable
+as a conventional commit, which is what changelog generators and release
+tooling expect at position 0.
+
+Validate before every commit:
+
+```bash
+.claude/scripts/validate-commit-msg.sh -m "fix(api): guard empty metadata [BOT]"
+```
+
+A non-zero exit means do not commit. Fix the message and re-validate. A
+`PreToolUse` hook independently blocks commits without `[BOT]` and blocks bulk
+staging. Treat a block as a correct catch, not an obstacle to route around.
+Never use `--no-verify`.
+
+**Do not add trailers.** No `Co-Authored-By:` line, no generated-with footer.
+The `[BOT]` marker is the convention and it is sufficient.
+
+## Commit identity comes from `.gitidentity`
+
+The commit identity is recorded in `.gitidentity`, a git-config-format file in
+the repository root which `.git/config` includes:
+
+```ini
+[user]
+    name = Ada Lovelace
+    email = ada@example.org
+    signingkey = 0123456789ABCDEF
+[commit]
+    gpgsign = true
+```
+
+Wire it once per clone:
+
+```sh
+git config --local include.path ../.gitidentity
+```
+
+`.gitidentity` is gitignored on purpose: it is a per-person setting, and a
+teammate who clones the repository must not inherit someone else's address or
+key id. `.gitidentity.example` is committed as the template.
+
+**When `.gitidentity` is present, commit with it and do not ask.** It is a
+decision someone made about this repository, which is exactly what a global
+identity is not.
+
+**When it is missing, stop and ask which account and which GPG key to use, and
+wait for an answer.** Never infer it from whatever `git config` happens to
+return: a commit attributed to the wrong account or signed with the wrong key
+cannot be corrected without rewriting history. Ask once per session and reuse
+the answer for the remaining commits of that session.
+
+Never create, edit or import a GPG key. Never change the global git config.
+Never work around a missing identity with `git -c user.email=...`. If signing
+fails, stop and report it rather than committing unsigned.
+
+## Never reach for the `gh` CLI
+
+Do not run any `gh` command unless the user asked for that specific command, or
+you offered alternatives and they picked one. This covers reads (`gh pr list`,
+`gh run view`) as well as writes.
+
+The default for anything GitHub-side is to prepare the material and hand it
+over: write the PR title and body to a `bot-*.md` note in `.temp/`, give the
+`pull/new/<branch>` URL, and let the user open it in the browser. Same for
+issues, reviews and releases. `gh` acts under the user's own credentials on a
+shared remote, and a PR opened from here is visible to everyone watching the
+repository before they have read a word of it.
+
+**This is about the CLI, not about GitHub.** Writing and committing Actions
+workflows is approved standing infrastructure. Do not hedge them: wire the real
+trigger rather than reaching for `workflow_dispatch` to keep a build from going
+red before its secrets exist. The distinction is who acts. A committed workflow
+runs later, under the repository's own credentials, after the user has pushed
+it. `gh` acts *now*, as them, on something they have not seen.
+
+### Shape of a handoff note
+
+Exactly two parts, split by one `---`. Above the rule: branch state, the
+`pull/new/` URL, the title in a fenced block to copy, and anything the user
+should know *before* sending, including caveats, omissions and questions.
+Below the rule: the PR body and nothing else, so it can be selected in one go
+and pasted into the description box without editing. Nothing that is not part
+of the PR body may appear below the rule. Headings inside the body start at
+`##`.
+
+### What goes in a PR
+
+Write it so a reviewer knows what changed, why, and how it was checked within
+30 seconds of reading.
+
+**Title:** the commit subject format, `<type>(<scope>): <subject> [BOT]`. For a
+series of commits, name the change the series makes, not its last commit.
+
+**Body**, in this order, and nothing else:
+
+```markdown
+## Why
+
+One to three sentences: the problem, and why this is the fix.
+
+## Changes
+
+- One line per commit, in commit order.
+
+## Verified
+
+- The command run and its result, e.g. `pytest`: 42 passed.
+```
+
+- **Why** is the part the diff cannot show. Do not narrate the diff, and do not
+  repeat what the commit bodies or code comments already say.
+- **Verified** lists the checks this repository defines (its tests, linters,
+  build) that were actually run, with their results. A check that was skipped
+  is listed as skipped, with the reason. If a behaviour change has no automated
+  check, say how it was checked by hand.
+- Add a section only when the repository's own rules ask for one.
+- Keep the body under about 200 words. If it needs more, the PR covers more
+  than one topic: split it rather than lengthening the description.
+
+**Size:** one topic per PR, as for commits. An unrelated fix found on the way
+goes in its own PR.
+
+### PR descriptions carry a provenance line
+
+Last thing in the body, after a `---` rule:
+
+```markdown
+---
+
+PR text drafted by Claude Code (<EXACT MODEL ID OF THE SESSION>), reviewed by
+the author.
+```
+
+Substitute the exact model ID of the session that wrote it, not "Claude" and
+not "Opus". If a PR description turns out to be wrong a year from now, the only
+useful question is which model produced it, and only the exact ID answers that.
+
+Keep it flat: no italics, no link, no first person, no sentence about
+responsibility. "Reviewed by the author" already carries the ownership claim.
+It applies to the body only, since the title carries `[BOT]`, and it does not
+extend to commit messages, which take no trailers of any kind.
+
+The line is only accurate once the author has read the text. That is why it
+ships inside the `.temp/` note rather than going up through `gh`: the user
+pastes it, so the user has seen it.
