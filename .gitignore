@@ -89,7 +89,7 @@ cython_debug/
 *~
 
 # Agent tooling — local, per-tool state only. Agent instructions in this repo are
-# vendor-neutral (AGENTS.md + .agent-defs/); no tool-specific instruction files.
+# vendor-neutral (AGENTS.md + .agent-defs/); per-tool files hold no rules.
 .claude/
 .cursor/
 .aider*
@@ -105,3 +105,20 @@ Thumbs.db
 # Other
 .env.local
 .envrc
+
+# Per-person commit identity; see .gitidentity.example
+.gitidentity
+
+# Local agent configuration and scratch space
+CLAUDE.md
+
+# Environment and secrets
+.env.*
+!.env.example
+!.env.*.example
+
+# Service state and data. These are large and must never be committed.
+storage/
+volumes/
+*.dump
+*.sqlite

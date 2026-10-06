@@ -1,0 +1,28 @@
+# Commit identity for this repository.
+#
+# Copy this file to .gitidentity, fill in your own details, and wire it up once
+# per clone:
+#
+#     cp .gitidentity.example .gitidentity
+#     git config --local include.path ../.gitidentity
+#
+# This is a git config file, so git reads it natively; there is no script in
+# between. The include path is relative to .git/, which is why it starts with
+# ../ and why the include line itself lives in .git/config rather than here.
+#
+# .gitidentity is gitignored: it is a per-person setting, and cloning the
+# repository must not hand you somebody else's address or signing key.
+#
+# Find your key id with:  gpg --list-secret-keys --keyid-format=long
+# Inspect the last entry: git log -1 --show-signature
+
+[user]
+	name = Your Name
+	email = you@univr.it
+	signingkey = 0123456789ABCDEF
+
+[commit]
+	gpgsign = true
+
+[tag]
+	gpgsign = true
