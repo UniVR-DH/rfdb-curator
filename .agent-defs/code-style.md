@@ -1,48 +1,42 @@
-# Code Style
+# Code conventions
 
-## Python
+Match the surrounding code rather than importing outside style: its naming, its
+comment density, its idioms.
 
-### Import Order
+- Type hints on anything public. Comments are full sentences and explain
+  reasoning, not mechanics. Private helpers are `_prefixed`, or whatever the
+  repository already does.
+- Limit comments by default. Add one when it captures a non-obvious *why*: a
+  constraint, an invariant, a workaround. Never add a comment restating what
+  the identifier and structure already say.
+- Prefer clear, boring code over clever code. Optimise for the next reader.
+- Configuration comes from the environment with a default that matches what the
+  deployment config sets.
+- **No new runtime dependency without asking.** Manifests and lockfiles are
+  edited through the package manager, never by hand, and with the version CI
+  pins. An older local tool can silently rewrite the lockfile format and turn a
+  one-line change into a whole-file diff.
+- Avoid backwards-compatibility shims, unused `_var` renames, re-exported dead
+  types, or "removed" comments unless compatibility is an actual requirement.
+  Delete dead code outright when it is clearly unused.
+- Do not reformat unrelated code.
 
-```python
-import json
-from pathlib import Path
+## Prefer the general rule to the special case
 
-from rdflib import Graph
+A component should expose what varies as parameters with sensible defaults, so
+the next use retunes it by overriding a value rather than by copying the rule
+and editing the copy. Name it for what it is, not for where it first appeared.
 
-from core.schema_extractor import SchemaExtractor
-```
+**One number, one job.** If a value is doing two jobs at once, give the second
+job its own name before you change either.
 
-Use standard library -> third-party -> local package.
+## Version bumps
 
-### Function Docstrings
+**Never bump the version without first asking which bump is meant and
+confirming the exact resulting number.** "Bump minor" is not enough on its own.
+Say the specific transition back ("0.3.1 to 0.4.0") and get a yes before
+touching any file.
 
-Use concise docstrings that describe purpose and expected behavior. Add details only when they improve clarity for non-trivial logic.
-
-## Turtle (RDF / SHACL)
-
-### Prefix Declaration
-
-Declare all used prefixes at the top of each `.ttl` file.
-
-### Ontology Preference
-
-Prefer terms already used by the active schema and model, especially LRMoo, CIDOC CRM, and Polifonia ontologies.
-Introduce new predicates/classes only when existing vocabularies do not cover the requirement.
-
-### SHACL Rules
-
-- Use `sh:NodeShape` for record-level constraints.
-- Keep `sh:class` on property shapes where required by SHACL grammar.
-- Use explicit cardinalities with `sh:minCount` and `sh:maxCount`.
-
-## Naming Rules
-
-| Artifact | Convention | Example |
-|----------|-----------|---------|
-| Python modules | `snake_case.py` | `validation_merge.py` |
-| Python classes | `PascalCase` | `ShaclValidator` |
-| Python functions / variables | `snake_case` | `merge_related_entities` |
-| RDF data resources | `rfdb:PascalCase` | `rfdb:SanPietroburgo` |
-| SHACL shapes | `rfdbs:` + suffix `Shape` | `rfdbs:SourceShape` |
-| Git branches | `feature/<short-description>` | `feature/add-shape-filter` |
+A wrong guess is not a one-line fix: it means re-editing every manifest,
+regenerating the lockfile, and throwing all of it away. This applies every
+time, not just the first time in a session.

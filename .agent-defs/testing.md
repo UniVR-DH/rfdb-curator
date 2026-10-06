@@ -3,7 +3,7 @@
 ## Running Tests
 
 One pytest run per Python workspace member — three commands, three interpreters. **This is the
-canonical copy**; `AGENTS.md` §4 repeats it for quick reference, and nothing else should.
+canonical copy**; [repo-specific.md](repo-specific.md) links here rather than repeating it.
 
 ```bash
 # `uv run` resolves the workspace venv at the REPO ROOT from any member directory —
@@ -74,4 +74,4 @@ Test functions should include concise docstrings describing the intent and expec
 
 Pre-commit hooks are ruff-only and **opt-in** (`pre-commit install` once per clone) — they do
 not run the test suites, so the three commands above are still on you. Details:
-[git-workflow.md](git-workflow.md) → "Hook Notes".
+[repo-specific.md](repo-specific.md) → "Ruff hook".

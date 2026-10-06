@@ -7,8 +7,8 @@ implementing a multi-step feature; keep it updated as work lands.
 ## Location & Naming
 
 - Directory: `.temp/` (gitignored — plans are working artifacts, not tracked docs).
-- In progress: `temp-{purpose}-{YYYYMMDD}.md` (lowercase, hyphenated purpose).
-- On completion: rename with a `DONE-` marker → `temp-DONE-{purpose}-{YYYYMMDD}.md`.
+- In progress: `bot-{YYYYMMDD}-{purpose}.md` when an agent writes it, `temp-{YYYYMMDD}-{purpose}.md` when the user does (lowercase, hyphenated purpose; see [temp-files.md](temp-files.md)).
+- On completion: rename with a `DONE-` marker → `bot-DONE-{YYYYMMDD}-{purpose}.md` (or `temp-DONE-…`). Plans named the old way keep their names.
 - The date is the creation date and stays fixed through the rename.
 
 ## Header Block
@@ -46,5 +46,5 @@ Every plan opens with a title and a metadata list:
   mirror its milestone checkboxes so both stay in sync.
 - Record deviations from the original sketch as **implementation notes** in the Task
   section when the built solution differs (see `temp-DONE-prefix-consolidation-*.md`).
-- Match the laziness rules in `AGENTS.md` §3 — plans propose the minimum custom code,
+- Match the laziness rules in [repo-specific.md](repo-specific.md) → "The lazy veteran" — plans propose the minimum custom code,
   reuse existing helpers/patterns, and justify any new dependency or abstraction.

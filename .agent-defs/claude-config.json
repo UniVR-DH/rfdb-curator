@@ -1,0 +1,42 @@
+{
+  "plugin": "claude-config",
+  "version": "0.13.0",
+  "commit": "d50316604c7732d4dea56b2b8fcdd54948d0f298",
+  "dirty": false,
+  "date": "2026-10-06",
+  "inputs": {
+    "mode": "visible",
+    "profiles": [
+      "platform",
+      "python-package"
+    ],
+    "name": "rfdb-curator",
+    "summary": "RossijskijFeatrDB (rfdb): a curated RDF knowledge base of Russian theatrical works and their libretti, served by a SHACL-driven curator/explorer stack.",
+    "repo_rules": true,
+    "with": []
+  },
+  "files": {
+    ".agent-defs/00-core.md": "48598bf93316283b21d693bc9428f71b6999960d6f6aaadfd165d6047d5e1f3b",
+    ".agent-defs/code-style.md": "4c2e23692eb80bc845c2e55dd21bc9feb8641c5bae221b7cb745e9c64b707a6b",
+    ".agent-defs/git-workflow.md": "ec53dc9b27a27309f280cb9309895b47ae15d3d515cc4aa607f33ae68904eb9a",
+    ".agent-defs/language.md": "d3727048cebfe1a85a2fdb7fa26d82695b5133d58a71a6048b553001d40eb287",
+    ".agent-defs/platform.md": "7fb4ed0891ed28a88af2a9817a8e60fea9126cf699f28cbaa5e40235d0e47c2d",
+    ".agent-defs/python-package.md": "10c5cb39f1e02c464b48dc80e2f2e9fa61b17e27f811adf550cd80625763d3f2",
+    ".agent-defs/security.md": "bc39177eac12618311c35d75e9195e260b9e1de2556dd4e7fa9544e517f0f451",
+    ".agent-defs/temp-files.md": "aa95387f2b260dba77c0d5826f991d11342ed2220769ea068f668f55ed6ee3be",
+    ".agent-defs/working-style.md": "14f0ecb8c309038bd3080803c3882445214ebe5791180266a51a5db4c43605e4",
+    ".claude/scripts/validate-commit-msg.sh": "d83d0a3152b400e814e9e4ed30afb3fda33cd179b38b22b763b5bc62e2fe0d63",
+    ".claude/settings.json": "effa25efe892829f00be945db886d36c336e3d152c8aaf269bfcde2006c36439",
+    ".githooks/commit-msg": "8d3072b826c3bbc31e26c6d141d4f78562cefb6c65a29cac19e71e1c77c0d1c0",
+    ".githooks/pre-commit": "ca52dcd0575bacf7be76e933b5a81ab47c2affb64232911a60d8530248cfbd8e",
+    ".gitidentity.example": "007c8998705c08fd5c33c7eef2e55041695cbdf00b2d68bc47dcee9ed06869a8",
+    "AGENTS.md": "faeae6bd89c42a03bf4457040e22f1ca7de36e6fc9a2395f9222df006d34b482",
+    "CLAUDE.md": "f0f8dc30f6287296c7d54ac1ddea7d1f97de648028f16edf7580b9e9000bfafd"
+  },
+  "seeded": [
+    ".agent-defs/overview.md"
+  ],
+  "gitignore_declined": [
+    "data/"
+  ]
+}

@@ -41,7 +41,7 @@ docker compose down
 docker compose down -v   # DROPS the Oxigraph and Garage volumes — destroys all stored data
 ```
 
-`down -v` is a deletion: never run it to "clean up" without explicit approval (`AGENTS.md` §7).
+`down -v` is a deletion: never run it to "clean up" without explicit approval ([repo-specific.md](repo-specific.md) → "Deletion is scoped").
 It also un-bootstraps Garage — a fresh volume has no layout, bucket or key, so
 `scripts/garage-init.sh` must be re-run once afterwards (it is idempotent).
 
@@ -53,7 +53,7 @@ stack — no editor, no writer — and the whole stack needs `COMPOSE_PROFILES=f
 refuses connections, check this first — [editor-runtime.md](editor-runtime.md) → "Compose
 Commands" has the diagnosis, [../docs/deployment.md](../docs/deployment.md) the full detail.
 
-Never start or restart the Docker daemon / Docker Desktop yourself (`AGENTS.md` §0.6) — if it
+Never start or restart the Docker daemon / Docker Desktop yourself ([platform.md](platform.md)) — if it
 is unreachable, stop and ask the user. Managing `docker compose` services is fine.
 
 ## Seeding and Data Reset
@@ -70,7 +70,7 @@ How triples get into the store — the thing to check first when reads come back
 
 **`RESET_DATA_ON_STARTUP=true` is destructive** — it clears the named graph before every seed,
 and it must stay `false` in production. Treat setting it, like `docker compose down -v`, as a
-deletion requiring explicit approval (`AGENTS.md` §7). Back up volumes first; the tarball
+deletion requiring explicit approval ([repo-specific.md](repo-specific.md) → "Deletion is scoped"). Back up volumes first; the tarball
 procedure is in [../docs/deployment.md](../docs/deployment.md) → "Ongoing operations".
 
 Full configuration matrix, reset modes, and the read-only population path:
