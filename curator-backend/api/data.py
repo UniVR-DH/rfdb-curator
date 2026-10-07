@@ -381,9 +381,38 @@ def create_or_update_entity(payload: EntityData, request: Request):
     # writing the new triples.
     if entity_id and payload.originalTriples:
         predicates_to_delete = {t.predicate for t in payload.originalTriples}
-        wc = store.with_clause()
         for pred_uri in predicates_to_delete:
             _validate_iri(pred_uri)
+
+        def bridge_where(pred_uri: str) -> str:
+            # The bridge nodes reached from this entity through pred_uri and by
+            # no other link: the ones the delete below removes.
+            return f"""
+                <{entity_id}> <{pred_uri}> ?bridge .
+                ?bridge ?bp ?bo .
+                FILTER NOT EXISTS {{
+                    ?other ?op ?bridge .
+                    FILTER(?other != <{entity_id}> || ?op != <{pred_uri}>)
+                }}
+            """
+
+        # The rollback snapshot above holds only <entity_id> ?p ?o. Add the
+        # bridge triples the delete removes, before anything is deleted, so a
+        # failed load restores each node together with its link.
+        try:
+            for pred_uri in predicates_to_delete & bridge_predicates:
+                existing_entity_graph += store.construct(
+                    f"""
+                    CONSTRUCT {{ ?bridge ?bp ?bo }}
+                    {store.from_clause()}
+                    WHERE {{ {bridge_where(pred_uri)} }}
+                    """
+                )
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="Store unavailable") from exc
+
+        wc = store.with_clause()
+        for pred_uri in predicates_to_delete:
             if pred_uri in bridge_predicates:
                 # A helper-bridge node (e.g. AgentRole) has no existence apart
                 # from the link being rewritten: deleting only the link would
@@ -397,14 +426,7 @@ def create_or_update_entity(payload: EntityData, request: Request):
                     f"""
                     {wc}
                     DELETE {{ ?bridge ?bp ?bo . }}
-                    WHERE  {{
-                        <{entity_id}> <{pred_uri}> ?bridge .
-                        ?bridge ?bp ?bo .
-                        FILTER NOT EXISTS {{
-                            ?other ?op ?bridge .
-                            FILTER(?other != <{entity_id}> || ?op != <{pred_uri}>)
-                        }}
-                    }}
+                    WHERE  {{ {bridge_where(pred_uri)} }}
                     """
                 )
             store.update(
