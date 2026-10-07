@@ -19,6 +19,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+from fastapi import HTTPException
 from rdflib import Graph, URIRef
 from rdflib.namespace import RDF
 
@@ -306,4 +308,39 @@ rfdb:person_z a core:Person ;
     agent_role = URIRef(DATA + "stored_work_ar_0")
     assert (agent_role, HAS_AGENT, URIRef(DATA + "person_z")) in store.g
     assert (agent_role, HAS_AGENT, URIRef(DATA + "person_y")) not in store.g
+    assert (agent_role, HAS_ROLE, URIRef(DATA + "role_librettist")) in store.g
+
+
+class _FailingWriteOxigraph(_GraphOxigraph):
+    """Store whose first bulk load fails, so the write path has to roll back."""
+
+    def __init__(self, turtle: str = "") -> None:
+        super().__init__(turtle)
+        self.loads = 0
+
+    def load_turtle(self, turtle: str) -> None:
+        """Fail the write, then accept the rollback load."""
+        self.loads += 1
+        if self.loads == 1:
+            raise OSError("simulated store write failure")
+        super().load_turtle(turtle)
+
+
+def test_failed_write_restores_the_removed_bridge_node() -> None:
+    """A failed load after a bridge removal restores the node, not only the link.
+
+    The delete runs before the load, so if the load fails the rollback is all
+    that stands between the curator and a connection whose node lost its person
+    and role.
+    """
+    store = _FailingWriteOxigraph(_STORED_WORK)
+    with pytest.raises(HTTPException) as exc_info:
+        create_or_update_entity(_work_without_agent_role(), _dep_request(store))
+    assert exc_info.value.status_code == 503
+
+    work = URIRef(DATA + "stored_work")
+    agent_role = URIRef(DATA + "stored_work_ar_0")
+    assert (work, HAS_AGENT_ROLE, agent_role) in store.g
+    assert (agent_role, RDF.type, AGENT_ROLE) in store.g
+    assert (agent_role, HAS_AGENT, URIRef(DATA + "person_y")) in store.g
     assert (agent_role, HAS_ROLE, URIRef(DATA + "role_librettist")) in store.g
