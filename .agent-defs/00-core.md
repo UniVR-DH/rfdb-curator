@@ -23,7 +23,7 @@ rule here conflicts with what seems convenient, the rule wins.
    with `[BOT]`. Never a commit called "update".
 6. **`.temp/` is gitignored scratch space.** Read it freely, say which file and
    why before writing, never overwrite an existing file without a named yes,
-   never commit it, and never mention its paths in a committed file.
+   never commit it, and never point a committed file at anything in it.
 7. **Size-check before reading any file.** A large generated or downloaded file
    saturates the context window and blocks the user's work. Check the size
    first (`wc -l`, `ls -la`), and for anything large extract only what you need

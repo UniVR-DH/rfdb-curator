@@ -54,6 +54,6 @@ Use a tool's offline mode where it has one. Plain `uv run` syncs the
 environment, and downloads, whenever the lockfile has moved; `uv run --offline`
 does not.
 
-The permission rules in `.claude/settings.json` prompt for the common commands
-above, but they cannot see a URL opened from inside a script. This rule covers
-what they miss.
+Where this clone has the permission rules (`.claude/settings.json`, written
+per clone), they prompt for the common commands above, but they cannot see a
+URL opened from inside a script. The rule holds either way.

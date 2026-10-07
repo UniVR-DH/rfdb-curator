@@ -5,7 +5,9 @@ working documents, handoff notes. It may also hold large local artifacts, so
 list it before acting on it. Do not assume everything there is text.
 
 - **Read freely.** It is useful context for what the user is thinking about.
-- **Writing is allowed, but say which file and why first.**
+- **Writing is allowed, but say which file and why first.** Where the
+  permission rules prompt for the write, the user's answer is their say on that
+  file; it does not replace saying why.
 - **Overwriting or deleting an existing file needs its own explicit yes**, named
   file and all. These notes are not in git, so a lost one is lost for good.
   Never assume permission to write a *new* file extends to replacing an
@@ -25,13 +27,14 @@ list it before acting on it. Do not assume everything there is text.
   stale, rejected, or aspirational. Do not implement from it without confirming
   first, and do not promote it into committed documentation unasked.
 
-## Never mention a local-only path in a committed file
+## Never point a committed file at local-only content
 
 Not as a markdown link, not in a code comment, not in a CI config, not as
-prose. This is stricter than "do not commit the file itself", and it applies to
-every committed artifact: source, docs, YAML, Dockerfiles, workflows.
+prose, and not as a command or a step that needs the file to exist. This is
+stricter than "do not commit the file itself", and it applies to every
+committed artifact: source, docs, YAML, Dockerfiles, workflows.
 
-The path does not exist for anyone but this workspace. A reader who clones the
+The file does not exist for anyone but this workspace. A reader who clones the
 repository gets a dangling link and a pointer to reasoning they cannot read,
 which is worse than no citation, because it implies the justification is
 documented somewhere when it is not. It also leaks the shape of local scratch
@@ -40,9 +43,10 @@ work into a shared artifact.
 When a committed file needs the *reasoning* from a scratch note, inline the
 reasoning in enough detail to stand on its own and cite nothing.
 
-The same goes for every other local-only path: `CLAUDE.md`, `.claude/**`, and
-anything else the repository gitignores. `.gitignore` is the one exception,
-since naming them is its whole job.
+The same goes for everything else the repository gitignores, such as
+`CLAUDE.md` and `.claude/`. What is forbidden is pointing at a particular
+local file, or depending on one. Naming the local-only locations to say how
+the repository is laid out, as these rules and `.gitignore` do, is not.
 
 An absolute path on this machine is local-only too: where the repository is
 cloned, anything under the home directory, the session scratchpad. It names one

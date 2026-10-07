@@ -9,8 +9,10 @@ rewrites history, opening or updating a PR, switching branch (`git switch`,
 `git checkout <branch>`), creating one (`git switch -c`, `git branch <name>`).
 
 Free without asking, all read-only: `git status`, `git diff`, `git log`,
-`git show`, `git branch --list`, `git branch --show-current`, `git blame`,
-`git remote -v`.
+`git show`, `git blame`, `git remote -v`, and `git rev-parse` (the current
+branch is `git rev-parse --abbrev-ref HEAD`). Every other `git branch` form
+asks, listing included, because the permission rules cannot tell a listing
+from a deletion.
 
 `git checkout -- <path>` discards a file's changes. That is a destructive file
 operation, not a branch switch, and it needs permission too.
@@ -82,8 +84,9 @@ Nothing follows the terminator. Never put `&& \` on the line that opens the
 heredoc: the continuation pulls the next line into the command, the body starts
 a line late, and the message that reaches the commit is garbled.
 
-The `PreToolUse` hook rejects a command holding more than one `git commit`, and
-a `git commit` that follows a heredoc opened on a continued line.
+Where the harness runs the `PreToolUse` git guard, it rejects a command holding
+more than one `git commit`, and a `git commit` that follows a heredoc opened on
+a continued line. The rule holds either way.
 
 ## Message format
 
@@ -119,12 +122,13 @@ tooling expect at position 0.
 Validate before every commit:
 
 ```bash
-.claude/scripts/validate-commit-msg.sh -m "fix(api): guard empty metadata [BOT]"
+.githooks/validate-commit-msg.sh -m "fix(api): guard empty metadata [BOT]"
 ```
 
-A non-zero exit means do not commit. Fix the message and re-validate. A
-`PreToolUse` hook independently blocks commits without `[BOT]` and blocks bulk
-staging. Treat a block as a correct catch, not an obstacle to route around.
+A non-zero exit means do not commit. Fix the message and re-validate. Where
+the harness runs the `PreToolUse` git guard, it also blocks an inline `-m`
+message without `[BOT]`, and bulk staging. Treat a block as a correct catch,
+not an obstacle to route around.
 Never use `--no-verify`.
 
 **Do not add trailers.** No `Co-Authored-By:` line, no generated-with footer.
@@ -154,9 +158,12 @@ git config --local include.path ../.gitidentity
 teammate who clones the repository must not inherit someone else's address or
 key id. `.gitidentity.example` is committed as the template.
 
-**When `.gitidentity` is present, commit with it and do not ask.** It is a
-decision someone made about this repository, which is exactly what a global
-identity is not.
+**When `.gitidentity` is present and wired, commit with it and do not ask.**
+Wired means `git config --local --get include.path` names it; a copy git does
+not read changes nothing, and the commit would go out under the global
+identity. It is a decision someone made about this repository, which is
+exactly what a global identity is not. Present but not wired: say so, and ask
+the user to run the `include.path` line above.
 
 **When it is missing, stop and ask which account and which GPG key to use, and
 wait for an answer.** Never infer it from whatever `git config` happens to
@@ -190,13 +197,13 @@ it. `gh` acts *now*, as them, on something they have not seen.
 
 ### Shape of a handoff note
 
-Exactly two parts, split by one `---`. Above the rule: branch state, the
+Two parts, split at the first `---`. Above the rule: branch state, the
 `pull/new/` URL, the title in a fenced block to copy, and anything the user
 should know *before* sending, including caveats, omissions and questions.
-Below the rule: the PR body and nothing else, so it can be selected in one go
-and pasted into the description box without editing. Nothing that is not part
-of the PR body may appear below the rule. Headings inside the body start at
-`##`.
+Below the rule: the PR body and nothing else, provenance line included, so it
+can be selected in one go and pasted into the description box without editing.
+Nothing that is not part of the PR body may appear below the rule. Headings
+inside the body start at `##`.
 
 ### What goes in a PR
 
@@ -206,7 +213,7 @@ Write it so a reviewer knows what changed, why, and how it was checked within
 **Title:** the commit subject format, `<type>(<scope>): <subject> [BOT]`. For a
 series of commits, name the change the series makes, not its last commit.
 
-**Body**, in this order, and nothing else:
+**Body**, in this order, then the provenance line described below:
 
 ```markdown
 ## Why
