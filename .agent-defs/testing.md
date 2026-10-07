@@ -73,6 +73,8 @@ Test functions should include concise docstrings describing the intent and expec
 
 ## Hook Notes
 
-Pre-commit hooks are ruff-only and **opt-in** (`pre-commit install` once per clone) — they do
-not run the test suites, so the three commands above are still on you. Details:
+The hooks are **opt-in**: `git config core.hooksPath .githooks` once per clone. The tracked
+`pre-commit` hook runs `.pre-commit-config.yaml` (ruff check, ruff format, prefix-map
+coverage) when the `pre-commit` tool works; `pre-commit install` refuses once `core.hooksPath`
+is set. They do not run the test suites, so the three commands above are still on you. Details:
 [repo-specific.md](repo-specific.md) → "Ruff hook".
