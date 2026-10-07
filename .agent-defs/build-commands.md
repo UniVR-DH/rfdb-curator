@@ -20,14 +20,19 @@ either is fine. Use this one environment for all Python checks.
 
 ## Frontend Environment Setup
 
-```bash
-cd curator-frontend
-npm ci
+Node never runs on the host ([platform.md](platform.md)). Each frontend image runs `npm ci`
+at build time, and the Compose services bind-mount the source over `/app` while an anonymous
+volume keeps the image's `node_modules`. Every frontend command below therefore runs through
+`docker compose run --rm --no-deps <service>`, from the repo root.
 
-# Explorer — standalone read-only graph visualizer (its own Vite app)
-cd ../graphexplorer-frontend
-npm ci
+```bash
+# Build both images (pulls the Node base image if it is not local: ask first)
+docker compose build curator-frontend graphexplorer-frontend
 ```
+
+A dependency change goes through the container too, then a rebuild so the image layer has it:
+`docker compose run --rm --no-deps curator-frontend npm install <pkg>` (ask first: it is a
+new dependency and it reaches the network).
 
 ## Docker Compose Lifecycle (Preferred Runtime)
 
@@ -83,15 +88,13 @@ they cannot be collapsed into one live in [testing.md](testing.md) → "Running 
 the canonical copy; do not paste a fourth one here.
 
 ```bash
-# Frontend checks
-cd curator-frontend
-npm run lint
-npm run build
+# Frontend checks, in the container (see "Frontend Environment Setup")
+docker compose run --rm --no-deps curator-frontend npm run lint
+docker compose run --rm --no-deps curator-frontend npm run build
 
 # Explorer checks (mirrors the frontend; CI runs these as `graphexplorer-frontend-checks`)
-cd ../graphexplorer-frontend
-npm run lint
-npm run build
+docker compose run --rm --no-deps graphexplorer-frontend npm run lint
+docker compose run --rm --no-deps graphexplorer-frontend npm run build
 ```
 
 ### RDF Validation with Jena
@@ -162,13 +165,9 @@ Run ruff **from the repo root**, which is what CI does:
 uv run ruff check .          # CI: "Ruff lint"
 uv run ruff format --check . # CI: "Ruff format check"
 
-# Frontend
-cd curator-frontend
-npm run lint
-
-# Explorer
-cd ../graphexplorer-frontend
-npm run lint
+# Frontend and Explorer, in their containers
+docker compose run --rm --no-deps curator-frontend npm run lint
+docker compose run --rm --no-deps graphexplorer-frontend npm run lint
 ```
 
 The root config sets `src = ["curator-backend", "dataexplorer-backend", "rfdb-core"]`.
