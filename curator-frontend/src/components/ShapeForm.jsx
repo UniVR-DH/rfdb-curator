@@ -114,6 +114,12 @@ export default function ShapeForm({
   // after its draft has been cleared (a create-mode reset otherwise leaves no state
   // change for the effect to react to).
   const [resetNonce, setResetNonce] = useState(0)
+  // Which record the edit form has finished loading, and the connection fields
+  // whose bridge nodes failed to load. Until the current record is loaded with
+  // no failures the form cannot be saved: isFieldDirty compares the loaded
+  // bridge IRIs with the form's, so a missing card would read as a removal and
+  // the backend would delete that connection.
+  const [hydration, setHydration] = useState({ record: null, failed: [] })
 
   const { register, handleSubmit, reset, control, watch, formState } = useForm()
 
@@ -390,8 +396,10 @@ export default function ShapeForm({
     // Editing existing record:
     // Step 1 — map all scalar fields synchronously so the form is not blank
     //           while async fetches are in flight.
+    setHydration({ record: null, failed: [] })
     const mapped = mapRecordToFormData(record, formSchema.fields)
     const flat = triplesToFlatObject(record.triples)
+    const failedNested = []
 
     if (formSchema.shape.typeOptions?.length > 0) {
       mapped.__typeChoice = resolveTypeChoice(flat, formSchema.shape.typeOptions)
@@ -403,7 +411,10 @@ export default function ShapeForm({
 
     if (nestedFields.length === 0 && entitySearchFields.length === 0 && fileFields.length === 0) {
       // Nothing async needed — reset straight away
-      if (!ignore) hydrateReset(mapped)
+      if (!ignore) {
+        hydrateReset(mapped)
+        setHydration({ record, failed: [] })
+      }
       return () => {
         ignore = true
       }
@@ -459,8 +470,9 @@ export default function ShapeForm({
 
             return entry
           } catch {
-            // If a single bridge entity fetch fails, skip it rather than
-            // breaking the whole form load
+            // Skip the card so the rest of the form still loads, but record the
+            // field: saving now would delete this connection (see `hydration`).
+            if (!failedNested.includes(field.name)) failedNested.push(field.name)
             return null
           }
         })
@@ -540,6 +552,7 @@ export default function ShapeForm({
     Promise.all([...nestedPromises, ...filePromises, ...entitySearchPromises]).then(() => {
       if (ignore) return
       hydrateReset(mapped)
+      setHydration({ record, failed: failedNested })
     })
 
     // Mark this run as stale when a newer run starts or component unmounts.
@@ -580,6 +593,8 @@ export default function ShapeForm({
       // predicate must be rewritten, which is what puts it in originalTriples.
       // Without this, removing a connection sent no delete for the link, the
       // store kept it, and the "removed" connection came back on reload.
+      // Sound only on a fully loaded form, which is why submit waits for
+      // `hydration` and refuses one where a bridge node failed to load.
       if (dirtyFields[field.path]) return true
       const loaded = (record?.triples ?? [])
         .filter((t) => t.predicate === field.pathUri && t.objectType === 'iri')
@@ -609,7 +624,13 @@ export default function ShapeForm({
     return !!dirtyFields[field.path]
   }
 
+  // A create form has nothing to load. An edit form is saveable only once the
+  // current record (not a previous one) has loaded with every bridge node.
+  const editLoading = !!record?.id && hydration.record !== record
+  const editBlocked = !!record?.id && hydration.record === record && hydration.failed.length > 0
+
   async function onSubmit(formData) {
+    if (editLoading || editBlocked) return
     setSubmitting(true)
     setSubmitError(null)
     try {
@@ -773,16 +794,28 @@ export default function ShapeForm({
       </div>
 
       {submitError && <p className="form-error">{submitError}</p>}
+      {editBlocked && (
+        <p className="form-error">
+          Could not load some connections ({hydration.failed.join(', ')}). Saving now would
+          delete them, so it is disabled: reload the record to try again.
+        </p>
+      )}
 
       <footer className="form-actions">
-        <button type="submit" className="btn btn-primary" disabled={submitting}>
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={submitting || editLoading || editBlocked}
+        >
           {submitting
             ? record && record.id
               ? 'Updating…'
               : 'Inserting…'
-            : record && record.id
-              ? 'Update record'
-              : 'Insert record'}
+            : editLoading
+              ? 'Loading record…'
+              : record && record.id
+                ? 'Update record'
+                : 'Insert record'}
         </button>
         {/* Reset clears the draft + selection in the parent and re-seeds a blank form. */}
         <button
