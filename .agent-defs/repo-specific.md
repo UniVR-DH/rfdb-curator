@@ -77,10 +77,9 @@ services, so run all three suites. `uv sync` reaches the network and needs a yes
 ## Frontend runs in a container
 
 `curator-frontend/` and `graphexplorer-frontend/` follow the container-only rule
-in `platform.md`: no `npm`, `npx` or Node on the host. `build-commands.md` and
-`testing.md` still show host invocations (`npm ci`, `npm run lint`); treat
-those as pending a rewrite and do not run them on the host. Ask how to run the
-frontend checks until they are rewritten.
+in `platform.md`: no `npm`, `npx` or Node on the host. Every frontend command
+goes through `docker compose run --rm --no-deps <service>`; the commands are in
+`build-commands.md` → "Frontend Environment Setup" and "Validation and Tests".
 
 ## RDF, Turtle and SHACL
 

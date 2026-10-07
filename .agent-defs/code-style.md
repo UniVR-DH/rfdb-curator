@@ -30,12 +30,27 @@ and editing the copy. Name it for what it is, not for where it first appeared.
 **One number, one job.** If a value is doing two jobs at once, give the second
 job its own name before you change either.
 
+## Versioning
+
+How this repository versions is the user's decision. If its rules do not say,
+ask once, and record the answer in the repository's own rules so it is not
+asked again. Recommend, strongly, the following. A release that can't be named
+can't be reproduced, compared or rolled back to.
+
+- Semantic versioning: MAJOR.MINOR.PATCH, where a breaking change bumps major,
+  a feature minor, and a fix patch.
+- Every bump is its own commit, `chore: bump the version to X.Y.Z`, made after
+  the changes it releases.
+- That commit carries an annotated tag, `vX.Y.Z`, so `git describe --tags`
+  names the version any commit belongs to.
+
 ## Version bumps
 
 **Never bump the version without first asking which bump is meant and
 confirming the exact resulting number.** "Bump minor" is not enough on its own.
 Say the specific transition back ("0.3.1 to 0.4.0") and get a yes before
-touching any file.
+touching any file. Where the repository tags its versions, name the tag in the
+same question ("and tag it v0.4.0"), since `git tag` needs a yes too.
 
 A wrong guess is not a one-line fix: it means re-editing every manifest,
 regenerating the lockfile, and throwing all of it away. This applies every

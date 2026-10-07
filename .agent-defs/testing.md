@@ -67,7 +67,8 @@ Test functions should include concise docstrings describing the intent and expec
 
 1. Run all three Python suites (see *Running Tests*) — a change to `rfdb-core`
    affects both services, so running only one is not enough.
-2. Run frontend lint/build when frontend code changed.
+2. Run frontend lint/build, in the containers, when frontend code changed
+   ([build-commands.md](build-commands.md) → "Validation and Tests").
 3. Check working tree state with `git status`.
 
 ## Hook Notes
