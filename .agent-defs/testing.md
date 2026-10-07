@@ -8,9 +8,9 @@ canonical copy**; [repo-specific.md](repo-specific.md) links here rather than re
 ```bash
 # `uv run` resolves the workspace venv at the REPO ROOT from any member directory —
 # no manual `source .venv/bin/activate` needed.
-cd rfdb-core               && uv run python -m pytest -c pyproject.toml ../tests/core -v
-cd ../curator-backend      && uv run python -m pytest -c pyproject.toml ../tests/curator -v
-cd ../dataexplorer-backend && uv run python -m pytest -c pyproject.toml ../tests/dataexplorer -v
+cd rfdb-core               && uv run --offline python -m pytest -c pyproject.toml ../tests/core -v
+cd ../curator-backend      && uv run --offline python -m pytest -c pyproject.toml ../tests/curator -v
+cd ../dataexplorer-backend && uv run --offline python -m pytest -c pyproject.toml ../tests/dataexplorer -v
 ```
 
 `-c pyproject.toml` is needed because pytest cannot auto-discover a member's config

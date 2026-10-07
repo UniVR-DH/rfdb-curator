@@ -162,8 +162,8 @@ Run ruff **from the repo root**, which is what CI does:
 ```bash
 # Python — run FROM THE REPO ROOT, mirrors CI exactly.
 # Covers every member and tests/ in one pass.
-uv run ruff check .          # CI: "Ruff lint"
-uv run ruff format --check . # CI: "Ruff format check"
+uv run --offline ruff check .          # CI: "Ruff lint"
+uv run --offline ruff format --check . # CI: "Ruff format check"
 
 # Frontend and Explorer, in their containers
 docker compose run --rm --no-deps curator-frontend npm run lint

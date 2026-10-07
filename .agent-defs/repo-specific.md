@@ -65,8 +65,8 @@ services own a top-level `api` package and a single pytest process would
 resolve `from api.data import …` to whichever was imported first.
 
 ```bash
-uv run ruff check .          # lint, from the ROOT, covers all members + tests
-uv run ruff format --check . # format check, from the ROOT
+uv run --offline ruff check .          # lint, from the ROOT, covers all members + tests
+uv run --offline ruff format --check . # format check, from the ROOT
 ```
 
 The three pytest commands are in [testing.md](testing.md) → "Running Tests",
@@ -162,7 +162,7 @@ user** how to proceed. Do not try to separate the changes yourself.
 
 ```bash
 git status --short
-uv run ruff check . && uv run ruff format --check .        # from the repo ROOT
+uv run --offline ruff check . && uv run --offline ruff format --check .  # from the repo ROOT
 ```
 
 Plus the three Python suites ([testing.md](testing.md)) and, when frontend code
@@ -172,13 +172,13 @@ to the changed areas.
 ### Ruff hook
 
 The repo tracks `.pre-commit-config.yaml` (ruff lint + format, scoped to every
-Python workspace member plus `tests/`). `.githooks/pre-commit` runs it when the
+Python workspace member plus `tests/`, and the prefix-map coverage check). `.githooks/pre-commit` runs it when the
 `pre-commit` tool is installed; run it manually with
 `pre-commit run --all-files`. It does not run the test suites.
 
-The hooks run `uv run ruff …` **from the repo root**, matching CI. Since
+The hooks run `uv run --offline ruff …` **from the repo root**, matching CI. Since
 `[tool.ruff]` moved to the root `pyproject.toml` with an explicit
-`src = ["curator-backend", "rfdb-core"]`, import classification no longer
+`src = ["curator-backend", "dataexplorer-backend", "rfdb-core"]`, import classification no longer
 depends on cwd, and running from the root is the only invocation that also
 covers `rfdb-core/` and `tests/`. The ruff version comes from curator-backend's
 dev dependency, resolved through the workspace's single root `.venv`. The hook
