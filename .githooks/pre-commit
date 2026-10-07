@@ -35,11 +35,15 @@ if [ -n "$found" ]; then
     exit 1
 fi
 
-# core.hooksPath makes `pre-commit install` refuse, so the ruff hooks in
-# .pre-commit-config.yaml are chained here instead, when the tool runs. Probed
-# with --version, not `command -v`: a pyenv shim exists even where it cannot run.
-if pre-commit --version >/dev/null 2>&1; then
-    exec pre-commit run --hook-stage pre-commit
+# core.hooksPath makes `pre-commit install` refuse, so a repository's
+# .pre-commit-config.yaml is chained here instead, when the tool runs.
+# Probed with --version, not `command -v`: a pyenv shim exists even
+# where it cannot run.
+if [ -f "$root/.pre-commit-config.yaml" ]; then
+    if pre-commit --version >/dev/null 2>&1; then
+        exec pre-commit run --hook-stage pre-commit
+    fi
+    echo "pre-commit: .pre-commit-config.yaml was not run, the pre-commit tool does not work here" >&2
 fi
 
 exit 0
