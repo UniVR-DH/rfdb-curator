@@ -1,12 +1,15 @@
-# Pre-commit hooks — run the exact same ruff checks CI does, before commit.
-# Setup (once per clone; needs uv on PATH):
-#   pre-commit install
+# Pre-commit hooks — the same ruff checks CI does, plus prefix-map coverage.
+# Setup (once per clone; needs uv and pre-commit on PATH):
+#   git config core.hooksPath .githooks
+# `pre-commit install` refuses once core.hooksPath is set; .githooks/pre-commit
+# runs this file itself whenever the pre-commit tool works.
 # Run manually against everything:
 #   pre-commit run --all-files
 #
 # The hooks run ruff FROM THE REPO ROOT, matching CI. [tool.ruff] lives in the
-# root pyproject.toml, and its explicit src = ["curator-backend", "rfdb-core"] means
-# first-party import detection no longer depends on the working directory — so
+# root pyproject.toml, and its explicit
+# src = ["curator-backend", "dataexplorer-backend", "rfdb-core"] means first-party
+# import detection no longer depends on the working directory — so
 # there is nothing to keep in sync by cd-ing into a member. Running from the root
 # is also what brings rfdb-core/ and tests/ into scope.
 #
@@ -21,13 +24,13 @@ repos:
       - id: ruff-check
         name: ruff check (workspace)
         language: system
-        entry: bash -c 'env -u VIRTUAL_ENV uv run ruff check --fix .'
+        entry: bash -c 'env -u VIRTUAL_ENV uv run --offline ruff check --fix .'
         pass_filenames: false
         files: ^((curator|dataexplorer)-backend|rfdb-core|tests)/.*\.py$
       - id: ruff-format
         name: ruff format (workspace)
         language: system
-        entry: bash -c 'env -u VIRTUAL_ENV uv run ruff format .'
+        entry: bash -c 'env -u VIRTUAL_ENV uv run --offline ruff format .'
         pass_filenames: false
         files: ^((curator|dataexplorer)-backend|rfdb-core|tests)/.*\.py$
       # Keep rfdb_core.prefixes.PREFIXES (served by /api/meta/prefixes) in sync with
@@ -36,6 +39,6 @@ repos:
       - id: prefix-map-check
         name: prefix-map coverage (rfdb-core/rfdb_core/prefixes.py vs TTL files)
         language: system
-        entry: bash -c 'env -u VIRTUAL_ENV uv run python curator-backend/scripts/check_prefixes.py'
+        entry: bash -c 'env -u VIRTUAL_ENV uv run --offline python curator-backend/scripts/check_prefixes.py'
         pass_filenames: false
         files: ^(schema/.*\.ttl|data/.*\.ttl|rfdb-core/rfdb_core/prefixes\.py)$

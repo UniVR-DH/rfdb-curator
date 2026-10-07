@@ -27,12 +27,13 @@ the workspace root.
 
 ### Frontend
 
-Dependencies are managed with `npm`.
+Dependencies are managed with `npm`, but Node never runs on the host: each frontend
+image runs `npm ci` at build time, and every other `npm` command runs inside the
+container, from the repo root.
 
 ```bash
-cd curator-frontend
-npm ci
-npm run dev
+docker compose build curator-frontend graphexplorer-frontend
+docker compose up curator-frontend
 ```
 
 Vite dev server runs on `http://localhost:5173`.
@@ -95,19 +96,21 @@ ruff check .
 ruff format .
 python -m pytest
 
-# Frontend
-cd curator-frontend
-npm run lint
-npm run build
+# Frontend, in the container, from the repo root
+docker compose run --rm --no-deps curator-frontend npm run lint
+docker compose run --rm --no-deps curator-frontend npm run build
 ```
 
 ### pre-commit setup
 
-If `.pre-commit-config.yaml` is present:
+The repository's hooks live in `.githooks/`; enable them once per clone. `pre-commit
+install` refuses once `core.hooksPath` is set, so the tracked `pre-commit` hook runs
+`.pre-commit-config.yaml` itself (ruff check, ruff format, prefix-map coverage) whenever
+the `pre-commit` tool works, and warns when it does not:
 
 ```bash
+git config core.hooksPath .githooks
 uv tool install pre-commit
-pre-commit install
 ```
 
 Run all hooks manually:
@@ -130,7 +133,7 @@ pre-commit is meant to catch formatting/hygiene issues before CI does.
 - verify SHACL schema parses
 - (optional) validate seed data against the active SHACL schema
 
-**Frontend checks:**
+**Frontend checks** (on the CI runner, not a developer host):
 - `npm ci`
 - ESLint
 - production build
@@ -269,7 +272,7 @@ uv run ruff check . && uv run ruff format --check .   # from the repo ROOT
 cd rfdb-core               && uv run python -m pytest -c pyproject.toml ../tests/core
 cd ../curator-backend      && uv run python -m pytest -c pyproject.toml ../tests/curator
 cd ../dataexplorer-backend && uv run python -m pytest -c pyproject.toml ../tests/dataexplorer
-cd curator-frontend && npm run lint && npm run build && cd ..
+cd .. && docker compose run --rm --no-deps curator-frontend sh -c 'npm run lint && npm run build'
 pre-commit run --all-files   # if configured
 ```
 
