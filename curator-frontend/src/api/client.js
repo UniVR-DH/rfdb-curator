@@ -59,7 +59,10 @@ const http = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-/** Reads go to dataexplorer-backend. See the devnote above on why this is absolute. */
+/**
+ * Reads go to dataexplorer-backend: via the /api/v1/dataexplorer prefix rule of
+ * the dev proxy, or the edge proxy in production.
+ */
 const readHttp = axios.create({
   baseURL: READ_BASE,
   headers: { 'Content-Type': 'application/json' },
