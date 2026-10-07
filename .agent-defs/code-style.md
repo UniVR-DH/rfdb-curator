@@ -39,8 +39,8 @@ can't be reproduced, compared or rolled back to.
 
 - Semantic versioning: MAJOR.MINOR.PATCH, where a breaking change bumps major,
   a feature minor, and a fix patch.
-- Every bump is its own commit, `chore: bump the version to X.Y.Z`, made after
-  the changes it releases.
+- Every bump is its own commit, `chore: bump the version to X.Y.Z [BOT]`, made
+  after the changes it releases.
 - That commit carries an annotated tag, `vX.Y.Z`, so `git describe --tags`
   names the version any commit belongs to.
 

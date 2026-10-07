@@ -25,20 +25,16 @@ is fine; launching the engine is the user's prerogative.
 
 ## Untrusted code stays in the container
 
-**Never run Node, npm, npx, or any package install on the host.** All
-JavaScript execution and all dependency installation happen inside a container.
-Package install scripts execute arbitrary code, and the host has the
-credentials.
+**Never run Node, npm or npx on the host.** All JavaScript execution and
+JavaScript dependency installation happen inside a container. Package install
+scripts execute arbitrary code, and the host has the credentials. Any other
+package install on the host needs a yes first; where the python-package rules
+apply, they say how.
 
-## Environment and secrets
+## Images
 
-- `.env` is gitignored and stays that way. `.env.example` holds placeholder keys
-  only.
-- A value that has ever been committed is compromised forever, whatever the
-  current tree shows. Never reproduce one, including in a deployment secret.
-- Real secrets are created imperatively on the platform, never written to a file
-  in this workspace, not even a gitignored one.
-- Pin image tags exactly. Never `latest`, never an open-ended range.
+Pin image tags exactly. Never `latest`, never an open-ended range. Secrets and
+`.env` follow `security.md`.
 
 ## Compose files
 

@@ -1,4 +1,4 @@
-# AGENTS.md — rfdb-curator
+# AGENTS.md: rfdb-curator
 
 RossijskijFeatrDB (rfdb): a curated RDF knowledge base of Russian theatrical works and their libretti, served by a SHACL-driven curator/explorer stack.
 
@@ -37,6 +37,6 @@ cannot both be followed, stop and ask which one applies.
 ## Local-only files
 
 `CLAUDE.md` and `.claude/` are gitignored. They hold machine-local harness
-configuration: permission rules and the `PreToolUse` guard that mechanically
-backs the rules above. Nothing in them is part of the project, and nothing in
-them may contradict `.agent-defs/`.
+configuration, such as the permission rules that mechanically back the rules
+above, and a fresh clone has neither. Nothing in them is part of the project,
+and nothing in them may contradict `.agent-defs/`.
