@@ -13,7 +13,7 @@
   "files": {
     ".agent-defs/00-core.md": "c363cbde734c825825c4c342f85f2586995fe50e5e518f26b77ee8d4ac34765e",
     ".agent-defs/code-style.md": "949b0113a22410d2d372d447daec8cce8d6a50e75e7d01f8d425c3a3067daed3",
-    ".agent-defs/git-workflow.md": "79bc3c9d68e3ecabdffcacdb7a4da523fb39d5b3b10f7e7b65946b88bca67c19",
+    ".agent-defs/git-workflow.md": "55eede4eba5c7035865a02d9d93dbeeeae2f965130a330c399c5411ee4de79fe",
     ".agent-defs/language.md": "d3727048cebfe1a85a2fdb7fa26d82695b5133d58a71a6048b553001d40eb287",
     ".agent-defs/platform.md": "0ec17638c1eec4f12764b1996ae8771e3e57eb2ddcc16ce29391e95ab613457c",
     ".agent-defs/python-package.md": "5c6bb2e616f487de46c95637504892595015cf9c6f331e23412913c3b0171962",
@@ -21,7 +21,7 @@
     ".agent-defs/temp-files.md": "92d2ae55117a95bfa6a2bf15d2fc7dfcef2c13b186c4ef3a82173f7d67ed4b0f",
     ".agent-defs/working-style.md": "14f0ecb8c309038bd3080803c3882445214ebe5791180266a51a5db4c43605e4",
     ".claude/settings.json": "4a12b2586b7c455df287fdbfb6897704b1c1b5c8e7ae281c495823c1eb882a4c",
-    ".githooks/commit-msg": "8d3072b826c3bbc31e26c6d141d4f78562cefb6c65a29cac19e71e1c77c0d1c0",
+    ".githooks/commit-msg": "bc4c1880164a162bd8f4a1e16733e8c1e1de394a181893d3376db1f90be7c993",
     ".githooks/pre-commit": "9686895447e1a4e14c892121aafd6db566c937cc9009fe5195bd7ff8a42630f6",
     ".githooks/validate-commit-msg.sh": "d2b915990dd13725a6b61d4b5f6ad18038d355bf6fcaaf722bf5fcf1dbd85dc3",
     ".gitidentity.example": "007c8998705c08fd5c33c7eef2e55041695cbdf00b2d68bc47dcee9ed06869a8",
