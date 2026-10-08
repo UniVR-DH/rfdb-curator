@@ -11,7 +11,7 @@
 # The subject line must be 72 characters or fewer. A trailing " [BOT]" marks a
 # commit written by an agent rather than by hand. It is optional, because this
 # hook checks hand-written commits too, but when it is present it must be
-# exactly that, at the end, and the commit must carry no attribution trailer.
+# exactly that, at the end, and the commit must carry no trailer.
 #
 # Enable once per clone:
 #     git config core.hooksPath .githooks
@@ -91,9 +91,11 @@ esac
 second=$(printf '%s\n' "$msg" | sed -n '2p')
 [ -n "$second" ] && fail "leave the second line blank"
 
-if [ -n "$bot" ] && printf '%s\n' "$msg" |
-        grep -Eiq '^co-authored-by:|generated with \[?claude'; then
-    fail "agent commits carry [BOT] and no attribution trailer"
+# Git decides what a trailer is. A person's commit may carry one, such as a
+# DCO Signed-off-by; an agent's carries none.
+if [ -n "$bot" ]; then
+    trailers=$(printf '%s\n' "$msg" | git interpret-trailers --parse)
+    [ -n "$trailers" ] && fail "agent commits carry [BOT] and no trailer" "$trailers"
 fi
 
 exit 0
