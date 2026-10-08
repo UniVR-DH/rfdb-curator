@@ -65,7 +65,10 @@ on it; where an open task builds on something already shipped, that context is n
 ### Modeling & schema
 
 - [ ] Complete the shape-role policy for nested shapes and helper records (see [architecture.md](docs/architecture.md#shape-role-policy)).
-- [ ] Cleanup for orphaned bridge entities after delete (e.g. `AgentRole` nodes left after their only parent is removed): cascade delete, an explicit cleanup endpoint, or an orphan-detection job. See [architecture.md](docs/architecture.md#delete-behavior-and-orphaned-helper-nodes).
+- [ ] Entity delete orphans its bridge nodes. `DELETE /api/v1/curator/entities` removes only `<entity> ?p ?o` (`delete_entity` in [data.py](curator-backend/api/data.py)), so an `AgentRole` owned by the deleted Work stays in the store. The update path already removes a bridge node together with its link, guarded by `FILTER NOT EXISTS` for shared nodes, over the predicates from `bridge_link_predicates()`. Reuse that query shape on delete and run it before the entity delete. The frontend sends `shapeId` on delete, but the endpoint treats it as optional. See [architecture.md](docs/architecture.md#delete-behavior-and-orphaned-helper-nodes).
+- [ ] Entity delete leaves inbound links dangling: triples with the deleted entity as object stay (e.g. deleting a Person leaves `core:hasAgent` on its `AgentRole` nodes pointing at nothing). Decide between blocking the delete, cascading, or warning in the UI; the only guard today is the generic `window.confirm` in `ShapeRecordList.jsx`.
+- [ ] Clean up `AgentRole` nodes already orphaned in existing stores. Before the edit-path fix, removing a connection in the editor kept the node's triples. Nothing detects them: `scripts/cleanup_files.py` and the `orphanedNodes` count of `/meta/files` cover `schema:DigitalDocument` only.
+- [ ] Check bridge-node removal, re-pointing and rollback in the live editor. They are covered by `tests/curator/test_agent_role_nested.py` against an rdflib-backed store double, never against Oxigraph.
 - [ ] Improve JSON-LD handling for nested forms and repeated multilingual values.
 - [ ] Expand the controlled-vocabulary seed set.
 - [ ] Support ruoli vocali / personaggi as AgentRoles in their own right.
