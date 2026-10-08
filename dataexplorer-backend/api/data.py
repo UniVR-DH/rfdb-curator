@@ -1,10 +1,8 @@
 """Data read routes: list entities by shape, count them, fetch one by IRI.
 
-The read half of what used to be one ``api/data.py``. The handler bodies are
-carried over unchanged — same SPARQL, same response shapes, same status codes —
-because the frontend's contract must not move when the route does. The write half
-(``POST /data``, ``DELETE /data/{id}``, digital-copy reconciliation, SHACL merge
-planning) stayed in curator-backend along with everything it needs.
+The read half of what used to be one ``api/data.py``. The write half (entity
+create and delete, digital-copy reconciliation, SHACL merge planning) stayed in
+curator-backend along with everything it needs.
 
 The only helper these three ever needed from the shared pool is the IRI guard,
 which now lives in ``rfdb_core.iri``.
@@ -51,8 +49,8 @@ def list_data(
 
     Returns:
         A ``DataListResponse`` with ``total`` (unpaged count) and ``items``
-        (the current page).  Each item carries ``id``, ``label``,
-        ``labelLang``, and ``status``.
+        (the current page).  Each item carries ``id``, ``label`` and
+        ``labelLang``.
 
     Raises:
         404: When ``shapeId`` is not found in the schema.
@@ -76,9 +74,10 @@ def list_data(
 
     store = request.app.state.store
 
-    # SPARQL note: FROM does not propagate into subqueries (SPARQL 1.1 §8.2).
-    # The GROUP BY is kept in a subquery only for deduplication; the OPTIONAL
-    # label lookup is moved to the outer WHERE so it runs inside the FROM scope.
+    # One flat SELECT, no subquery: FROM does not propagate into subqueries
+    # (SPARQL 1.1 §8.2), so the OPTIONAL label lookup has to sit in the same
+    # WHERE as the type pattern. GROUP BY ?id with SAMPLE then collapses an
+    # entity with several labels to a single row.
     sparql = f"""
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
         SELECT ?id (SAMPLE(?label_raw) AS ?label) (SAMPLE(?lang) AS ?labelLang)
@@ -107,7 +106,6 @@ def list_data(
             "id": r["id"],
             "label": r.get("label"),
             "labelLang": r.get("labelLang") or None,
-            "status": "unknown",
         }
         for r in rows
         if r.get("id")
@@ -209,7 +207,7 @@ def get_entity(
     the original RDF values faithfully.
 
     Args:
-        entity_id: Full IRI of the entity (URL-path-encoded by FastAPI).
+        entity_id: Full IRI of the entity, from the ``?id=`` query parameter.
 
     Returns:
         ``{"id": <iri>, "triples": [{predicate, object, objectType,
