@@ -41,14 +41,14 @@ def _load_backend_symbols() -> SimpleNamespace:
 class _NoopValidator:
     """Validator stub that always reports conforming graphs."""
 
-    def validate(self, _graph, focus_nodes=None):
+    def validate(self, _graph):
         return {"conforms": True, "violations": []}
 
 
 class _RejectingValidator:
     """Validator stub that forces non-conformance to avoid write side effects."""
 
-    def validate(self, _graph, focus_nodes=None):
+    def validate(self, _graph):
         return {
             "conforms": False,
             "violations": [

@@ -14,7 +14,7 @@ rdflib schema graph on purpose:
 ⚠️  MAINTENANCE: when you add a new ``@prefix`` to any project TTL file, add it
 here too. Run the manual sanity check to catch drift (declared-but-missing):
 
-    cd backend && uv run python scripts/check_prefixes.py
+    cd curator-backend && uv run python scripts/check_prefixes.py
 
 ``scan_ttl_prefixes`` below powers that check; it is intentionally cheap (reads
 only each file's leading directive block).

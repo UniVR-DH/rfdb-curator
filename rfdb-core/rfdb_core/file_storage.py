@@ -25,8 +25,8 @@ _CHUNK = 1024 * 1024  # 1 MiB streaming chunk
 class S3Settings(Protocol):
     """The slice of a service's ``Settings`` that :func:`build_storage` reads.
 
-    Structural, not inherited: each service defines its own ``Settings`` and both
-    already carry these five fields, so neither has to import from here.
+    Structural, so this module names only the slice it reads. Both services get
+    these five fields from ``rfdb_core.config.BaseServiceSettings``.
     """
 
     s3_endpoint: str
@@ -67,7 +67,7 @@ class StorageError(RuntimeError):
     The seam raises a subclass (never a raw boto/botocore exception) so the API
     can answer cleanly and log the cause. The two subclasses map to the two
     failure families that need *different* operator action — see the app-level
-    handler in ``app.py``.
+    handler, ``rfdb_core.app_factory._storage_error_handler``.
     """
 
 

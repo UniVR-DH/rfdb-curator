@@ -27,7 +27,6 @@ class _ShapeEdge:
 
     predicate_uri: str
     target_shape_id: str
-    class_constraint: str | None = None
     # True when the hop lands on a helper-bridge shape edited inline (field type
     # ``nested``, e.g. AgentRole): the node exists only to connect its parent to
     # other entities and the payload always describes it in full, so the parent
@@ -64,13 +63,11 @@ def _build_shape_dep_graph(extractor) -> dict[str, _ShapeNode]:
         for prop in shape.get("properties", []):
             predicate = prop.get("pathUri")
             nested = prop.get("nestedShape")
-            cls = prop.get("classConstraint")
             if predicate and nested:
                 node.edges.append(
                     _ShapeEdge(
                         predicate,
                         nested,
-                        cls,
                         prop.get("nestedShapeRole") == "helper-bridge"
                         and prop.get("type") == "nested",
                     )

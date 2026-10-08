@@ -3,7 +3,7 @@
 This module tests planner behavior in isolation by calling backend planner
 helpers directly from core.validation_merge. It validates graph extraction,
 BFS traversal semantics, CONSTRUCT query compilation, and parser-level query
-execution against Oxigraph.
+execution against a live store.
 """
 
 from __future__ import annotations
@@ -88,7 +88,6 @@ def test_build_shape_dep_graph_filters_invalid_properties() -> None:
                     {
                         "pathUri": "urn:pred:valid",
                         "nestedShape": "urn:shape:child",
-                        "classConstraint": "urn:class:child",
                     },
                     {"pathUri": "urn:pred:missing_nested"},
                     {"nestedShape": "urn:shape:missing_pred"},
@@ -110,7 +109,6 @@ def test_build_shape_dep_graph_filters_invalid_properties() -> None:
     assert len(root_edges) == 1
     assert root_edges[0].predicate_uri == "urn:pred:valid"
     assert root_edges[0].target_shape_id == "urn:shape:child"
-    assert root_edges[0].class_constraint == "urn:class:child"
 
 
 def test_bfs_shape_edges_is_deterministic_and_cycle_safe() -> None:
@@ -210,7 +208,7 @@ def test_build_validation_construct_emits_seed_and_suffix_blocks() -> None:
 
 
 def test_construct_query_syntax_smoke_against_oxigraph() -> None:
-    """Generated CONSTRUCT query parses and executes against Oxigraph."""
+    """Generated CONSTRUCT query parses and executes against a live store."""
     symbols = _load_backend_symbols()
 
     if not _oxigraph_reachable():

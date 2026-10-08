@@ -8,15 +8,13 @@ missing from ``PREFIXES``, namespace mismatches, and entries in ``PREFIXES`` not
 found in any file. Exits non-zero on missing/mismatched so it can gate a review.
 
 Run:
-    cd backend && uv run python scripts/check_prefixes.py
+    cd curator-backend && uv run python scripts/check_prefixes.py
 """
 
 from pathlib import Path
 
 from rfdb_core.prefixes import PREFIXES, scan_ttl_prefixes
 
-# The sys.path.insert(BACKEND_DIR) this used to need is gone: prefixes.py now
-# lives in rfdb-core, a workspace dependency, so it imports like any package.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 

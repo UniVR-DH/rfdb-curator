@@ -10,13 +10,14 @@ these mean anything in a read-only service, which is why they live here.
 No default values are hardcoded for the required fields.  Every setting MUST be
 supplied through:
 
-  - A ``.env`` file placed next to this module (copy ``.env.example`` to ``.env``).
+  - A ``.env`` file in the working directory, ``curator-backend/`` (copy
+    ``.env.example`` to ``.env``).
   - Environment variables injected by Docker Compose or the host shell.
 
 This ensures a single source of truth per deployment: the ``.env`` file for local
 development, the ``environment:`` block in ``docker-compose.yml`` for Docker.
 
-See ``README.md`` for a full reference of every variable.
+See ``docs/deployment.md`` for a full reference of every variable.
 """
 
 from __future__ import annotations
@@ -32,8 +33,9 @@ class Settings(BaseServiceSettings):
     """Curator-backend configuration; instantiated once as a module-level singleton.
 
     Inherited fields (see :class:`rfdb_core.config.BaseServiceSettings`):
-    ``oxigraph_url``, ``data_graph_uri``, ``oxigraph_load_timeout``,
-    ``schema_path``, ``cors_origins``, the ``log_*`` group, and the ``s3_*`` group.
+    ``triplestore``, ``oxigraph_url``, ``data_graph_uri``, ``oxigraph_load_timeout``,
+    ``schema_path``, ``read_only_shapes``, ``cors_origins``, the ``log_*`` group,
+    and the ``s3_*`` group.
 
     Attributes:
         vocab_paths: Paths to ``vocab.ttl``-style files loaded into the store on
@@ -44,10 +46,10 @@ class Settings(BaseServiceSettings):
             ``seed_test_data_on_startup`` is ``true``.
             Example: ``data/data.ttl``
 
-        reset_data_on_startup: Drop and re-seed all instance data at startup.
-            When ``true``, the named graph identified by ``data_graph_uri`` is
-            cleared before any seed files are loaded.  Should be ``false`` in
-            production to avoid accidental data loss.
+        reset_data_on_startup: Wipe the store and re-seed at startup. When
+            ``true``, every graph is erased (``DROP ALL`` plus ``CLEAR DEFAULT``)
+            before any seed files are loaded, not only ``data_graph_uri``.
+            Should be ``false`` in production to avoid accidental data loss.
 
         seed_vocab_on_startup: Load ``vocab_paths`` into the store at startup.
             Should be ``true`` in all environments so that controlled vocabulary
@@ -83,8 +85,8 @@ class Settings(BaseServiceSettings):
     # ------------------------------------------------------------------ #
 
     reset_data_on_startup: bool
-    """When ``true``, clears the named graph before seeding.  Keep ``false``
-    in production to prevent accidental data loss."""
+    """When ``true``, wipes every graph in the store before seeding.  Keep
+    ``false`` in production to prevent accidental data loss."""
 
     seed_vocab_on_startup: bool
     """When ``true``, loads ``vocab_paths`` into the store at every startup.
@@ -105,10 +107,8 @@ class Settings(BaseServiceSettings):
     Distinct from *deployment mode*: this makes a deployed curator refuse writes,
     whereas mode decides whether the curator is deployed at all."""
 
-    # ``read_only_shapes`` used to live here, described as writer-only because it
-    # gates writes. It does — but it is also what tells *any* client which shapes
-    # are editable, so the reader needs it too (D11). It moved to
-    # ``BaseServiceSettings``; the write guards below still read it from there.
+    # ``read_only_shapes`` is inherited: besides gating writes, it tells any
+    # client which shapes are editable, so the reader needs it too (D11).
 
     max_upload_mb: int = 500
     """Per-file upload ceiling in megabytes. Uploads exceeding this are

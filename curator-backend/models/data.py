@@ -1,12 +1,8 @@
 """Pydantic models for the data-entry API request/response contracts.
 
-Kept in one file so the shape of every payload is easy to audit.  All models
-are strict about optional fields to avoid silent data loss when Oxigraph
-returns sparse results for entities that are missing recommended properties.
+Kept in one file so the shape of every payload is easy to audit.
 
-Write-path only. The record-list read models (``DataListItem`` /
-``DataListResponse``) moved to ``rfdb_core.models_data`` because the read
-service returns them too and a copy each would drift.
+Write-path only; the record-list read models live in ``rfdb_core.models_data``.
 """
 
 from __future__ import annotations

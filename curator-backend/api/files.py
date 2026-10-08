@@ -1,7 +1,6 @@
 """Upload-first digital-copy routes: stage a PDF for a pending entity write.
 
-A digital copy is a bridge node whose fields are machine-filled. The flow
-(see ``.temp/temp-upload-first-files-*.md``):
+A digital copy is a bridge node whose fields are machine-filled. The flow:
 
 1. ``POST /api/v1/curator/files/staged`` — parent-agnostic. Sniffs the PDF, computes
    sha256/size/pages, stores the bytes under ``staged/File_{8hex}.pdf`` and
@@ -120,7 +119,7 @@ def stage_file(request: Request, file: UploadFile) -> DigitalCopy:
 
     spool.seek(0)
     # A StorageError here (endpoint down, bad creds, missing bucket) propagates
-    # to the app-level handler → clean 503. See app.py.
+    # to the app-level handler → clean 503. See rfdb_core.app_factory.
     request.app.state.storage.put_pdf(staged_key(file_id), spool)
 
     return DigitalCopy(

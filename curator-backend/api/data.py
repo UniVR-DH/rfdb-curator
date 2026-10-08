@@ -49,10 +49,6 @@ _VOCAB_PREFIXES = (
     "http://www.w3.org/ns/shacl#",
 )
 _RDF_TYPE = URIRef("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
-_CORE_HAS_AGENT_ROLE = URIRef("https://w3id.org/polifonia/ontology/core/hasAgentRole")
-_CORE_AGENT_ROLE = URIRef("https://w3id.org/polifonia/ontology/core/AgentRole")
-_CORE_HAS_AGENT = URIRef("https://w3id.org/polifonia/ontology/core/hasAgent")
-_CORE_HAS_ROLE = URIRef("https://w3id.org/polifonia/ontology/core/hasRole")
 
 
 # ---------------------------------------------------------------------------
@@ -72,28 +68,6 @@ def _validate_iri(entity_id: str) -> None:
 
 def _is_non_vocab_iri(value: str) -> bool:
     return not any(value.startswith(prefix) for prefix in _VOCAB_PREFIXES)
-
-
-def _log_agent_role_completeness(validation_graph: Graph) -> None:
-    """Emit debug diagnostics for AgentRole nodes seen via core:hasAgentRole."""
-    for role_node in sorted(
-        {
-            obj
-            for obj in validation_graph.objects(predicate=_CORE_HAS_AGENT_ROLE)
-            if isinstance(obj, URIRef)
-        },
-        key=str,
-    ):
-        has_type = (role_node, _RDF_TYPE, _CORE_AGENT_ROLE) in validation_graph
-        has_agent = any(validation_graph.objects(subject=role_node, predicate=_CORE_HAS_AGENT))
-        has_role = any(validation_graph.objects(subject=role_node, predicate=_CORE_HAS_ROLE))
-        logger.debug(
-            "Validation AgentRole node=%s has_type=%s hasAgent=%s hasRole=%s",
-            role_node,
-            has_type,
-            has_agent,
-            has_role,
-        )
 
 
 def _assert_writable_mode() -> None:
@@ -149,9 +123,7 @@ def _reconcile_digital_copies(data_graph: Graph, request: Request) -> list[str]:
         return []
 
     # Lazy import: api.files imports this module at load time, so importing it
-    # back at module level would be a circular import. Only derive_metadata is
-    # still local — FILE_ID_RE and file_content_url moved to rfdb-core, where the
-    # read service can reach them too.
+    # back at module level would be a circular import.
     from api.files import derive_metadata
 
     storage = request.app.state.storage
@@ -213,7 +185,9 @@ def _promote_staged_files(request: Request, file_ids: list[str]) -> None:
             request.app.state.storage.move(staged_key(file_id), registered_key(file_id))
         except Exception:
             logger.warning(
-                "Failed to promote staged file '%s' — cleanup_files.py will retry", file_id
+                "Failed to promote staged file '%s' — cleanup_files.py will retry",
+                file_id,
+                exc_info=True,
             )
 
 
@@ -253,7 +227,6 @@ def create_or_update_entity(payload: EntityData, request: Request):
 
     store = request.app.state.store
     existing_entity_graph = None
-    delete_executed = False
 
     if entity_id and payload.originalTriples:
         _validate_iri(entity_id)
@@ -324,6 +297,7 @@ def create_or_update_entity(payload: EntityData, request: Request):
     # Fail closed: if the referenced graph cannot be resolved, do not proceed
     # with an incomplete validation graph.  A partial merge is worse than a
     # clean 503 because it may silently pass constraints that should fail.
+    referenced_graph = Graph()
     if seed_iris:
         dep_graph = request.app.state.shape_dep_graph
         construct_query = _build_validation_construct(
@@ -340,21 +314,14 @@ def create_or_update_entity(payload: EntityData, request: Request):
                 status_code=503,
                 detail=f"Related-entity merge failed: {exc}",
             ) from exc
-        logger.debug(
-            "Validation merge graph triple counts data=%d referenced=%d merged=%d",
-            len(data_graph),
-            len(referenced_graph),
-            len(validation_graph),
-        )
-        _log_agent_role_completeness(validation_graph)
     else:
         validation_graph = data_graph
-        logger.debug(
-            "Validation merge graph triple counts data=%d referenced=0 merged=%d",
-            len(data_graph),
-            len(data_graph),
-        )
-        _log_agent_role_completeness(validation_graph)
+    logger.debug(
+        "Validation merge graph triple counts data=%d referenced=%d merged=%d",
+        len(data_graph),
+        len(referenced_graph),
+        len(validation_graph),
+    )
 
     # Validate the merged graph against the SHACL schema.
     # Full-graph validation is intentional so nested linked-node violations
@@ -364,7 +331,6 @@ def create_or_update_entity(payload: EntityData, request: Request):
     report = validator.validate(validation_graph)
 
     if not report["conforms"]:
-        assert not delete_executed, "Delete must not execute before validation success"
         logger.warning(
             "SHACL validation failed for entity %s (shape=%s, violations=%d)",
             entity_id,
@@ -436,7 +402,6 @@ def create_or_update_entity(payload: EntityData, request: Request):
                 WHERE  {{ <{entity_id}> <{pred_uri}> ?o . }}
                 """
             )
-            delete_executed = True
 
     # Serialize to Turtle and bulk-load into Oxigraph.
     # On write failure, attempt to restore the pre-existing entity graph if
@@ -444,13 +409,11 @@ def create_or_update_entity(payload: EntityData, request: Request):
     turtle_data = data_graph.serialize(format="turtle")
 
     try:
-        request.app.state.store.load_turtle(turtle_data)
+        store.load_turtle(turtle_data)
     except Exception as exc:
         if existing_entity_graph is not None and len(existing_entity_graph) > 0:
             try:
-                request.app.state.store.load_turtle(
-                    existing_entity_graph.serialize(format="turtle")
-                )
+                store.load_turtle(existing_entity_graph.serialize(format="turtle"))
             except Exception as restore_exc:
                 raise HTTPException(
                     status_code=503,
