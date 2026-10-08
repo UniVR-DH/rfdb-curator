@@ -12,8 +12,9 @@ Startup sequence (lifespan context manager):
      Oxigraph.  When ``reset_data_on_startup`` is ``false`` this is idempotent;
      duplicate triples are silently merged by Oxigraph.
 
-All three service objects are stored on ``app.state`` so every route handler
-can access them via ``request.app.state.<name>`` without global imports.
+The schema extractor, shape dependency graph, SHACL validator, triplestore,
+object storage and seed report are stored on ``app.state`` so every route
+handler can access them via ``request.app.state.<name>`` without global imports.
 
 Note — startup blocking I/O:
     All startup work (file parsing, HTTP calls to Oxigraph) is synchronous and
@@ -96,8 +97,6 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up RossijskijFeatrDB backend…")
 
     # -- 1. Schema services ------------------------------------------------
-    # NOTE: SchemaExtractor and ShaclValidator both open and parse schema_path
-    # independently.  Consolidate if schema parsing becomes a bottleneck.
     try:
         app.state.schema_extractor = SchemaExtractor(settings.schema_path)
         app.state.shape_dep_graph = _build_shape_dep_graph(app.state.schema_extractor)

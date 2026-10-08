@@ -1,19 +1,20 @@
 """SHACL validation wrapper used by all write routes.
 
 The validator is initialised once at startup with the project schema
-(`schema/schema.ttl`) and reused for every POST /data and POST /validate
-request.  No data ever reaches Oxigraph without passing through here first.
+(`schema/schema.ttl`) and reused for every POST /api/v1/curator/entities and
+POST /api/v1/curator/validate request.  No data ever reaches Oxigraph without
+passing through here first.
 
 Important: when validating a newly created entity that references existing
 store entities (e.g., a HoldingOrganization referencing a Place), the caller
 is responsible for merging the referenced triples into the graph passed to
-`validate()`.  See `api/data.py` for the merge strategy.
+`validate()`.  See `core.validation_merge` for the merge strategy.
 """
 
 from __future__ import annotations
 
 from pyshacl import validate
-from rdflib import Graph, URIRef
+from rdflib import Graph
 from rdflib.namespace import SH
 
 
@@ -29,19 +30,13 @@ class ShaclValidator:
         self._shacl_graph = Graph()
         self._shacl_graph.parse(schema_path, format="turtle")
 
-    def validate(self, data_graph: Graph, focus_nodes: list[URIRef] | None = None) -> dict:
+    def validate(self, data_graph: Graph) -> dict:
         """Validate `data_graph` against the SHACL schema.
 
         Args:
             data_graph: The rdflib Graph to validate, which should contain both
                 the entity being saved and any referenced entities that need to
                 satisfy `sh:class` or `sh:node` constraints.
-            focus_nodes: Optional list of URIRef nodes to validate. When set,
-                the validator applies sh:targetClass matching only to these nodes;
-                referenced existing-store nodes present in data_graph are used
-                as read-only witnesses for constraint checking but are not
-                themselves validated. When None, pyshacl selects focus nodes via
-                sh:targetClass / sh:targetNode as usual.
 
         Returns:
             A dict with keys:
@@ -55,7 +50,6 @@ class ShaclValidator:
             inference="rdfs",
             abort_on_first=False,
             allow_infos=True,
-            focus_nodes=focus_nodes,
             js=False,
         )
         return {

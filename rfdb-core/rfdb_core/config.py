@@ -2,9 +2,9 @@
 
 Holds only what more than one service needs: how to reach the triplestore, where
 the SHACL schema lives, CORS, logging, and the object-storage credentials. Each
-service subclasses :class:`BaseServiceSettings` and adds its own fields — the
-curator its seeding/reset/read-only knobs, the reader its content-negotiation
-options — then instantiates a module-level ``settings`` singleton of its own.
+service instantiates a module-level ``settings`` singleton of its own: the curator
+from a subclass adding its seeding/reset/read-only knobs, the reader from
+:class:`BaseServiceSettings` directly, since it needs nothing more.
 
 Values come exclusively from environment variables or a ``.env`` file; no
 deployment-specific defaults are hardcoded. Fields with no default here are
@@ -32,9 +32,8 @@ class BaseServiceSettings(BaseSettings):
         schema_path: Path to the SHACL schema Turtle file, relative to the
             service's working directory. Example: ``schema/schema.ttl``
         cors_origins: Allowed CORS origins, supplied as a JSON array string and
-            parsed by :meth:`parse_cors`. The two services list different
-            origins: the curator admits only the editor, the reader admits the
-            editor *and* the graph explorer.
+            parsed by :meth:`parse_cors`. Both compose files give both services
+            the same value.
     """
 
     model_config = SettingsConfigDict(

@@ -88,7 +88,7 @@ class _HeadAsGetMiddleware:
     declared with ``@router.get(...)``, so link checkers and harvesters that
     probe a URL with ``HEAD`` before fetching it — the ``/rdf/`` identifiers
     especially — see every route reject them. Fixing this per-route would mean
-    touching all 21 routes across both services for the same one-line reason,
+    touching every route across both services for the same one-line reason,
     so it is handled once, here, at the ASGI level: the request is rewritten to
     ``GET`` for the duration of the call, and only the outgoing body bytes are
     dropped, so headers (including ``content-length``) stay exactly what a

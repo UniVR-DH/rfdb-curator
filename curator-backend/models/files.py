@@ -9,11 +9,6 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-# The digital-copy vocabulary constants that used to live here moved to
-# rfdb_core.vocab — schema_extractor (in rfdb-core) needs them, and so will the
-# reader service, so a service-local home would have inverted the dependency.
-# Import them from there; this module keeps only the response model.
-
 
 class DigitalCopy(BaseModel):
     """One staged/stored PDF copy (mirrors ``rfdbs:DigitalCopyShape``).
@@ -26,7 +21,9 @@ class DigitalCopy(BaseModel):
         id: Full IRI of the ``schema:DigitalDocument`` node.
         fileId: Local id (last path segment of ``id``), used in file URLs.
         name: Original uploaded filename (``schema:name``).
-        contentUrl: Stable backend-relative download path (``schema:contentUrl``).
+        contentUrl: Relative preview path for the staged file on the curator
+            (``schema:contentUrl``); the submit path rewrites it to the
+            published download URL.
         contentSize: File size in bytes (``schema:contentSize``).
         sha256: SHA-256 checksum of the content (``schema:sha256``).
         numberOfPages: Page count from pypdf, or ``None`` if unparseable.

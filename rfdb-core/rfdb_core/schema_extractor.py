@@ -48,7 +48,6 @@ The resolution runs in priority order:
 
   ``enum``            sh:in list present
   ``lang-string``     datatype rdf:langString  (single-valued)
-  ``lang-string-list`` lang-string + maxCount absent or > 1  (post-processing step)
   ``temporal``        datatype xsd:date / xsd:gYear / xsd:gYearMonth
   ``year``            datatype xsd:gYear (single, not mixed)
   ``number``          datatype xsd:decimal / xsd:integer / xsd:int
@@ -57,10 +56,14 @@ The resolution runs in priority order:
   ``entity-search``   sh:class or sh:node pointing to a standalone-entity shape
   ``uri``             sh:nodeKind IRI without a class constraint
   ``text``            fallback
+  ``lang-string-list`` lang-string + maxCount absent or > 1  (post-processing step)
+  ``file-list``       sh:node whose shape targets schema:DigitalDocument
+                      (post-processing step)
 
-The ``lang-string-list`` promotion is applied as a post-processing step in
-``_extract_property()`` after the base type is resolved, so ``_infer_field_type()``
-remains a pure constraint-to-type mapper with no cardinality awareness.
+The ``lang-string-list`` and ``file-list`` overrides are applied as post-processing
+steps in ``_extract_property()`` after the base type is resolved, so
+``_infer_field_type()`` remains a pure constraint-to-type mapper with no
+cardinality awareness.
 
 Field descriptors
 -----------------
@@ -426,9 +429,12 @@ class SchemaExtractor:
           6. any other datatype         → 'text'
           7. sh:node + BlankNode/helper → 'nested'
           8. sh:class or sh:node        → 'entity-search'
-          9. sh:nodeKind IRI + class    → 'entity-search'
-         10. sh:nodeKind IRI            → 'uri'
-         11. fallback                   → 'text'
+          9. sh:nodeKind IRI            → 'uri'
+         10. fallback                   → 'text'
+
+        The caller (``_extract_property``) may then override the result:
+        'lang-string' becomes 'lang-string-list' when multi-valued, and any
+        sh:node whose shape targets schema:DigitalDocument becomes 'file-list'.
         """
         # Enum: sh:in list present
         if in_values:
@@ -472,10 +478,6 @@ class SchemaExtractor:
 
         # Standalone entity reference via sh:class or sh:node
         if klass or node:
-            return "entity-search"
-
-        # IRI node kind with a class constraint → entity search
-        if "IRI" in nk and klass:
             return "entity-search"
 
         # Plain IRI without class constraint → external URI input

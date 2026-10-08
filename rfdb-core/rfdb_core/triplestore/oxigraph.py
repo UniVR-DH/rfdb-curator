@@ -2,9 +2,8 @@
 
 All communication uses the Oxigraph HTTP API:
   - /query  — SPARQL SELECT and CONSTRUCT (read)
-  - /update — SPARQL UPDATE (write)
+  - /update — SPARQL UPDATE (writes, and store management: DROP ALL, CLEAR DEFAULT)
   - /store  — Graph Store Protocol (bulk load)
-  - /update — SPARQL UPDATE for store management (DROP ALL, CLEAR DEFAULT)
 
 Oxigraph is intentionally schema-free; all shape constraints are enforced
 by ``ShaclValidator`` in Python before any data reaches this layer.
@@ -33,11 +32,11 @@ class OxigraphStore:
     endpoint. The writes (``update``, ``load_turtle``, ``clear_store``) additionally
     rely on the Graph Store Protocol.
 
-    Named-graph scoping: when ``data_graph_uri`` is set (the default), every
-    SELECT and CONSTRUCT query is automatically wrapped with a ``FROM <uri>``
-    clause so reads are always scoped to the configured graph.  Turtle loads
-    use ``?graph=<uri>`` via the Graph Store Protocol rather than ``?default``.
-    This makes the named graph totally transparent to route handlers.
+    Named-graph scoping: queries are sent as written, so a read is scoped to the
+    configured graph only when the caller includes :meth:`from_clause` (and an
+    update only via :meth:`with_clause`). :meth:`load_turtle`, by contrast,
+    targets ``data_graph_uri`` by default, via ``?graph=<uri>`` on the Graph
+    Store Protocol rather than ``?default``.
     """
 
     def __init__(

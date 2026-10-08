@@ -5,7 +5,7 @@ Two entry points, one code path:
   * ``bootstrap_store()`` is called by the FastAPI lifespan on every startup;
   * ``scripts/seed.py`` calls the same function as a one-shot job, so a
     deployment can seed without starting a web server (see the read-only
-    deploy mode in the modular-services plan).
+    deploy mode in docs/deployment.md, "Deploy modes").
 
 Design notes:
   - `vocab.ttl` is idempotent: Oxigraph merges triples rather than replacing,
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # Bounds for the store HTTP-readiness poll in wait_for_store().
 # Oxigraph's own storage init (RocksDB) can take well over a minute on a cold
 # start with an existing/large data volume, long after Docker's liveness
-# healthcheck (`store --help`, which never touches storage) reports healthy.
+# healthcheck (`oxigraph --help`, which never touches storage) reports healthy.
 _READY_TIMEOUT_S = 120.0
 _READY_POLL_S = 0.5
 
@@ -79,7 +79,7 @@ def wait_for_store(store, url: str) -> None:
     """Block until the store answers ``health()``, or abort.
 
     Docker's ``depends_on: condition: service_healthy`` only proves the Oxigraph
-    *process* is alive — its healthcheck runs ``store --help``, which never
+    *process* is alive — its healthcheck runs ``oxigraph --help``, which never
     touches the network. It does not prove the HTTP port is accepting
     connections. Without this poll a fresh ``compose up`` loses the startup race
     and dies on a refused connection.

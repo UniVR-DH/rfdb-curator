@@ -1,4 +1,4 @@
-"""Structured logging configuration for the RossijskijFeatrDB backend.
+"""Structured logging configuration for both RossijskijFeatrDB backend services.
 
 Configures two handlers on the root logger:
 
@@ -10,7 +10,7 @@ JSON-lines format
 -----------------
 Every line is a self-contained JSON object::
 
-    {"ts": "2026-06-02T14:00:00.123Z", "level": "INFO", "logger": "api.data",
+    {"ts": "2026-06-02T14:00:00.123Z", "level": "INFO", "logger": "api.access",
      "msg": "GET /api/v1/dataexplorer/entities", "status": 200, "ms": 12}
 
 Extra key-value pairs passed via ``logging.info(..., extra={...})`` are merged
@@ -22,7 +22,7 @@ Usage
 Call ``configure_logging(log_file, log_level)`` once at process startup
 (inside the FastAPI lifespan) before any other code runs::
 
-    from core.logging_config import configure_logging
+    from rfdb_core.logging_config import configure_logging
     configure_logging(settings.log_file, settings.log_level)
 """
 

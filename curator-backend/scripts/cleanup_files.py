@@ -11,10 +11,10 @@ RDF is the source of truth; storage is garbage-collected against it:
   * **orphaned nodes** (typed ``schema:DigitalDocument`` but no inbound
     schema-link) → purge their triples and objects.
 
-Run it inside the backend container so all service env vars are present:
+Run it inside the curator-backend container so all service env vars are present:
 
-    docker compose exec backend python scripts/cleanup_files.py --dry-run
-    docker compose exec backend python scripts/cleanup_files.py
+    docker compose exec curator-backend python scripts/cleanup_files.py --dry-run
+    docker compose exec curator-backend python scripts/cleanup_files.py
 
 Run periodically (operator's note in TODO.md). ``GET /api/v1/dataexplorer/meta/files`` / the
 Data Context Panel show the same counts for visibility between runs.
