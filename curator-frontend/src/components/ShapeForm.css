@@ -140,20 +140,6 @@
   align-items: center;
 }
 
-.field-lang {
-  background-color: rgba(0, 0, 0, 0.35);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-input);
-  color: var(--color-surface-top);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  padding: var(--space-2) var(--space-2);
-  cursor: pointer;
-  /* Prevent the select from overflowing its grid cell */
-  width: 100%;
-  box-sizing: border-box;
-}
-
 /* ─── lang-string-list rows (multi-value, adds remove button column) */
 
 /* Combined selector for higher specificity over .lang-field alone */

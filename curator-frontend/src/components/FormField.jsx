@@ -2,14 +2,18 @@
  * Single form field renderer: maps a SHACL property descriptor to an input widget.
  *
  * Field type -> widget:
- *   enum          - native <select> populated from sh:in values
- *   entity-search - async autocomplete (<EntitySearch>) via /api/entities/search
- *   nested        - inline blank-node editor (<AnonymousEntityEditor>)
- *   year          - number input clamped to [800, 2100]
- *   number        - unbounded number input
- *   uri           - URL input for external identifiers (owl:sameAs, wdt:P214, etc.)
- *   lang-string   - text + language dropdown; stored as {__value, __lang}
- *   default       - plain text input
+ *   enum             - <StyledSelect> (react-select) populated from sh:in values
+ *   entity-search    - async autocomplete (<EntitySearch>) via /api/v1/dataexplorer/entities/search
+ *   nested           - inline blank-node editor (<AnonymousEntityEditor>)
+ *   file-list        - PDF upload list for digital copies (<FileField>)
+ *   year             - number input clamped to [800, 2100]
+ *   temporal         - text input accepting YYYY, YYYY-MM or YYYY-MM-DD
+ *   number           - unbounded number input
+ *   uri              - URL input for external identifiers (owl:sameAs, wdt:P214, etc.),
+ *                      or a <UriList> when the property allows several values
+ *   lang-string      - text + language dropdown; stored as {__value, __lang}
+ *   lang-string-list - one text + language row per value (<LangStringList>)
+ *   default          - plain text input
  *
  * Fields flagged `longText` by the backend (rdfs:comment, description/note
  * predicates, core:text) render a multi-line <textarea> instead of a single-line
@@ -20,25 +24,15 @@
  *   allShapes  {array}     - All shapes, forwarded to AnonymousEntityEditor
  *   register   {function}  - react-hook-form register
  *   control    {object}    - react-hook-form control (needed by Controller-based widgets)
- *
- * --- AUDIT: FormField ---
- * - Renders individual fields by type.
- * - Does not manage @id or create/update logic directly.
- * - For multi-valued fields (e.g., skos:altLabel), relies on jsonld.js to map values correctly.
  */
-
- 
 import AnonymousEntityEditor from './AnonymousEntityEditor.jsx'
- 
 import EntitySearch from './EntitySearch.jsx'
- 
 import { Controller } from 'react-hook-form'
 
 import FileField from './FileField.jsx'
 import LangStringList from './LangStringList.jsx'
 import StyledSelect from './StyledSelect.jsx'
 import UriList from './UriList.jsx'
-import '../components/ShapeForm.css'
 import { LANG_OPTIONS, languageLabel } from '../utils/languages.js'
 
 export default function FormField({ field, allShapes, register, control }) {

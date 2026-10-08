@@ -1,13 +1,12 @@
 /**
  * Inline editor for nested (bridge/helper) graph structures.
  *
- * This component is used in two contexts:
- *   1. As a nested editor inside a parent entity form (e.g., Source, Work) for bridge/helper shapes (like AgentRole).
- *   2. As a top-level form (direct navigation to e.g. /AgentRoleShape) for bridge/helper shapes.
+ * Rendered as a nested editor inside a parent entity form (e.g., Source, Work)
+ * for bridge/helper shapes (like AgentRole).
  *
  * Policy:
- *   - Bridge/helper entities (e.g., AgentRole) should only be created/edited inline as connections from their parent entity.
- *   - Direct creation/editing of bridge entities via their own top-level form should be disabled, with a message to use the parent entity form.
+ *   - Bridge/helper entities (e.g., AgentRole) are only created/edited inline as connections from their parent entity.
+ *   - ShapeForm blocks their own top-level form, with a message to use the parent entity form.
  *
  * Shape role drives rendering:
  *   helper-bridge   - the nested shape is a pure relation container (no rdfs:label of its own).
@@ -23,7 +22,6 @@
  *   control    {object}  - react-hook-form control (drives useFieldArray)
  */
 import { useFieldArray } from 'react-hook-form'
- 
 import EntitySearch from './EntitySearch.jsx'
 import './AnonymousEntityEditor.css'
 
@@ -94,7 +92,7 @@ export default function AnonymousEntityEditor({ field, allShapes, control }) {
                 Remove
               </button>
             </div>
-            {isHelperBridge && nestedShape ? (
+            {isHelperBridge && nestedShape && (
               <div className="nested-fields">
                 {nestedShape.properties
                   .filter((prop) => prop.path !== 'rdf:type')
@@ -121,13 +119,6 @@ export default function AnonymousEntityEditor({ field, allShapes, control }) {
                     )
                   })}
               </div>
-            ) : (
-              <input
-                className="field-input"
-                value={item.roleType ?? ''}
-                readOnly
-                placeholder="Helper bridge rendering applies only to helper shapes"
-              />
             )}
           </div>
         ))}

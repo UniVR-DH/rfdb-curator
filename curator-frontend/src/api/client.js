@@ -18,17 +18,14 @@
  * Vite dev server's proxy (vite.config.js) and proxy/Caddyfile in prod, which
  * split the identical prefixes.
  *
- * `READ_BASE` used to be absolute even in dev, working around `GET` and
- * `DELETE /api/data/{id}` being the same path on two services — which a
- * prefix-keyed proxy cannot split. D8 removed that collision; the workaround
- * outlived it, and every non-local deployment paid for it, because a remote dev
- * host would serve this bundle and the browser would then resolve its reads
- * against *its own* machine. A non-empty base is now only for a build whose
- * reader genuinely sits on another origin — which also needs a matching
- * CORS_ORIGINS entry on that reader.
+ * An absolute base breaks remote dev hosts, because the browser would resolve
+ * reads against its own machine. Set a non-empty base only for a build whose
+ * reader genuinely sits on another origin, and add a matching CORS_ORIGINS
+ * entry on that reader.
  *
- * All methods return the unwrapped `data` field from the axios response so
- * callers work directly with the JSON payload.
+ * Fetch methods return the unwrapped `data` field of the axios response, so
+ * callers work directly with the JSON payload. `deleteEntity` returns the full
+ * axios response, and the URL helpers return strings without making a request.
  */
 import axios from 'axios'
 
@@ -118,9 +115,6 @@ export const apiClient = {
     readHttp
       .get(`${READ_API}/entities/search`, { params: { shape, query, limit } })
       .then((r) => r.data),
-
-  /** Dry-run SHACL validation without persisting (used by ValidationPanel). */
-  validateEntity: (payload) => http.post(`${WRITE_API}/validate`, payload).then((r) => r.data),
 
   /** Delete an entity by IRI. Pass shapeId to enable per-shape write protection on the backend. */
   deleteEntity: (entityId, shapeId = '') =>

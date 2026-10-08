@@ -4,21 +4,15 @@
  * Layout (three columns):
  *   [< nav sidebar ]  [< tabbed form/records panel ]  [< inspector sidebar ]
  *
- * State machine:
+ * State:
  *   - `activeShape`       -- the currently selected SHACL NodeShape (drives both form and list)
  *   - `activeView`        -- `'form'` | `'records'` -- which tab is visible in the middle panel
- *   - `selectedRecord`    -- a record clicked in the records list; shown in the inspector
+ *   - `selectedRecord`    -- the summary record (id, label) picked in the list; shown in the inspector
+ *   - `loadedRecord`      -- the full entity fetched for `selectedRecord`; ShapeForm's record prop
+ *   - `recordLoading`     -- true while that fetch is in flight
  *   - `validation`        -- the SHACL report returned after a form save
  *   - `shapeCounts`       -- {shapeId: count} map for the sidebar count pills
  *   - `recordsRefreshKey` -- increment to force ShapeRecordList + counts to re-fetch
- *
- * Main application logic:
- *
- * - activeShape: The currently selected SHACL shape (drives form and records list)
- * - activeView: 'form' or 'records' (which tab is visible)
- * - selectedRecord: The summary record selected from the list (id, label, etc.)
- * - loadedRecord: The full entity data fetched from the backend for editing
- * - recordLoading: True while fetching entity data for editing
  *
  * Edit flow:
  *   1. User clicks pencil (edit) button in records list.
@@ -30,7 +24,8 @@
  * --- IMPORTANT: CREATE vs UPDATE ---
  * - When editing, App fetches the full entity and passes it as the record prop to ShapeForm.
  * - ShapeForm must ensure @id is included in the form state and payload for updates.
- * - If loadedRecord is null or fetch fails, the form should not be rendered for editing.
+ * - If the fetch fails, loadedRecord stays null and ShapeForm renders as a blank create
+ *   form rather than an error (a known gap, tracked separately).
  *
  * View details flow:
  *   1. User clicks eye (see details) button in records list.
@@ -207,7 +202,9 @@ export default function App() {
     // On failure degrade gracefully: IRI compaction and JSON-LD @context will be
     // empty until the next reload, but the app remains fully functional.
     apiClient.getPrefixes().then(hydratePrefixes).catch(() => {
-      console.warn('Failed to fetch prefix map from /api/meta/prefixes; IRI compaction disabled.')
+      console.warn(
+        'Failed to fetch prefix map from /api/v1/dataexplorer/meta/prefixes; IRI compaction disabled.',
+      )
     })
   }, [])
 
@@ -244,7 +241,9 @@ export default function App() {
   // --- Handler: view a record in the inspector (from the list or an inspector link) ---
   function handleViewRecord(record) {
     setSelectedRecord(record)
-    setActiveView('records') // view mode — never clobbers an in-progress form edit
+    // The viewed record also becomes the form's record, so returning to the Form
+    // tab opens it for editing in place of whatever was there before.
+    setActiveView('records')
     setShowContext(false)
   }
 
@@ -261,8 +260,8 @@ export default function App() {
     setShowContext(false) // picking a shape leaves the Data Context Panel
   }
 
-  // --- Effect: when a record is selected for editing, fetch its full data from the backend ---
-  // This ensures the form is only rendered with the correct data.
+  // --- Effect: when a record is selected, for editing or for viewing, fetch its full data ---
+  // The result feeds ShapeForm's record prop in both cases.
   useEffect(() => {
     if (!selectedRecord) {
       setLoadedRecord(null)
@@ -400,10 +399,8 @@ export default function App() {
                     <div className="form-loading">Loading record…</div>
                   )}
                   {/*
-                    Bug risk: If loadedRecord is not set before rendering ShapeForm, update may fail or create new entity.
-                    This is mitigated by only rendering ShapeForm when (!selectedRecord || !recordLoading) is true,
-                    so loadedRecord is either null (create) or fully loaded (edit). If you change this logic, ensure
-                    loadedRecord is always valid before rendering ShapeForm for edits.
+                    This guard has a known gap, tracked separately: on the first render after onEdit,
+                    recordLoading is still false, so ShapeForm briefly renders with the previous loadedRecord.
                   */}
                   {(!selectedRecord || !recordLoading) && (
                     <ShapeForm

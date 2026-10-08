@@ -36,10 +36,8 @@ export default defineConfig(({ mode }) => {
       // These three rules mirror the handle blocks in proxy/Caddyfile, which is
       // the point: dev and prod route one URL space the same way, so a call
       // that works here works there. Plain prefix matching suffices because D8
-      // partitioned the space by owning service — before that, GET and DELETE
-      // on /api/data/{id} were the same path on two services and no
-      // prefix-keyed proxy could split them, which is why this app used to hold
-      // an absolute read base instead (see src/api/client.js).
+      // partitioned the space by owning service, so no path is shared between
+      // the two backends.
       //
       // devnote: unlike the edge, there is no catch-all 404 for unmatched
       // /api/* here — Vite's SPA fallback answers those with index.html, so a
