@@ -1,4 +1,4 @@
-# curator-backend/Dockerfile.dockerignore
+# graphexplorer-frontend/Dockerfile.dockerignore
 #
 # The ignore file for the Dockerfile beside it, and for that build only.
 # Compose builds with the repo root as context, so BuildKit reads this file in
@@ -10,36 +10,25 @@
 # get it at runtime through a compose bind-mount.
 data
 
-# Python caches: regenerated automatically, and must not land in the image.
-**/__pycache__
-**/*.py[cod]
-**/.pytest_cache
-**/.mypy_cache
-**/.ruff_cache
+# Dependencies: reinstalled cleanly by `npm ci` inside the image. A host
+# node_modules carries host-arch native binaries (esbuild) that would clobber the
+# ones the image just installed.
+**/node_modules
+
+# Build output: the build stage produces its own.
+**/dist
+**/build
 
 # Environment files: must never be baked into an image.
 **/.env
 **/.env.*
 !**/.env.example
 
-# Virtual environments: dependencies are installed fresh by pip.
-**/.venv
-**/venv
-**/env
-
-# Test artefacts.
-**/htmlcov
-**/.coverage
-**/coverage.xml
-
 # Editor and OS noise.
 **/.DS_Store
 **/*.log
 **/.vscode
 **/.idea
-
-# Host-side request logs; the image creates its own empty /app/logs.
-**/logs/*
 
 # Git internals.
 .git

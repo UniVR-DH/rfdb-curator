@@ -1,38 +1,46 @@
-# dataexplorer-backend/.dockerignore
-# (place this file at the repo root if build context is "." in compose)
+# dataexplorer-backend/Dockerfile.dockerignore
 #
-# Prevents these paths from being sent to the Docker build context.
-# Keep this in sync with .gitignore.
+# The ignore file for the Dockerfile beside it, and for that build only.
+# Compose builds with the repo root as context, so BuildKit reads this file in
+# place of the root .dockerignore, and every pattern below is relative to the
+# repo root. A bare pattern such as `.env` would match only at the root, so each
+# one carries a `**/` prefix to match at any depth.
 
-# Python cache — regenerated automatically, must not pollute the image.
-__pycache__/
-*.py[cod]
-*.pyo
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+# Seed data: nothing in this Dockerfile COPYs it, and the services that need it
+# get it at runtime through a compose bind-mount.
+data
 
-# Environment files — must never be baked into an image.
-.env
-.env.*
-!.env.example
+# Python caches: regenerated automatically, and must not land in the image.
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
 
-# Virtual environments — dependencies are installed fresh by pip.
-.venv/
-venv/
-env/
+# Environment files: must never be baked into an image.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Virtual environments: dependencies are installed fresh by pip.
+**/.venv
+**/venv
+**/env
 
 # Test artefacts.
-htmlcov/
-.coverage
-coverage.xml
+**/htmlcov
+**/.coverage
+**/coverage.xml
 
 # Editor and OS noise.
-.DS_Store
-*.log
-.vscode/
-.idea/
+**/.DS_Store
+**/*.log
+**/.vscode
+**/.idea
+
+# Host-side request logs; the image creates its own empty /app/logs.
+**/logs/*
 
 # Git internals.
-.git/
-.gitignore
+.git
+**/.gitignore

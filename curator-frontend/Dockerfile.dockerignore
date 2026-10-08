@@ -1,26 +1,35 @@
-# curator-frontend/.dockerignore
+# curator-frontend/Dockerfile.dockerignore
 #
-# Prevents these paths from being sent to the Docker build context.
-# Keep this in sync with .gitignore.
+# The ignore file for the Dockerfile beside it, and for that build only.
+# Compose builds with the repo root as context, so BuildKit reads this file in
+# place of the root .dockerignore, and every pattern below is relative to the
+# repo root. A bare pattern such as `.env` would match only at the root, so each
+# one carries a `**/` prefix to match at any depth.
 
-# Dependencies — reinstalled cleanly by `npm ci` inside the image.
-node_modules/
+# Seed data: nothing in this Dockerfile COPYs it, and the services that need it
+# get it at runtime through a compose bind-mount.
+data
 
-# Build output — not needed in the dev image.
-dist/
-build/
+# Dependencies: reinstalled cleanly by `npm ci` inside the image. A host
+# node_modules carries host-arch native binaries (esbuild) that would clobber the
+# ones the image just installed.
+**/node_modules
 
-# Environment files — must never be baked into an image.
-.env
-.env.*
-!.env.example
+# Build output: the build stage produces its own.
+**/dist
+**/build
+
+# Environment files: must never be baked into an image.
+**/.env
+**/.env.*
+!**/.env.example
 
 # Editor and OS noise.
-.DS_Store
-*.log
-.vscode/
-.idea/
+**/.DS_Store
+**/*.log
+**/.vscode
+**/.idea
 
 # Git internals.
-.git/
-.gitignore
+.git
+**/.gitignore

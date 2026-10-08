@@ -35,8 +35,8 @@ USER node
 RUN npm ci --no-audit
 
 # Copy the rest; the compose bind-mount overlays this at runtime. Requires
-# graphexplorer-frontend/.dockerignore excluding node_modules so a host node_modules can't
-# clobber the container's native binaries.
+# graphexplorer-frontend/Dockerfile.dockerignore excluding **/node_modules so a
+# host node_modules can't clobber the container's native binaries.
 COPY --chown=node:node graphexplorer-frontend/ .
 
 EXPOSE 5174

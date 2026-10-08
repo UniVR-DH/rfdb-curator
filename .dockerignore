@@ -1,38 +1,43 @@
 # .dockerignore
-# (place this file at the repo root if build context is "." in compose)
 #
-# Prevents these paths from being sent to the Docker build context.
-# Keep this in sync with .gitignore.
+# Fallback for a build with the repo root as context whose Dockerfile has no
+# <Dockerfile>.dockerignore beside it. Every service in the compose files has
+# one, and BuildKit reads that in place of this file, so a change here does not
+# reach those builds: make it in each Dockerfile.dockerignore as well.
+#
+# Patterns are relative to the repo root. A bare pattern such as `.env` would
+# match only at the root, so each one carries a `**/` prefix to match at any
+# depth.
 
-# Python cache — regenerated automatically, must not pollute the image.
-__pycache__/
-*.py[cod]
-*.pyo
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+# Python caches: regenerated automatically, and must not land in an image.
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
 
-# Environment files — must never be baked into an image.
-.env
-.env.*
-!.env.example
+# Environment files: must never be baked into an image.
+**/.env
+**/.env.*
+!**/.env.example
 
-# Virtual environments — dependencies are installed fresh by pip.
-.venv/
-venv/
-env/
+# Virtual environments and Node dependencies: installed fresh inside the image.
+**/.venv
+**/venv
+**/env
+**/node_modules
 
 # Test artefacts.
-htmlcov/
-.coverage
-coverage.xml
+**/htmlcov
+**/.coverage
+**/coverage.xml
 
 # Editor and OS noise.
-.DS_Store
-*.log
-.vscode/
-.idea/
+**/.DS_Store
+**/*.log
+**/.vscode
+**/.idea
 
 # Git internals.
-.git/
-.gitignore
+.git
+**/.gitignore
