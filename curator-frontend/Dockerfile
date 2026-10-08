@@ -50,8 +50,8 @@ RUN npm ci --no-audit
 # Copy the rest of the source. In development the compose bind-mount
 # overlays this at runtime; this layer mainly makes the image
 # self-contained if it's ever run without the mount.
-# Requires a curator-frontend/.dockerignore excluding node_modules/dist/.git —
-# otherwise a host node_modules (with host-arch native binaries, e.g.
+# Requires curator-frontend/Dockerfile.dockerignore excluding **/node_modules
+# and **/dist, otherwise a host node_modules (with host-arch native binaries, e.g.
 # esbuild) will clobber the one just installed above.
 COPY --chown=node:node curator-frontend/ .
 

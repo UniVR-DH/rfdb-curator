@@ -1,17 +1,15 @@
 # dataexplorer-backend/Dockerfile
 #
-# Development image for the FastAPI + uvicorn read backend.
+# Image for the FastAPI + uvicorn read backend.
 #
 # Deliberately the curator image with the writer bits removed: same base, same
 # layer order, same non-root user. Keeping them structurally identical means a
 # fix to one is an obvious copy to the other; the differences that matter are in
 # requirements.txt (no pyshacl/pypdf/python-multipart) and the port.
 #
-# This image is used by docker-compose.yml with a source bind-mount
-# (./dataexplorer-backend:/app) and uvicorn --reload for hot-reloading.
-# It is NOT a hardened production image — for production, remove --reload,
-# add a non-writable filesystem, and consider a multi-stage build to
-# exclude build tools from the final image.
+# Both compose files build this one image. docker-compose.yml adds a source
+# bind-mount (./dataexplorer-backend:/app) and uvicorn --reload for hot-reloading;
+# docker-compose.prod.yml runs it as built, with no mount and several workers.
 
 # Pin the version so `docker build` is fully reproducible.
 # Update deliberately when you want to take a new Python release.
@@ -22,17 +20,11 @@ FROM python:3.12-slim
 #   and never appear if the process crashes before flushing.
 #
 # PYTHONDONTWRITEBYTECODE: stops Python from writing .pyc bytecode cache
-#   files to disk.  Correct for this dev image because:
-#     - The compose bind-mount (./dataexplorer-backend:/app) means any .pyc files
-#       written inside the container land on the HOST filesystem, owned by
-#       uid 1001 (appuser).  Your host user cannot easily delete them.
-#     - uvicorn --reload restarts the process on every file change anyway,
-#       so the compile-vs-read-cache saving is unmeasurable in practice.
-#   PRODUCTION NOTE: remove this flag in a production image and instead
-#   pre-compile explicitly during the build with:
-#     `RUN python -m compileall -q .`
-#   This bakes bytecode into the image layers so cold starts are fast,
-#   without polluting any mounted filesystem.
+#   files to disk.  Needed for the dev bind-mount: .pyc files written inside
+#   the container would land on the HOST filesystem (./dataexplorer-backend),
+#   owned by uid 1001 (appuser), where the host user cannot easily delete
+#   them.  The cost is that every cold start, including in production,
+#   compiles from source; the image does not pre-compile bytecode.
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
