@@ -33,7 +33,7 @@
 	file_server
 
 	# The edge proxy adds the security headers that depend on the public origin
-	# (HSTS, CSP). These two do not, so they belong with the files they describe.
+	# (HSTS). These two do not, so they belong with the files they describe.
 	header {
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY

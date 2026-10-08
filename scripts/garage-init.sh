@@ -30,10 +30,11 @@
 #   and drives the CLI through `docker compose exec`.
 #
 # PREREQUISITES
-#   • A `garage` service defined in docker-compose.yml and currently up.
+#   • A `garage` service defined in the compose file (COMPOSE_FILE, default
+#     docker-compose.yml) and currently up.
 #   • S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY (and optionally S3_BUCKET) set in
-#     the repo-root .env — the SAME predefined creds the backend reads, so
-#     there is no generated secret to copy back.
+#     the env file (ENV_FILE, default the repo-root .env) — the SAME predefined
+#     creds the backend reads, so there is no generated secret to copy back.
 #
 set -euo pipefail
 
@@ -105,4 +106,4 @@ g key info "$S3_ACCESS_KEY_ID" >/dev/null 2>&1 || \
 echo "› grant read+write on $S3_BUCKET"
 g bucket allow "$S3_BUCKET" --key "$S3_ACCESS_KEY_ID" --read --write
 
-echo "✓ garage dev bootstrap complete"
+echo "✓ garage bootstrap complete"

@@ -14,12 +14,8 @@
 # Every rule below is a plain path prefix. No method awareness, no per-route
 # tables, no rewriting to disambiguate. That is the whole payoff of D8: the URL
 # space is partitioned by the service that owns it, so routing is a prefix match.
-#
-# Before D8 this file could not have been written. `GET /api/data/{id}` was the
-# reader and `DELETE /api/data/{id}` the writer — the same path on two services,
-# which a prefix-keyed proxy cannot split. docs/deployment.md recorded that as
-# "the proxy must also learn to split /api by route ... This is new work in
-# prod." It is not new work any more; it is four `handle` blocks.
+# Keep it that way: a path served by two services, split only by method, is
+# something a prefix-keyed proxy cannot route.
 #
 # ---------------------------------------------------------------------------
 # TLS
@@ -64,8 +60,8 @@
 		# temp file *before* the handler runs, so the app-level cap protects the
 		# Garage volume while the writer's disk absorbs the whole upload first.
 		# Capping here means an oversize request dies before it is buffered.
-		# Keep RFDB_MAX_UPLOAD and MAX_UPLOAD_MB in sync — .env.prod derives the
-		# former from the latter.
+		# RFDB_MAX_UPLOAD is derived from MAX_UPLOAD_MB in docker-compose.prod.yml,
+		# so the two stay in sync without a second setting.
 		request_body {
 			max_size {$RFDB_MAX_UPLOAD}
 		}
