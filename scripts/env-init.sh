@@ -42,7 +42,7 @@ S3_ACCESS_KEY_ID="GK$(openssl rand -hex 12)"         # GK + 24 hex
 S3_SECRET_ACCESS_KEY="$(openssl rand -hex 32)"       # 64 hex
 
 cat > .env <<EOF
-# Dev-only secrets. Gitignored (.gitignore line 13). Generated $(date +%F).
+# Dev-only secrets. Gitignored. Generated $(date +%F).
 # Regenerate freely — dev data is disposable.
 
 # Deploy mode. Read mode is the DEFAULT in docker-compose.yml — base services
