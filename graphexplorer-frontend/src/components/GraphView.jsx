@@ -8,8 +8,8 @@
  * reshuffling. A "Re-layout" control re-runs elk over everything on demand. Node
  * positions are remembered in a ref so data patches and drags survive re-renders.
  *
- * Interaction: clicking a node selects it and asks App to expand it (fetch its
- * neighbours); clicking the pane clears the selection.
+ * Interaction: clicking a node only selects it; expansion goes through the
+ * node's own button (see EntityNode). Clicking the pane clears the selection.
  */
 import { useEffect, useRef, useState } from 'react'
 import ReactFlow, {
@@ -153,6 +153,8 @@ export default function GraphView({ nodes, edges, selectedId, onSelect, onExpand
     // Frame the seed's first expansion (lone node → its neighbour ring); deeper
     // expands keep the camera put so the user stays oriented on what they clicked.
     if (placedCount === 1) setFitTick((t) => t + 1)
+    // Deps deliberately omit nodes/edges/selectedId: structureKey covers the
+    // structural changes, and data-only changes go to the patch effect below.
   }, [structureKey, relayoutTick])
 
   // Patch node data + selection styling in place (no re-layout).
@@ -164,6 +166,9 @@ export default function GraphView({ nodes, edges, selectedId, onSelect, onExpand
       })
     )
     setRfEdges((cur) => cur.map((re) => styleEdge(re, selectedId)))
+    // Deps deliberately omit edges and onExpand: an edge change alters
+    // structureKey, so the layout effect above rebuilds node data then, and
+    // onExpand is a stable callback from App.
   }, [nodes, selectedId])
 
   return (

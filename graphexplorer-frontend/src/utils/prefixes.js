@@ -1,7 +1,7 @@
 /**
  * Prefix compaction for display. The backend returns full IRIs everywhere; this
  * maps them to compact CURIEs (e.g. http://example.org/data/Thing_1 -> ex:Thing_1). The map
- * is hydrated once at startup from GET /api/meta/prefixes.
+ * is hydrated once at startup from GET /api/v1/dataexplorer/meta/prefixes.
  */
 
 /** @type {Record<string, string>} CURIE prefix -> namespace URI. */
