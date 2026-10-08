@@ -131,8 +131,9 @@ message without `[BOT]`, and bulk staging. Treat a block as a correct catch,
 not an obstacle to route around.
 Never use `--no-verify`.
 
-**Do not add trailers.** No `Co-Authored-By:` line, no generated-with footer.
-The `[BOT]` marker is the convention and it is sufficient.
+**Do not add trailers.** No `Co-Authored-By:`, no `Signed-off-by:`, no
+generated-with footer. The `[BOT]` marker is the convention and it is
+sufficient.
 
 ## Commit identity comes from `.gitidentity`
 
@@ -249,13 +250,14 @@ Last thing in the body, after a `---` rule:
 ```markdown
 ---
 
-PR text drafted by Claude Code (<EXACT MODEL ID OF THE SESSION>), reviewed by
+PR text drafted by <AGENT NAME> (<EXACT MODEL ID OF THE SESSION>), reviewed by
 the author.
 ```
 
-Substitute the exact model ID of the session that wrote it, not "Claude" and
-not "Opus". If a PR description turns out to be wrong a year from now, the only
-useful question is which model produced it, and only the exact ID answers that.
+Fill in the tool that actually wrote the text and the exact model ID of that
+session, not a family name. If a PR description turns out to be wrong a year
+from now, the only useful question is which model produced it, and only the
+exact ID answers that.
 
 Keep it flat: no italics, no link, no first person, no sentence about
 responsibility. "Reviewed by the author" already carries the ownership claim.
