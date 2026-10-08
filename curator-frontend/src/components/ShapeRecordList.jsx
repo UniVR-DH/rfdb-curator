@@ -12,29 +12,17 @@
  *   shape       {object}       - Active SHACL shape descriptor from /api/v1/dataexplorer/shapes
  *   selected    {object|null}  - Currently selected record (used for highlight)
  *   refreshKey  {number}       - Increment to trigger a data re-fetch
- *   onSelect    {function}     - Called with the clicked record object
- *
- * --- AUDIT: ShapeRecordList ---
- * - Only lists records and triggers edit/view actions.
- * - Does not manage @id or form state directly.
- * - Passes selected record's id to ShapeForm for editing.
- * - No direct bug risk for create/update distinction here.
+ *   onEdit      {function}     - Called with a record to load it into the form
+ *   onView      {function}     - Called with a record to show it in the inspector only
+ *   onDelete    {function}     - Called with no arguments after a successful delete,
+ *                                so the parent can refresh the sidebar counts
  */
 import { useEffect, useState } from 'react'
 import { apiClient } from '../api/client.js'
 import { compactIri } from '../utils/prefixes.js'
- 
 import Icon from './Icon.jsx'
 import './ShapeRecordList.css'
 
-/**
- * Props:
- *   shape       {object}
- *   selected    {object|null}
- *   refreshKey  {number}
- *   onEdit      {function} - called with record to edit (loads in form)
- *   onView      {function} - called with record to view (shows in inspector only)
- */
 export default function ShapeRecordList({
   shape,
   selected,
@@ -107,9 +95,6 @@ export default function ShapeRecordList({
                   <span className="record-label">{rec.label ?? '—'}</span>
                   {rec.labelLang ? <span className="record-lang-tag">{rec.labelLang}</span> : null}
                 </span>
-                {rec.status && rec.status !== 'unknown' && (
-                  <span className={`record-status status-${rec.status}`}>{rec.status}</span>
-                )}
               </div>
               <span className="record-actions">
                 {!isReadOnly && (

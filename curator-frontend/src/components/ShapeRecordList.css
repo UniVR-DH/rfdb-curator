@@ -134,29 +134,6 @@
   text-transform: lowercase;
 }
 
-.record-status {
-  font-size: 10px;
-  font-family: var(--font-mono);
-  padding: 1px var(--space-2);
-  border-radius: var(--radius-badge);
-  align-self: flex-start;
-}
-
-.status-valid {
-  background-color: rgba(74, 124, 89, 0.2);
-  color: #6dbf8a;
-}
-
-.status-invalid {
-  background-color: rgba(139, 30, 45, 0.2);
-  color: #e07080;
-}
-
-.status-warning {
-  background-color: rgba(140, 106, 61, 0.2);
-  color: #d4a55a;
-}
-
 .record-empty {
   padding: var(--space-6) var(--space-4);
   font-size: 12px;

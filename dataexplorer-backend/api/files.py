@@ -22,8 +22,8 @@ Two questions get answered here, and keeping them apart is the whole design:
 2. **Where do the bytes live?** A storage detail. ``registered/`` is tried
    first, then ``staged/``, because a promotion can fail *after* the entity
    write succeeds (the write path logs a warning and leaves the object for
-   ``scripts/cleanup_files.py``). Such a file is published and must download —
-   but it is also a fault, so it is served with
+   ``curator-backend/scripts/cleanup_files.py``). Such a file is published and
+   must download — but it is also a fault, so it is served with
    ``X-RFDB-File-State: awaiting-promotion`` and a warning rather than silently,
    which is how a stalled reconciler used to stay invisible.
 
@@ -170,7 +170,7 @@ def download_file(file_id: str, request: Request):
             logger.warning(
                 "File '%s' is referenced in RDF but its bytes are still staged — "
                 "the promotion after the entity write did not complete. "
-                "scripts/cleanup_files.py will move it on its next run.",
+                "curator-backend/scripts/cleanup_files.py will move it on its next run.",
                 file_id,
             )
         return response

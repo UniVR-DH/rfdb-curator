@@ -234,8 +234,8 @@ def _respond(graph: Graph, iri: str, media_type: str, supported: tuple[str, ...]
 # namespace ever moves.
 #
 # Links are emitted path-only for a second reason: a persisted IRI names
-# rosfeatr.eu, but a dev reader answers on localhost:8001, so an absolute link
-# would send a developer's click to the public internet. This is the server-side
+# rosfeatr.eu, but the reader may answer on any non-production host, so an
+# absolute link would send that click to the public site instead. This is the server-side
 # twin of the frontend's ``resolveFileUrl`` re-basing.
 _LOCAL_SPACES = tuple((ns, urlsplit(ns).path) for ns in (RFDB_BASE, RFDB_SCHEMA_BASE))
 

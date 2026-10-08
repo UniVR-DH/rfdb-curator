@@ -27,7 +27,6 @@ class DataListItem(BaseModel):
     id: str
     label: str | None = None
     labelLang: str | None = None
-    status: str = "unknown"
     updatedAt: str | None = None
 
 

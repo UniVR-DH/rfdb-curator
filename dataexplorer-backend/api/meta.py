@@ -8,6 +8,8 @@ Currently exposes:
 These back the read-only Data Context Panel (see TODO.md).
 """
 
+import time
+
 from fastapi import APIRouter, HTTPException, Request
 
 from core.config import settings
@@ -147,9 +149,9 @@ def get_graphs(request: Request):
 def get_file_stats(request: Request):
     """Return digital-copy storage stats for the Data Context Panel.
 
-    Mirrors the reconciler's view (``scripts/cleanup_files.py``): RDF is the
-    source of truth, storage is compared against it. Orphan counts > 0 signal
-    it is time to run the cleanup script.
+    Mirrors the reconciler's view (``curator-backend/scripts/cleanup_files.py``):
+    RDF is the source of truth, storage is compared against it. Orphan counts > 0
+    signal it is time to run the cleanup script.
 
     Returns:
         ``{"configured": bool,
@@ -160,11 +162,9 @@ def get_file_stats(request: Request):
            "unreferencedStaged": int,   # abandoned uploads awaiting TTL
            "unreferencedRegistered": int}``
 
-    ``configured: false`` (storage credentials absent) returns zeroed stats
+    ``configured: false`` (no ``S3_ENDPOINT`` set) returns zeroed stats
     instead of an error so the panel renders in storage-less deployments.
     """
-    import time
-
     if not settings.s3_endpoint:
         empty = {"count": 0, "bytes": 0}
         return {
