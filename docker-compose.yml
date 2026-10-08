@@ -2,9 +2,9 @@
 #
 # Development stack for RossijskijFeatrDB.
 #
-# Dev-only flags (--reload, source bind-mounts) live here.  Any settings
-# that must also apply in staging/production belong in a dedicated compose
-# override or an environment-specific file.
+# Dev-only flags (--reload, source bind-mounts) live here.  Production is
+# docker-compose.prod.yml, a separate file rather than an override of this one,
+# so a setting that must hold in both belongs in both.
 #
 # Usage:
 #   docker compose up --build          # first run or after Dockerfile changes
@@ -79,8 +79,8 @@ services:
       # `CMD oxigraph --help` resolves to ENTRYPOINT + ["--help"], exits
       # 0 immediately, and proves the process is alive.
       # This is a LIVENESS check only — it does not verify the HTTP port.
-      # HTTP readiness is handled in app.py's lifespan, which polls
-      # OxigraphClient.health() before any reset/seed call.
+      # HTTP readiness is handled in curator-backend/app.py's lifespan, which
+      # polls TripleStore.health() before any reset/seed call.
       test: ["CMD", "/usr/local/bin/oxigraph", "--help"]
       interval: 5s
       timeout: 3s
@@ -151,6 +151,9 @@ services:
         # one-time `scripts/garage-init.sh` before uploads work.
         condition: service_healthy
     environment:
+      # Which TripleStore implementation to build; matches the code default and
+      # docker-compose.prod.yml.
+      TRIPLESTORE: oxigraph
       # Docker-internal hostname — only used inside the container network.
       OXIGRAPH_URL: http://oxigraph:7878
       DATA_GRAPH_URI: "https://rosfeatr.eu/rdf/graph/"
@@ -234,8 +237,8 @@ services:
       retries: 12
       start_period: 10s
     # --reload is a dev-only flag enabling uvicorn's file-watcher.
-    # Remove it (or move to docker-compose.override.yml) for
-    # staging/production — it adds overhead and is not safe in production.
+    # docker-compose.prod.yml runs without it: it adds overhead and is not safe
+    # in production.
     #
     # --reload-dir is required, not decorative: passing it at all replaces
     # uvicorn's default (watch the cwd), so /app must be listed explicitly.
@@ -271,16 +274,19 @@ services:
         condition: service_healthy
       garage:
         # Only orders startup: the boto3 client connects lazily, and this service
-        # tolerates storage being absent (GET /api/meta/files reports
-        # configured: false rather than erroring).
+        # tolerates storage being absent (GET /api/v1/dataexplorer/meta/files
+        # reports configured: false rather than erroring).
         condition: service_healthy
     environment:
       # Must match curator-backend's OXIGRAPH_URL and DATA_GRAPH_URI, or this
       # service will correctly report an empty store.
+      TRIPLESTORE: oxigraph
       OXIGRAPH_URL: http://oxigraph:7878
       DATA_GRAPH_URI: "https://rosfeatr.eu/rdf/graph/"
-      OXIGRAPH_LOAD_TIMEOUT: "${OXIGRAPH_LOAD_TIMEOUT:-300}"
       SCHEMA_PATH: /app/schema/schema.ttl
+      # No OXIGRAPH_LOAD_TIMEOUT: it bounds bulk Turtle loads, and this service
+      # never loads any.
+      #
       # No VOCAB_PATH / DATA_PATH / RESET_DATA_ON_STARTUP / SEED_* / READ_ONLY /
       # MAX_UPLOAD_MB: every one of those is a write concern, and this service's
       # Settings does not define them.
@@ -296,7 +302,6 @@ services:
       S3_BUCKET: "${S3_BUCKET:-sources}"
       S3_ACCESS_KEY_ID: "${S3_ACCESS_KEY_ID:-}"
       S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY:-}"
-      # Both frontends read from this service, so both dev origins are allowed.
       # NOT needed by this stack's own frontends: they issue same-origin
       # requests through the Vite proxy, so nothing here has to be edited to
       # browse the stack from another host. This list is for clients that do go
@@ -417,9 +422,10 @@ services:
   # Explorer — read-only graph visualizer (Vite dev server)
   # --------------------------------------------------------------------------
   # A pure frontend: it talks only to a backend's /api. Deployable standalone
-  # (point VITE_API_BASE at any read service); here it rides the dev stack and
-  # proxies /api to dataexplorer-backend. It depends on the reader, not the
-  # curator — the explorer issues nothing but reads, which is what lets it keep
+  # (point VITE_API_BASE at any read service that exposes /api/v1/dataexplorer);
+  # here it rides the dev stack and proxies the reader's prefixes to
+  # dataexplorer-backend. It
+  # depends on the reader, not the curator — the explorer issues nothing but reads, which is what lets it keep
   # working with the write tier stopped.
   graphexplorer-frontend:
     build:
@@ -434,10 +440,9 @@ services:
         condition: service_healthy
     environment:
       # No browser-facing base URLs, same as curator-frontend and for the same
-      # reason: the client is relative in dev and the Vite server proxies both
-      # /api and /rdf onward by prefix, so requests follow whatever origin
-      # served the page. Entity HTML pages (/rdf/data/{id}) used to need an
-      # absolute base here because only /api was proxied; that rule now exists.
+      # reason: the client is relative in dev and the Vite server proxies
+      # /api/v1/dataexplorer and /rdf onward by prefix, so requests follow
+      # whatever origin served the page.
       #
       # Vite dev-server proxy target (inside Docker → service name, not localhost).
       VITE_PROXY_TARGET: http://dataexplorer-backend:8001

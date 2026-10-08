@@ -63,7 +63,7 @@ services**, or the reader will correctly report an empty store.
 | `LOG_FILE`, `LOG_LEVEL`, `TRUNCATE_LOG_ON_STARTUP`, `TRUNCATE_LOG_ON_FRESH_CONTAINER_START` | both | Yes / No | Structured JSON-lines logging. Each service writes to its own volume. |
 | `VOCAB_PATH` | **curator** | Yes | Path to `vocab.ttl` (controlled-vocabulary seed). Loaded at startup when `SEED_VOCAB_ON_STARTUP=true`. |
 | `DATA_PATH` | **curator** | Yes | Path to `data.ttl` (test fixture data). Loaded at startup only when `SEED_TEST_DATA_ON_STARTUP=true`. |
-| `RESET_DATA_ON_STARTUP` | **curator** | Yes | `true`/`false`. Destructive: clears the named graph before seeding on every startup. Must be `false` in production. |
+| `RESET_DATA_ON_STARTUP` | **curator** | Yes | `true`/`false`. Destructive: wipes every graph in the store before seeding on every startup. Must be `false` in production. |
 | `SEED_VOCAB_ON_STARTUP` | **curator** | Yes | `true`/`false`. Load `VOCAB_PATH` on every startup. Should be `true` in all environments. |
 | `SEED_TEST_DATA_ON_STARTUP` | **curator** | Yes | `true`/`false`. Load `DATA_PATH` on startup. `true` in dev/test only. |
 | `READ_ONLY` | **curator** | No | `true`/`false`. When `true`, rejects `POST /api/v1/curator/entities` and `DELETE /api/v1/curator/entities/{entityId}` with HTTP 403. Reads are unaffected — they are on the other service. Default: `false`. |

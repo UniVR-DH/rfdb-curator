@@ -33,7 +33,7 @@
 # ⚠ In read mode the editor is absent, so the proxy has no upstream for `/` or
 # `/api/v1/curator/*`. Point a read-only host's root at the explorer instead:
 #   RFDB_ROOT_UPSTREAM=graphexplorer-frontend:80
-# and build that image with VITE_BASE_PATH=/ (see proxy/Caddyfile).
+# and build that image with VITE_EXPLORER_BASE_PATH=/ (see proxy/Caddyfile).
 #
 # ⚠ INVARIANT: every `depends_on` target must be a base service, so no
 # dependency crosses into an inactive profile. Compose versions disagree on
@@ -399,6 +399,9 @@ services:
       - edge       # to be reached by proxy
     environment:
       <<: [*store_env, *s3_env, *logging_env]
+      # Read timeout (seconds) for bulk Turtle loads; the ~38 MB Glottolog vocab
+      # needs well over Oxigraph's default. Writer-only, so not in store_env.
+      OXIGRAPH_LOAD_TIMEOUT: "${OXIGRAPH_LOAD_TIMEOUT:-300}"
       VOCAB_PATH: '["/app/data/vocab.ttl", "/app/data/glottolog_language.ttl"]'
       DATA_PATH: /app/data/data.ttl
 
