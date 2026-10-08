@@ -9,6 +9,22 @@ on it; where an open task builds on something already shipped, that context is n
 
 ## UI
 
+- [ ] **NEW FEATURE — REQUIRES BRAINSTORM — exploration view of connected sub-editions.**
+  Given a starting entity (MusicalWork, Expression, …), show everything derived from it down the
+  chain — its Expressions, their Manifestations, the Sources/Items — as one navigable view rather
+  than node-by-node expansion in the graph explorer.
+  **Approach — SPARQL-driven templates.** Each view is a template that pairs a layout with one or
+  more SPARQL queries; the template is instantiated with the starting entity's IRI, the queries
+  run against the read path (`dataexplorer-backend`), and the layout is hydrated with the result
+  bindings. New views are then added by writing a query + template, not new frontend code.
+  Open questions:
+  - which entity types can be the starting point, and one template per type or a shared one;
+  - which relations count as "sub-edition" (e.g. `lrmoo:R4_embodies`, `R76_is_derivative_of`) —
+    encoded in the queries, so changeable without code;
+  - template format and where templates live (files in the repo vs. RDF in the schema graph);
+  - safety: only parameterised, read-only queries (SELECT/CONSTRUCT) with the IRI bound, never
+    user-supplied SPARQL; result-size limits for large subtrees;
+  - layout: tree vs. timeline; whether it lives in the graph explorer or in the curator.
 - [ ] Auto-refresh entity lists (e.g. "has place" relations) when backend data changes behind the scenes.
 - [ ] Records pagination with a default page size of 20 (frontend side; pairs with cursor-based SPARQL pagination under [Backend](#backend)).
 - [ ] Real-time validation — debounced SHACL checking on blur/change via `POST /api/v1/curator/validate`.
@@ -58,6 +74,10 @@ on it; where an open task builds on something already shipped, that context is n
 - [ ] For a Performance, select the Venue too (not only the Place; keep Place, since it is not always known) and consider coordinates for venues.
 - [ ] Validity check on dates between MusicalWork, Expression, and Manifestation (e.g. an Expression's creation date should be after the Work's).
 - [ ] Model corago-style "Fonte Per": a work derived from another work.
+- [ ] Add a link to the RISM ID URI for Holding Organizations, Persons, and Sources.
+- [ ] Manifestation: add the editor (`rfdbs:ManifestationShape` has no editor property yet).
+- [ ] Source "Fontespizio transcription (title-page text)" (`core:text` in `rfdbs:SourceShape`): allow multiple values (drop `sh:maxCount 1`) and allow values without a language tag (`rdf:langString` or `xsd:string`, as for `rdfs:label`).
+- [ ] **REQUIRES BRAINSTORM** — MusicalWork: why is the VIAF link kept under the generic `owl:sameAs` instead of a separate dedicated property?
 
 ### Data, search & export
 
@@ -72,6 +92,7 @@ on it; where an open task builds on something already shipped, that context is n
   node's full edge list even when the client only needs a link *count*, so a cheap degree/COUNT
   (a general node-stats capability, not a bespoke route) may beat reusing `getNode` for counts.
   Profile first, then decide which — if any — are worth it. Pairs with cursor-based pagination above.
+- [ ] Verify that search autocomplete also matches on alternative labels (`skos:altLabel`), not only the primary label.
 - [ ] Smarter search ranking that favours edit distance without relying on a server-side cap or limit.
 - [ ] Bulk import (Excel/CSV → RDF).
 - [ ] Data export (RDF, JSON-LD, CSV) — the triples-only export, distinct from the full snapshot below.
