@@ -123,7 +123,7 @@ export default function Inspector({ node, edges, nodesById, onSelectNeighbor, on
 
         {!node.expanded && !node.loading && (
           <p className="picker-empty">
-            Use the node’s “Expand links” button to load its relations.
+            Use the node’s “Expand” or link-count button to load its relations.
           </p>
         )}
       </div>

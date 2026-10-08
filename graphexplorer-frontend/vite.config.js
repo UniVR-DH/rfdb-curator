@@ -8,7 +8,9 @@ import react from '@vitejs/plugin-react'
 // Both prefixes share one upstream, because everything this app touches is a
 // read. They stay separate rules because they are separate contracts (the same
 // two proxy/Caddyfile routes): /api/v1/dataexplorer is the versioned
-// operational surface, /rdf is the public permanent data space.
+// operational surface, /rdf is the public permanent data space. Only the
+// reader's API prefix is proxied, as at the edge, so a request to any other
+// /api path fails here the way it would in production.
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
@@ -16,6 +18,11 @@ export default defineConfig(({ mode }) => {
   // Docker service name. Override with VITE_PROXY_TARGET when running the
   // backend elsewhere (e.g. http://localhost:8001 on host).
   const read = env.VITE_PROXY_TARGET || 'http://dataexplorer-backend:8001'
+
+  // index.html uses %VITE_APP_TITLE%, which Vite leaves literal when the
+  // variable is unset, so a bare `npm run dev` gets the same default the
+  // Dockerfile and compose set.
+  process.env.VITE_APP_TITLE = env.VITE_APP_TITLE || 'RFDB Explorer'
 
   return {
     plugins: [react()],
@@ -28,7 +35,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5174,
       proxy: {
-        '/api': { target: read, changeOrigin: true },
+        '/api/v1/dataexplorer': { target: read, changeOrigin: true },
         // Entity HTML pages and file content, reached by page navigation.
         '/rdf': { target: read, changeOrigin: true },
       },

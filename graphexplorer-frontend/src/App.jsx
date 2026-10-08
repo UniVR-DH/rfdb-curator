@@ -4,9 +4,9 @@
  * App owns all state and the graph model. It hydrates the prefix map + SHACL
  * schema (labels, colours, relation names all come from the schema — nothing
  * domain-specific is baked in) once, then builds the graph incrementally: each
- * node the user opens is fetched from GET /api/graph/node (schema-defined
- * inbound/outbound relations), its neighbours are added as collapsed nodes, and
- * clicking one expands it in turn. A ?id=<iri> query param deep-links straight to
+ * node the user opens is fetched from GET /api/v1/dataexplorer/graph/node
+ * (schema-defined inbound/outbound relations), its neighbours are added as
+ * collapsed nodes, and each node's own button expands it in turn. A ?id=<iri> query param deep-links straight to
  * a node — the editor uses this to "open in Explorer".
  *
  * Child components are presentational: GraphView renders the model with React
@@ -21,7 +21,7 @@ import { compactIri, hydratePrefixes } from './utils/prefixes.js'
 import { entityKind, hydrateSchema, isBridgeType, predicateLabel } from './utils/types.js'
 
 // Deployment-branding only; the code itself is domain-agnostic.
-const APP_TITLE = import.meta.env.VITE_APP_TITLE || 'Graph Explorer'
+const APP_TITLE = import.meta.env.VITE_APP_TITLE || 'RFDB Explorer'
 
 function stubNode(id) {
   return {
@@ -298,7 +298,7 @@ export default function App() {
               <h2>Explore the graph</h2>
               <p>
                 Pick a record to see how it connects — the entities it links to, and the ones
-                that link back. Click any node to expand it.
+                that link back. Use a node's Expand button to follow its links.
               </p>
               {ready ? (
                 <SourcePicker

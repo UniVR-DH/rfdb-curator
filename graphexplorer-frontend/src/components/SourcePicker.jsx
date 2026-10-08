@@ -1,15 +1,15 @@
 /**
  * Entity search box that seeds (or re-seeds) the graph.
  *
- * Defaults to searching Sources but offers a type dropdown of all standalone
- * entities, so exploration can start from any record. Calls the same
- * /api/entities/search endpoint the editor uses; picking a result hands its IRI
- * back to App via `onPick`.
+ * Defaults to searching the first standalone-entity shape but offers a type
+ * dropdown of all of them, so exploration can start from any record. Searches
+ * through the reader's /api/v1/dataexplorer/entities/search; picking a result
+ * hands its IRI back to App via `onPick`.
  *
  * Props:
  *   shapes         [{id,label}]  standalone-entity shapes for the type dropdown
  *   defaultShapeId string        which shape to search first (first standalone entity)
- *   onPick         fn(iri)       called with the chosen entity's IRI
+ *   onPick         fn(iri, {label, types})  called with the chosen entity's IRI, label and shape class
  *   variant        'intro'|'header'  layout context
  */
 import { useEffect, useState } from 'react'

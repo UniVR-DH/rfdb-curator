@@ -19,7 +19,6 @@ export default [
       globals: {
         console: 'readonly',
         document: 'readonly',
-        history: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
         URL: 'readonly',

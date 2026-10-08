@@ -67,10 +67,6 @@ body {
   line-height: 1.5;
 }
 
-.mono {
-  font-family: var(--font-mono);
-}
-
 /* ── App shell ───────────────────────────────────────────────────── */
 
 .app {
@@ -132,17 +128,6 @@ body {
 
 .btn:hover {
   transform: translateY(-1px);
-}
-
-.btn-primary {
-  background: var(--plum);
-  border-color: var(--plum);
-  color: var(--parchment);
-}
-
-.btn-primary:hover {
-  background: var(--burgundy);
-  border-color: var(--burgundy);
 }
 
 .btn-ghost {
