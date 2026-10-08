@@ -2,11 +2,11 @@
  * Prefix compaction utility for display purposes.
  *
  * The backend returns raw full IRIs everywhere.  This module maps them to
- * their compact CURIE form (e.g. `https://example.org/data/Place_1` -> `rfdb:Place_1`)
+ * their compact CURIE form (e.g. `https://rosfeatr.eu/rdf/data/Place_1` -> `rfdb:Place_1`)
  * for every place in the UI where a human-readable identifier is shown.
  *
- * The prefix map is no longer hardcoded here.  It is hydrated at app startup
- * via `hydratePrefixes()`, which receives the response from `GET /api/meta/prefixes`.
+ * The prefix map is hydrated at app startup via `hydratePrefixes()`, which
+ * receives the response from `GET /api/v1/dataexplorer/meta/prefixes`.
  * The authoritative source is the rdflib graph parsed from schema.ttl on the backend.
  *
  * See App.jsx for the startup fetch and hydration call.
@@ -19,7 +19,7 @@ export const prefixMap = {}
  * Populate the prefix map from the backend response.
  * Should be called once at app startup before any IRI compaction is needed.
  *
- * @param {Record<string, string>} map - Flat object from GET /api/meta/prefixes.
+ * @param {Record<string, string>} map - Flat object from GET /api/v1/dataexplorer/meta/prefixes.
  */
 export function hydratePrefixes(map) {
   Object.assign(prefixMap, map)

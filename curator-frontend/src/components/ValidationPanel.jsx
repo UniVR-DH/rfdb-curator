@@ -3,7 +3,7 @@
  *
  * Three sections:
  *   Inspector  - shows the compact IRI and label of the selected record,
- *                then fetches its triples from GET /api/v1/dataexplorer/entities/{id}.
+ *                then fetches its triples from GET /api/v1/dataexplorer/entities/get?id=.
  *   Validation - renders the SHACL report from the last form save.
  *                Each violation shows the property path + message.
  *   Triples    - lists every {predicate, object} triple for the entity.

@@ -8,10 +8,10 @@
  * DROP/CLEAR/delete, so it is safe under the read-only editor flag.
  *
  * Data sources:
- *   - Graphs / counts / warnings: GET /api/meta/graphs (fetched lazily on open,
+ *   - Graphs / counts / warnings: GET /api/v1/dataexplorer/meta/graphs (fetched lazily on open,
  *     refetched via the Refresh button).
- *   - File storage: GET /api/meta/files (same lazy fetch/refresh) — digital-copy
- *     staged/registered counts and orphan indicators; orphans > 0 means it is
+ *   - File storage: GET /api/v1/dataexplorer/meta/files (same lazy fetch/refresh),
+ *     digital-copy staged/registered counts and orphan indicators; orphans > 0 means it is
  *     time to run scripts/cleanup_files.py.
  *   - Prefixes: the already-hydrated prefixMap from utils/prefixes.js (no fetch).
  */

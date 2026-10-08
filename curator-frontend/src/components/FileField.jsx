@@ -38,11 +38,12 @@ function entryFileId(entry) {
 /**
  * Download link for one entry, correct for either lifecycle state.
  *
- * The two states live on different services, and each entry already carries the
- * right relative path for its own state: a freshly staged node gets its
- * `contentUrl` from `stageFile` (the writer's preview path), while an entry
- * loaded from a saved record gets the persisted published path. So resolving the
- * node's own `contentUrl` is enough — no need to track which one this is.
+ * The two states live on different services, and each entry's `contentUrl`
+ * already identifies its own state: a freshly staged node gets the writer's
+ * relative preview path from `stageFile`, while an entry loaded from a saved
+ * record carries the absolute published URI, which `resolveFileUrl` rebases
+ * onto the reader. So resolving the node's own `contentUrl` is enough, with no
+ * need to track which state this is.
  *
  * Falls back to the published route when a node carries no `contentUrl`.
  */

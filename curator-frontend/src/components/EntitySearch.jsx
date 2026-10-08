@@ -2,7 +2,7 @@
  * Async autocomplete widget for entity-type relation fields (sh:class / sh:node).
  *
  * Wraps react-select AsyncSelect; options come from
- * GET /api/entities/search?shape=<targetShape>&query=<text>.
+ * GET /api/v1/dataexplorer/entities/search?shape=<targetShape>&query=<text>.
  *
  * Behaviour:
  *   - defaultOptions is set so the dropdown pre-populates on focus even before
@@ -21,9 +21,7 @@
  *   name     {string=}   - Override field path (required for nested/AnonymousEntityEditor usage)
  */
 import { useCallback } from 'react'
- 
 import { Controller } from 'react-hook-form'
- 
 import AsyncSelect from 'react-select/async'
 import { apiClient } from '../api/client.js'
 import { compactIri } from '../utils/prefixes.js'

@@ -1,36 +1,30 @@
 /**
  * JSON-LD entity builder: converts react-hook-form state into a JSON-LD object.
  *
- * The form state produced by react-hook-form is a plain nested JS object with
- * one key per field path (e.g. `{"rdfs:label.__value": "Libretto", ...}`).  This
- * module normalises that into valid JSON-LD that the backend expects.
+ * The form state produced by react-hook-form is a plain nested JS object keyed by
+ * field path; dotted field names become nested objects (e.g.
+ * `{"rdfs:label": {"__value": "Libretto", "__lang": "en"}}`).  This module
+ * normalises that into valid JSON-LD that the backend expects.
  *
  * Field type → JSON-LD representation:
- *   - `lang-string`   → `{"@value": "...", "@language": "en"}`
- *   - `year`          → `{"@value": "1736", "@type": "xsd:gYear"}`
- *   - `number`        → `{"@value": "42", "@type": "xsd:decimal"}`
- *   - `uri`           → `{"@id": "https://..."}`
- *   - `entity-search` → `{"@id": "rfdb:Place_abc"}` (from AsyncSelect option)
- *   - `nested`        → inline node with skolemized `@id` (AgentRole pattern)
- *   - `text` / other  → plain string
+ *   - `lang-string`      → `{"@value": "...", "@language": "en"}`
+ *   - `lang-string-list` → array of `{"@value": "...", "@language": "..."}`, keyed by full IRI
+ *   - `year`             → `{"@value": "1736", "@type": "xsd:gYear"}`
+ *   - `temporal`         → `{"@value": "...", "@type": ...}` typed by precision
+ *                          (xsd:gYear / xsd:gYearMonth / xsd:date, else xsd:string)
+ *   - `number`           → `{"@value": "42", "@type": "xsd:decimal"}`
+ *   - `uri`              → `{"@id": "https://..."}`
+ *   - `entity-search`    → `{"@id": "rfdb:Place_abc"}` (from AsyncSelect option)
+ *   - `nested`           → inline node whose `@id` is an rfdb: IRI minted by the
+ *                          frontend (AnonymousEntityEditor, AgentRole pattern)
+ *   - `file-list`        → inline schema:DigitalDocument nodes (FileField entries)
+ *   - `text` / other     → plain string
  *
- * Entry point: `buildJsonLdEntity()`.  All other exports in this file are
- * internal helpers.
+ * `buildJsonLdEntity()` is the only export; everything else is an internal helper.
  *
  * --- IMPORTANT: CREATE vs UPDATE ---
- * - buildJsonLdEntity must include @id in the output if present in the form data.
- * - If @id is missing, the backend will always create a new entity.
- * - This is critical for update flows: always ensure @id is present in the payload for edits.
- */
-
-/**
- * JSON-LD `@context` block included in every entity payload sent to POST /api/v1/curator/entities.
- *
- * Previously a hardcoded object literal duplicating PREFIX_MAP in utils/prefixes.js.
- * Now reads from the shared `prefixMap` hydrated at startup from GET /api/meta/prefixes,
- * so both the compaction display logic and the JSON-LD context stay in sync automatically.
- *
- * See App.jsx for the startup fetch and hydration call.
+ * - If @id is missing, the backend will always create a new entity, so the
+ *   payload for an edit must carry it (see `buildJsonLdEntity`).
  */
 import { prefixMap } from './prefixes.js'
 
@@ -321,7 +315,7 @@ export function buildJsonLdEntity(shape, fields, rawFormData) {
     const rawValue = rawFormData[field.path]
     // --- LangStringList: uses field.pathUri (full IRI) as the JSON-LD key ---
     // All other field types use field.path (CURIE form, e.g. "rdfs:label") because
-    // the JSONLD_CONTEXT @context block resolves CURIEs to full IRIs on the backend.
+    // the prefixMap @context block resolves CURIEs to full IRIs on the backend.
     // lang-string-list uses field.pathUri (the already-expanded IRI) instead because
     // the backend's JSON-LD parser requires the full IRI for multi-valued language-tagged
     // properties when the array is emitted directly without a CURIE key.

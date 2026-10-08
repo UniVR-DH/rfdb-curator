@@ -387,7 +387,7 @@ export default function ShapeForm({
       if (formSchema.shape.typeOptions?.length > 0) {
         defaults.__typeChoice = ''
       }
-      if (!ignore) hydrateReset(defaults)
+      hydrateReset(defaults)
       return () => {
         ignore = true
       }
@@ -411,10 +411,8 @@ export default function ShapeForm({
 
     if (nestedFields.length === 0 && entitySearchFields.length === 0 && fileFields.length === 0) {
       // Nothing async needed — reset straight away
-      if (!ignore) {
-        hydrateReset(mapped)
-        setHydration({ record, failed: [] })
-      }
+      hydrateReset(mapped)
+      setHydration({ record, failed: [] })
       return () => {
         ignore = true
       }
@@ -559,11 +557,9 @@ export default function ShapeForm({
     return () => {
       ignore = true
     }
-    // NOTE: `allShapes` and `resolveEntityLabel` are intentionally omitted from the
-    // dependency array. `allShapes` rarely changes after initial load and re-running
-    // the effect when it does would reset unsaved form edits. `resolveEntityLabel` is
-    // a stable function in practice (defined once per render, not memoized). If
-    // either causes stale-closure bugs in a future refactor, add them here.
+    // The dependency array is intentionally limited: every re-run calls reset()
+    // and wipes unsaved edits, so `allShapes` and `resolveEntityLabel` are left
+    // out on purpose and must not be added.
   }, [record, shape, reset, formSchema, resetNonce])
 
   // Publish form edits upward as the draft for this shape so switching shapes and
