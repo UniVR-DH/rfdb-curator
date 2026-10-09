@@ -26,7 +26,6 @@ from rfdb_core.files_state import (
 from rfdb_core.schema_extractor import SchemaExtractor
 from rfdb_core.vocab import DIGITAL_COPY_SHAPE_ID, RFDB_BASE, SCHEMA_DIGITAL_DOCUMENT
 
-# parents[2] because this file sits in tests/core/ (see D2 in the refactor plan).
 SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schema" / "schema.ttl"
 
 _EXTRACTOR = SchemaExtractor(str(SCHEMA_PATH))

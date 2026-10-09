@@ -3,7 +3,7 @@
 This is the Linked Data surface — the reason RFDB's persisted IRIs are worth
 calling identifiers. An entity IRI is ``https://rosfeatr.eu/rdf/data/{name}`` and
 production serves that host, so visiting the identifier has to return the resource
-(D9). Two properties therefore matter more than the response bodies:
+(D9). Three properties therefore matter more than the response bodies:
 
   * **the negotiated variant is honest** — the ``Content-Type`` matches the payload,
     and ``Vary: Accept`` is set so a cache cannot hand one client another's format;

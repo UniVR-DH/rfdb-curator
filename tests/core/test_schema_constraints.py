@@ -10,13 +10,8 @@ from rdflib import Graph
 
 from rfdb_core.schema_extractor import SchemaExtractor
 
-# parents[2] because this file now sits in tests/core/ (see D2 in the refactor plan).
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "schema" / "schema.ttl"
-
-# The sys.path.insert this used to carry is gone twice over: it pointed at
-# ROOT/"editor"/"backend", a path that has not existed in this repo for some time,
-# and schema_extractor now lives in rfdb-core, imported as an ordinary package.
 
 
 def _assert_conforms(data_graph: Graph) -> None:

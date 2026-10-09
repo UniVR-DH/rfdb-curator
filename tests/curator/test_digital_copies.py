@@ -4,10 +4,10 @@ Covers the staging route (``api/files.py``), the write-path reconciliation +
 promotion (``api/data.py``) and the cleanup reconciler
 (``scripts/cleanup_files.py``) — i.e. the write half.
 
-The download route and ``/api/v1/dataexplorer/meta/files`` moved to the read service; their
+The download route and ``/api/v1/dataexplorer/meta/files`` belong to the read service; their
 cases live in ``tests/dataexplorer/test_digital_copies_read.py``.
 
-Uses a real ``rdflib.Graph`` behind a small Oxigraph stub (queries/updates/
+Uses a real ``rdflib.Graph`` behind a small in-memory store double (queries/updates/
 constructs actually run) and the in-memory storage fake from
 ``rfdb_core.file_storage`` (no network, no ``moto``). Route handlers are called
 directly, matching ``test_backend_api_data_unit.py``.

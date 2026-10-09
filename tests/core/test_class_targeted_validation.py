@@ -15,7 +15,6 @@ from pathlib import Path
 from pyshacl import validate
 from rdflib import Graph
 
-# parents[2] because this file now sits in tests/core/ (see D2 in the refactor plan).
 SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schema" / "schema.ttl"
 
 _PREFIXES = """
