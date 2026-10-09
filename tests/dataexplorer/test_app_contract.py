@@ -7,7 +7,8 @@ convenient import, a route added to the wrong app, one more thing on
 
 Covers the acceptance criteria for Task 5 of the modular-services refactor:
 exactly three ``app.state`` entries, no write route, no validator, ``/shapes``
-unstamped (decision D3), and ``/health`` without a ``seed`` key.
+stamped with ``readOnly`` like the curator's (decision D11, which reverses D3),
+and ``/health`` without a ``seed`` key.
 """
 
 from __future__ import annotations

@@ -1,9 +1,8 @@
 """Conformance suite for the ``TripleStore`` seam.
 
-This is the "conformance test suite each backend must pass" that ``TODO.md`` asks
-for alongside decoupling from the triplestore. Any future implementation
-(Fuseki/Jena, GraphDB, Qlever, RDF4J, an embedded library) should be added to
-``STORE_FACTORIES`` and must pass everything here unchanged.
+Every ``TripleStore`` implementation must pass this suite unchanged. Any future
+implementation (Fuseki/Jena, GraphDB, Qlever, RDF4J, an embedded library) should
+be added to ``STORE_FACTORIES``.
 
 Three tiers, deliberately:
 

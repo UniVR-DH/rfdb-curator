@@ -4,12 +4,12 @@ The canonical live HTTP integration suite: it exercises the running stack over
 real HTTP, including request parsing, route wiring, write/read logic and Oxigraph
 persistence.
 
-**It now spans two services.** Writes go to curator-backend
+**It spans two services.** Writes go to curator-backend
 (``RFDB_API_BASE_URL``, :8000) and the read-back verification goes to
-dataexplorer-backend (``RFDB_READ_API_BASE_URL``, :8001). That is not incidental
-to the tests — it is the strongest thing they check after the split: a record
-written through the writer must be readable through the reader, over the same
-store, with no coordination between the two beyond that store.
+dataexplorer-backend (``RFDB_READ_API_BASE_URL``, :8001). That is the strongest
+thing the suite checks: a record written through the writer must be readable
+through the reader, over the same store, with no coordination between the two
+beyond that store.
 
 It lives under ``tests/curator/`` because writes drive every scenario; it is
 skipped unless both services answer ``/health``.
@@ -107,7 +107,7 @@ def _request_text(method: str, path: str, *, base: str = API_BASE_URL) -> tuple[
 
 
 def _read_json(path: str) -> tuple[int, dict]:
-    """GET from the READ service — reads live on dataexplorer-backend now."""
+    """GET from the READ service, dataexplorer-backend."""
     return _request_json("GET", path, base=READ_API_BASE_URL)
 
 

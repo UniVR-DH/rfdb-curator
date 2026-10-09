@@ -20,7 +20,7 @@ GRAPHS_URL = f"{META}/graphs"
 
 
 def _make_meta_app() -> FastAPI:
-    """Build a minimal FastAPI app with just the meta router mounted at /api."""
+    """Build a minimal FastAPI app with just the meta router mounted at /api/v1/dataexplorer."""
     from api.meta import router
 
     app = FastAPI()
@@ -125,7 +125,7 @@ class _StubOxigraph:
 
 
 def _make_graphs_app(oxigraph) -> FastAPI:
-    """Build a minimal FastAPI app with the meta router and a stub oxigraph client."""
+    """Build a minimal FastAPI app with the meta router and a stub store."""
     from api.meta import router
 
     app = FastAPI()

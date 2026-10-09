@@ -46,7 +46,6 @@ class TestParseVocabPaths:
     def setup_method(self):
         # Re-import with a clean environment for each test.
         sys.modules.pop("core.config", None)
-        sys.modules.pop("config", None)
 
     def _make_settings(self, vocab_path_value: str, monkeypatch):
         monkeypatch.setenv("OXIGRAPH_URL", "http://localhost:7878")
