@@ -134,8 +134,8 @@ globs or `find -delete`. Confirm with the user before deleting any non-`.temp/`
 file, tracked or untracked, showing the exact paths first.
 
 **This covers data, not just files.** `docker compose down -v` drops the
-Oxigraph and Garage volumes, `RESET_DATA_ON_STARTUP=true` clears the named
-graph on every startup, and a loose `DELETE WHERE` destroys triples. All three
+Oxigraph and Garage volumes, `RESET_DATA_ON_STARTUP=true` wipes the whole
+store on every startup, and a loose `DELETE WHERE` destroys triples. All three
 are deletions and need the same explicit approval, plus a check of what is
 about to go (run the equivalent `SELECT` and report the count first). See
 `build-commands.md` → "Seeding and Data Reset".

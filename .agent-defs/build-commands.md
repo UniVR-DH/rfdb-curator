@@ -73,7 +73,7 @@ How triples get into the store — the thing to check first when reads come back
   deployment gets populated: no writer process is up to seed on startup.
 - **Idempotent.** `vocab.ttl` merges rather than replaces, so re-running is safe.
 
-**`RESET_DATA_ON_STARTUP=true` is destructive** — it clears the named graph before every seed,
+**`RESET_DATA_ON_STARTUP=true` is destructive** — it wipes the whole store (every named graph and the default graph) before every seed,
 and it must stay `false` in production. Treat setting it, like `docker compose down -v`, as a
 deletion requiring explicit approval ([repo-specific.md](repo-specific.md) → "Deletion is scoped"). Back up volumes first; the tarball
 procedure is in [../docs/deployment.md](../docs/deployment.md) → "Ongoing operations".
