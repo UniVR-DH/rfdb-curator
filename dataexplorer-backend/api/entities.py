@@ -17,6 +17,11 @@ from fastapi import APIRouter, HTTPException, Query, Request
 router = APIRouter()
 
 
+def _local_name(iri: str) -> str:
+    """The part of an IRI after its last ``#`` or ``/``."""
+    return iri.rsplit("#", 1)[-1].rsplit("/", 1)[-1]
+
+
 @router.get("/entities/search")
 def search_entities(
     request: Request,
@@ -26,8 +31,8 @@ def search_entities(
 ):
     """Search for entities that conform to a given SHACL shape.
 
-    The `shape` parameter accepts either the full shape URI or just the local
-    name suffix (e.g., `"PlaceShape"`) for convenience.  The target class is
+    The `shape` parameter accepts either the full shape URI or its exact local
+    name (e.g., `"PlaceShape"`) for convenience; anything else is a 404.  The target class is
     resolved from the shape metadata so the SPARQL query is always correct.
 
     Text matching is case-insensitive regex over both the primary label and
@@ -37,10 +42,12 @@ def search_entities(
     """
     extractor = request.app.state.schema_extractor
 
-    # Resolve shape by label suffix if a full URI is not provided
+    # Match the full URI or the whole local name, never a suffix: with a suffix
+    # match "RoleShape" also hits "AgentRoleShape", and which one wins depends
+    # on the order of the shapes in schema.ttl.
     all_shapes = extractor.get_all_shapes()
     matched = next(
-        (s for s in all_shapes if s["id"] == shape or s["id"].endswith(shape)),
+        (s for s in all_shapes if shape in (s["id"], _local_name(s["id"]))),
         None,
     )
     if matched is None:
