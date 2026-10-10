@@ -6,8 +6,9 @@
  * domain-specific is baked in) once, then builds the graph incrementally: each
  * node the user opens is fetched from GET /api/v1/dataexplorer/graph/node
  * (schema-defined inbound/outbound relations), its neighbours are added as
- * collapsed nodes, and each node's own button expands it in turn. A ?id=<iri> query param deep-links straight to
- * a node — the editor uses this to "open in Explorer".
+ * collapsed nodes, and each node's own button expands it in turn. A ?id=<iri>
+ * query param deep-links straight to a node — the editor uses this to "open in
+ * Explorer".
  *
  * Child components are presentational: GraphView renders the model with React
  * Flow + elk; Inspector shows the selected node; SourcePicker seeds it.
@@ -298,7 +299,7 @@ export default function App() {
               <h2>Explore the graph</h2>
               <p>
                 Pick a record to see how it connects — the entities it links to, and the ones
-                that link back. Use a node's Expand button to follow its links.
+                that link back. Use the Expand button on a node to follow its links.
               </p>
               {ready ? (
                 <SourcePicker
