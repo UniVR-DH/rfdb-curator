@@ -57,6 +57,7 @@ def _client(store: _CapturingStore, *, reverse: bool = False) -> TestClient:
 
 @pytest.mark.parametrize("reverse", [False, True])
 def test_local_name_resolves_exactly_whatever_the_shape_order(reverse: bool) -> None:
+    """Resolve an exact local shape name correctly regardless of shape order."""
     store = _CapturingStore()
     response = _client(store, reverse=reverse).get(SEARCH_URL, params={"shape": "RoleShape"})
 
