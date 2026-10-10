@@ -9,8 +9,9 @@ import react from '@vitejs/plugin-react'
 // read. They stay separate rules because they are separate contracts (the same
 // two proxy/Caddyfile routes): /api/v1/dataexplorer is the versioned
 // operational surface, /rdf is the public permanent data space. Only the
-// reader's API prefix is proxied, as at the edge, so a request to any other
-// /api path fails here the way it would in production.
+// reader's API prefix is proxied, so no other /api path reaches a backend.
+// Unlike the edge, there is no catch-all 404: Vite's SPA fallback answers
+// an unmatched /api path with index.html and a 200.
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
