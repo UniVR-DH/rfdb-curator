@@ -103,14 +103,14 @@ docker compose run --rm --no-deps curator-frontend npm run build
 
 ### pre-commit setup
 
-The repository's hooks live in `.githooks/`; enable them once per clone. `pre-commit
-install` refuses once `core.hooksPath` is set, so the tracked `pre-commit` hook runs
-`.pre-commit-config.yaml` itself (ruff check, ruff format, prefix-map coverage) whenever
-the `pre-commit` tool works, and warns when it does not:
+All commit checks run from `.pre-commit-config.yaml`: the commit message format, no
+machine-local absolute paths, ruff check, ruff format, and prefix-map coverage. The
+scripts behind the first two live in `scripts/hooks/`. Install the hooks once per clone;
+the one command installs the `commit-msg` hook too:
 
 ```bash
-git config core.hooksPath .githooks
 uv tool install pre-commit
+pre-commit install
 ```
 
 Run all hooks manually:
