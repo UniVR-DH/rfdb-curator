@@ -2,16 +2,26 @@
 #
 # Refuse a commit that adds a machine-local absolute path: where this clone
 # lives, the committer's home directory, or anyone's home on macOS or Windows
-# (a name under the Users directory). The path exists on one machine only, so
-# to everyone else it is a dangling reference, and it publishes the account name
-# it contains besides. Write paths relative to the repository root instead.
+# (a name under the Users directory), as the scaffold and the audit do. The
+# path exists on one machine only, so to everyone else it is a dangling
+# reference, and it publishes the account name it contains besides. Write
+# paths relative to the repository root instead.
 #
 # Only added lines are checked, so a file that already carries such a path can
 # still be edited. Where content genuinely has to hold one, commit it by hand
 # with --no-verify.
 #
-# Enable once per clone:
-#     git config core.hooksPath .githooks
+# Install once per clone, as a link, so the hooks already in .git/hooks keep
+# running:
+#     ln -s ../../.githooks/pre-commit .git/hooks/pre-commit
+
+# A hook this one replaced in .git/hooks is kept as pre-commit.legacy: run it
+# first. Not when this is that copy, as after `pre-commit install`.
+legacy="$(git rev-parse --git-common-dir)/hooks/pre-commit.legacy"
+case $0 in
+    *.legacy) ;;
+    *) if [ -x "$legacy" ]; then "$legacy" "$@" || exit $?; fi ;;
+esac
 
 root=$(git rev-parse --show-toplevel) || exit 1
 
@@ -34,17 +44,6 @@ if [ -n "$found" ]; then
     printf '%s\n' "$found" >&2
     echo "Write it relative to the repository root instead." >&2
     exit 1
-fi
-
-# core.hooksPath makes `pre-commit install` refuse, so a repository's
-# .pre-commit-config.yaml is chained here instead, when the tool runs.
-# Probed with --version, not `command -v`: a pyenv shim exists even
-# where it cannot run.
-if [ -f "$root/.pre-commit-config.yaml" ]; then
-    if pre-commit --version >/dev/null 2>&1; then
-        exec pre-commit run --hook-stage pre-commit
-    fi
-    echo "pre-commit: .pre-commit-config.yaml was not run, the pre-commit tool does not work here" >&2
 fi
 
 exit 0
