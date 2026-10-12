@@ -172,8 +172,8 @@ to the changed areas.
 ### Ruff hook
 
 The repo tracks `.pre-commit-config.yaml` (ruff lint + format, scoped to every
-Python workspace member plus `tests/`, and the prefix-map coverage check). `.githooks/pre-commit` runs it when the
-`pre-commit` tool is installed; run it manually with
+Python workspace member plus `tests/`, and the prefix-map coverage check). It runs on
+every commit once `pre-commit install` has run in the clone; run it manually with
 `pre-commit run --all-files`. It does not run the test suites.
 
 The hooks run `uv run --offline ruff …` **from the repo root**, matching CI. Since
