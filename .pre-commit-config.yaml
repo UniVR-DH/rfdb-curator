@@ -1,8 +1,13 @@
-# Pre-commit hooks — the same ruff checks CI does, plus prefix-map coverage.
-# Setup (once per clone; needs uv and pre-commit on PATH):
-#   git config core.hooksPath .githooks
-# `pre-commit install` refuses once core.hooksPath is set; .githooks/pre-commit
-# runs this file itself whenever the pre-commit tool works.
+# Checks run on every commit: the commit message format, no machine-local
+# absolute paths, the same ruff checks CI does, and prefix-map coverage.
+# Install them once per clone, after installing the pre-commit tool
+# (https://pre-commit.com); the ruff and prefix-map hooks also need uv on PATH:
+#
+#     pre-commit install
+#
+# default_install_hook_types makes that one command install the commit-msg
+# hook too. default_stages keeps a hook added below without its own stages
+# from also running on the commit message.
 # Run manually against everything:
 #   pre-commit run --all-files
 #
@@ -18,9 +23,23 @@
 # activated-venv var so uv resolves that venv cleanly without a warning.
 # `pass_filenames: false` lets ruff pick the files (`.` = the whole repo); each
 # hook only fires when a matching .py is staged.
+minimum_pre_commit_version: "3.2.0"
+default_install_hook_types: [pre-commit, commit-msg]
+default_stages: [pre-commit]
 repos:
   - repo: local
     hooks:
+      - id: commit-msg
+        name: commit message format
+        entry: scripts/hooks/commit-msg
+        language: script
+        stages: [commit-msg]
+      - id: no-local-paths
+        name: no machine-local absolute paths
+        entry: scripts/hooks/no-local-paths
+        language: script
+        pass_filenames: false
+        always_run: true
       - id: ruff-check
         name: ruff check (workspace)
         language: system
