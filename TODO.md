@@ -58,11 +58,15 @@ on it; where an open task builds on something already shipped, that context is n
   to relate the as-in-source (Julian) value to a normalized (Gregorian) one — e.g. a
   calendar-system qualifier property, dual Julian/Gregorian properties, or a reified date node —
   plus backend conversion between the two. Spans schema (SHACL date fields), backend
-  (validation/conversion; ties into the cross-entity date-order check under
-  [Modeling & schema](#modeling--schema)), and UI (date input picks a calendar; display can show
+  (validation/conversion; ties into the deferred cross-entity date-order check under
+  [Platform & future](#platform--future)), and UI (date input picks a calendar; display can show
   both). Brainstorm the modeling and get user sign-off before implementing.
 
 ### Modeling & schema
+
+Changes that touch only the SHACL shapes or the RDF model are tracked in the
+schema repository, where `schema/schema.ttl` comes from. Items here need work
+in this repository too.
 
 - [ ] Complete the shape-role policy for nested shapes and helper records (see [architecture.md](docs/architecture.md#shape-role-policy)).
 - [ ] Entity delete orphans its bridge nodes. `DELETE /api/v1/curator/entities` removes only `<entity> ?p ?o` (`delete_entity` in [data.py](curator-backend/api/data.py)), so an `AgentRole` owned by the deleted Work stays in the store. The update path already removes a bridge node together with its link, guarded by `FILTER NOT EXISTS` for shared nodes, over the predicates from `bridge_link_predicates()`. Reuse that query shape on delete and run it before the entity delete. The frontend sends `shapeId` on delete, but the endpoint treats it as optional. See [architecture.md](docs/architecture.md#delete-behavior-and-orphaned-helper-nodes).
@@ -71,16 +75,6 @@ on it; where an open task builds on something already shipped, that context is n
 - [ ] Check bridge-node removal, re-pointing and rollback in the live editor. They are covered by `tests/curator/test_agent_role_nested.py` against an rdflib-backed store double, never against Oxigraph.
 - [ ] Improve JSON-LD handling for nested forms and repeated multilingual values.
 - [ ] Expand the controlled-vocabulary seed set.
-- [ ] Support ruoli vocali / personaggi as AgentRoles in their own right.
-- [ ] Performances need the participant roles: scenografo, coreografo, ballerini, cantanti/attori, musicisti.
-- [ ] Performances need the Source that attests them, linked to the performance (not to the work or expression). Sometimes a manifestation is the source, sometimes another source such as an anthology.
-- [ ] For a Performance, select the Venue too (not only the Place; keep Place, since it is not always known) and consider coordinates for venues.
-- [ ] Validity check on dates between MusicalWork, Expression, and Manifestation (e.g. an Expression's creation date should be after the Work's).
-- [ ] Model corago-style "Fonte Per": a work derived from another work.
-- [ ] Add a link to the RISM ID URI for Holding Organizations, Persons, and Sources.
-- [ ] Manifestation: add the editor (`rfdbs:ManifestationShape` has no editor property yet).
-- [ ] Source "Fontespizio transcription (title-page text)" (`core:text` in `rfdbs:SourceShape`): allow multiple values (drop `sh:maxCount 1`) and allow values without a language tag (`rdf:langString` or `xsd:string`, as for `rdfs:label`).
-- [ ] **REQUIRES BRAINSTORM** — MusicalWork: why is the VIAF link kept under the generic `owl:sameAs` instead of a separate dedicated property?
 
 ### Data, search & export
 
@@ -118,6 +112,10 @@ on it; where an open task builds on something already shipped, that context is n
 
 ### Platform & future
 
+- [ ] **DEFERRED — cross-entity date-order check.** E.g. an Expression's creation date should
+  be after its Work's, and a Manifestation's after its Expression's. Too specific and strict to
+  enforce now: historical dates are often approximate or uncertain. Reconsider once the
+  Julian/Gregorian modelling is settled.
 - [ ] **FUTURE — multi-user editing.** The editor assumes a single concurrent curator. No optimistic
   locking or transactions: concurrent edits to the same entity can interleave (delete-then-insert
   update flow in `curator-backend/api/data.py`), and cross-store operations (Oxigraph triples +
