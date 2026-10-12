@@ -7,6 +7,8 @@ Requires explicit permission, every time: `git commit`, `git push`, `git tag`,
 `git cherry-pick`, `git commit --amend` on anything pushed, anything that
 rewrites history, opening or updating a PR, switching branch (`git switch`,
 `git checkout <branch>`), creating one (`git switch -c`, `git branch <name>`).
+Permission to commit or push does not waive the checks: see "Verifying" in
+`working-style.md`.
 
 Free without asking, all read-only: `git status`, `git diff`, `git log`,
 `git show`, `git blame`, `git remote -v`, and `git rev-parse` (the current
@@ -135,39 +137,28 @@ Never use `--no-verify`.
 generated-with footer. The `[BOT]` marker is the convention and it is
 sufficient.
 
-## Commit identity comes from `.gitidentity`
+## Commit identity comes from the clone's git config
 
-The commit identity is recorded in `.gitidentity`, a git-config-format file in
-the repository root which `.git/config` includes:
-
-```ini
-[user]
-    name = Ada Lovelace
-    email = ada@example.org
-    signingkey = 0123456789ABCDEF
-[commit]
-    gpgsign = true
-```
-
-Wire it once per clone:
+The commit identity for this repository is set in the clone's own git config,
+which nothing commits, so a teammate who clones it never inherits someone
+else's address or key:
 
 ```sh
-git config --local include.path ../.gitidentity
+git config --local user.name "<your name>"
+git config --local user.email <your-email>
+git config --local user.signingkey <key-id>
+git config --local commit.gpgsign true
+git config --local tag.gpgsign true
 ```
 
-`.gitidentity` is gitignored on purpose: it is a per-person setting, and a
-teammate who clones the repository must not inherit someone else's address or
-key id. `.gitidentity.example` is committed as the template.
+**When the clone's own config sets `user.email` and `user.signingkey`, commit
+with it and do not ask.** Check with `git config --local --get user.email` and
+`git config --local --get user.signingkey`. A value set there is a decision
+someone made about this repository, which is exactly what a global identity is
+not.
 
-**When `.gitidentity` is present and wired, commit with it and do not ask.**
-Wired means `git config --local --get include.path` names it; a copy git does
-not read changes nothing, and the commit would go out under the global
-identity. It is a decision someone made about this repository, which is
-exactly what a global identity is not. Present but not wired: say so, and ask
-the user to run the `include.path` line above.
-
-**When it is missing, stop and ask which account and which GPG key to use, and
-wait for an answer.** Never infer it from whatever `git config` happens to
+**When either is missing, stop and ask which account and which GPG key to use,
+and wait for an answer.** Never infer it from whatever `git config` happens to
 return: a commit attributed to the wrong account or signed with the wrong key
 cannot be corrected without rewriting history. Ask once per session and reuse
 the answer for the remaining commits of that session.
