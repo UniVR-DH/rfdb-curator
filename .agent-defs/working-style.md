@@ -16,11 +16,6 @@
 
 ## Asking
 
-- **Check every prompt before working on it.** If it is ambiguous, looks
-  incomplete (a pasted brief that stops at an empty heading, a sentence cut
-  off), or looks meant for a different conversation, stop and ask before
-  reasoning, reading or running anything. Tokens are expensive, and work built
-  on a half-stated request is usually redone once the rest arrives.
 - **Ask instead of investigating, when asking is cheaper.** Surface the doubt
   as a direct question with the reason for asking. The user can usually answer
   in five seconds what would cost a long exploration to work out.
@@ -38,13 +33,24 @@
 - Verify claims before asserting them: run the check, read the file, grep for
   the symbol. Do not report something as done, fixed, or passing without having
   checked.
-- If a change is testable locally, run it before claiming success.
-  Type-checking is not a substitute for behavioural verification.
-- Say plainly when a change is unverified.
+- **The checks are a gate before a commit or push, not a note after it.**
+  Before proposing or making either, run every check this repository defines
+  for the changed files: tests, linters, formatters, build. Text inside a
+  source file, such as a string or UI copy, is code here. Type-checking is not
+  a substitute for behavioural verification.
+- **A check you cannot run still blocks.** If it needs something you may not
+  use, such as a container, a host toolchain or the network, stop before the
+  commit or push: name the check, give the exact command in a fenced block,
+  and wait for the result. "Commit and push" does not accept an unverified
+  state; ask about it, and go ahead only on a yes to that question.
+- Say what is unverified before the action it affects. After it does not count.
 - Fix root causes, not symptoms. Do not bypass a failing check to make it pass.
 
 ## Reporting
 
+- **Own a mistake plainly.** When something you did, or did not check, causes
+  a failure, say it was your error and fix it. Never suggest that the user's
+  approval shared the responsibility for a step that was yours.
 - Keep answers proportional to the question. A one-line question gets a
   one-line answer, not a structured report.
 - When the user confirms a task, acknowledge briefly and list the files

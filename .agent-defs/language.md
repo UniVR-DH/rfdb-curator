@@ -27,6 +27,16 @@ even where they break these rules.
 - **Write documentation as what to do, not as what is not needed.** "Run
   `npm ci` first" beats "no global install required". A prerequisites section
   lists prerequisites and nothing else.
+- **Put anything meant to be copied in a fenced block of its own.** A command,
+  path, URL or value the reader should paste goes in a fenced code block, one
+  command per line, with no `$` prompt, no trailing punctuation and no comment
+  that breaks when pasted. End the sentence before it with a colon. Never end a
+  sentence with a runnable command, even in backticks: "push with `git push -u
+  origin my-branch`." gets copied with the full stop, and git rejects the
+  refspec `my-branch.`. Inline backticks stay fine for naming what is not meant
+  to be run: a file, a function, a flag under discussion. A placeholder the
+  reader must replace is obviously one and invalid as typed, like
+  `<branch-name>`, never a plausible literal.
 - **Inclusive terminology**, following the ACM's *Words Matter* guidance:
   <https://www.acm.org/diversity-inclusion/words-matter>. Prefer the neutral
   term where one exists: allowlist/blocklist, primary/replica, placeholder name
