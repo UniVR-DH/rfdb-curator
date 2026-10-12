@@ -5,19 +5,19 @@
 #   <type>(<scope>): <subject> [BOT]
 #
 # Usage:
-#   .githooks/validate-commit-msg.sh -m "fix(api): guard empty metadata [BOT]"
-#   .githooks/validate-commit-msg.sh path/to/COMMIT_EDITMSG
-#   printf '%s\n' "$msg" | .githooks/validate-commit-msg.sh -
+#   scripts/hooks/validate-commit-msg.sh -m "fix(api): guard empty metadata [BOT]"
+#   scripts/hooks/validate-commit-msg.sh path/to/COMMIT_EDITMSG
+#   printf '%s\n' "$msg" | scripts/hooks/validate-commit-msg.sh -
 #
 # Exit 0 = valid, message may be committed.
 # Exit 1 = invalid, with the specific reason on stderr. Do not commit.
 # Exit 2 = usage error.
 #
-# The format itself is checked by .githooks/commit-msg, the one implementation,
-# which git runs on every commit anyway. This adds only what holds for agents
-# and not for people: the marker is required, and the description says enough.
-# It is committed beside the hook so every clone has it; git runs only the
-# hooks it has names for, so it never runs on its own.
+# The format itself is checked by scripts/hooks/commit-msg, the one
+# implementation, which pre-commit also runs on every commit where it is
+# installed. This adds only what holds for agents and not for people: the
+# marker is required, and the description says enough. Nothing runs it but an
+# agent.
 
 LC_ALL=C
 export LC_ALL

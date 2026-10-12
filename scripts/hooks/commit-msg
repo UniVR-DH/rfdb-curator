@@ -13,17 +13,9 @@
 # hook checks hand-written commits too, but when it is present it must be
 # exactly that, at the end, and the commit must carry no trailer.
 #
-# Install once per clone, as a link, so the hooks already in .git/hooks keep
-# running:
-#     ln -s ../../.githooks/commit-msg .git/hooks/commit-msg
-
-# A hook this one replaced in .git/hooks is kept as commit-msg.legacy: run it
-# first. Not when this is that copy, as after `pre-commit install`.
-legacy="$(git rev-parse --git-common-dir)/hooks/commit-msg.legacy"
-case $0 in
-    *.legacy) ;;
-    *) if [ -x "$legacy" ]; then "$legacy" "$@" || exit $?; fi ;;
-esac
+# pre-commit runs it at the commit-msg stage, as .pre-commit-config.yaml says,
+# once installed in the clone:
+#     pre-commit install
 
 # Byte-wise matching, so [a-z] means ASCII a to z in every locale.
 LC_ALL=C

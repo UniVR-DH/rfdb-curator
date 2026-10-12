@@ -11,17 +11,9 @@
 # still be edited. Where content genuinely has to hold one, commit it by hand
 # with --no-verify.
 #
-# Install once per clone, as a link, so the hooks already in .git/hooks keep
-# running:
-#     ln -s ../../.githooks/pre-commit .git/hooks/pre-commit
-
-# A hook this one replaced in .git/hooks is kept as pre-commit.legacy: run it
-# first. Not when this is that copy, as after `pre-commit install`.
-legacy="$(git rev-parse --git-common-dir)/hooks/pre-commit.legacy"
-case $0 in
-    *.legacy) ;;
-    *) if [ -x "$legacy" ]; then "$legacy" "$@" || exit $?; fi ;;
-esac
+# pre-commit runs it before every commit, as .pre-commit-config.yaml says,
+# once installed in the clone:
+#     pre-commit install
 
 root=$(git rev-parse --show-toplevel) || exit 1
 
@@ -40,7 +32,7 @@ found=$(git diff --cached --no-color --no-ext-diff -U0 --diff-filter=ACMR |
         }')
 
 if [ -n "$found" ]; then
-    echo "pre-commit: staged lines add a machine-local absolute path" >&2
+    echo "no-local-paths: staged lines add a machine-local absolute path" >&2
     printf '%s\n' "$found" >&2
     echo "Write it relative to the repository root instead." >&2
     exit 1
