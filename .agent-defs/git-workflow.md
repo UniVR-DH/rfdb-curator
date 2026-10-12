@@ -121,13 +121,15 @@ The marker goes at the end rather than the start so the subject stays parseable
 as a conventional commit, which is what changelog generators and release
 tooling expect at position 0.
 
-Validate before every commit:
+Check before every commit, after staging:
 
 ```bash
-.githooks/validate-commit-msg.sh -m "fix(api): guard empty metadata [BOT]"
+scripts/hooks/no-local-paths
+scripts/hooks/validate-commit-msg.sh -m "fix(api): guard empty metadata [BOT]"
 ```
 
-A non-zero exit means do not commit. Fix the message and re-validate. Where
+pre-commit runs the same checks where it is installed, but not every clone has
+it. A non-zero exit means do not commit. Fix the cause and check again. Where
 the harness runs the `PreToolUse` git guard, it also blocks an inline `-m`
 message without `[BOT]`, and bulk staging. Treat a block as a correct catch,
 not an obstacle to route around.
@@ -151,13 +153,14 @@ git config --local commit.gpgsign true
 git config --local tag.gpgsign true
 ```
 
-**When the clone's own config sets `user.email` and `user.signingkey`, commit
-with it and do not ask.** Check with `git config --local --get user.email` and
-`git config --local --get user.signingkey`. A value set there is a decision
-someone made about this repository, which is exactly what a global identity is
-not.
+**When the clone's own config sets `user.name`, `user.email` and
+`user.signingkey`, and `commit.gpgsign` to `true`, commit with it and do not
+ask.** Check each with `git config --local --get <key>`. A value set there is a
+decision about this repository; a missing one falls back to the global config,
+where `commit.gpgsign=false` commits unsigned without any error. `tag.gpgsign`
+gates tags, not commits.
 
-**When either is missing, stop and ask which account and which GPG key to use,
+**When any of them is missing, stop and ask which account and which GPG key to use,
 and wait for an answer.** Never infer it from whatever `git config` happens to
 return: a commit attributed to the wrong account or signed with the wrong key
 cannot be corrected without rewriting history. Ask once per session and reuse

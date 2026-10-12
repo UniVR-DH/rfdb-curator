@@ -52,7 +52,7 @@ An absolute path on this machine is local-only too: where the repository is
 cloned, anything under the home directory, the session scratchpad. It names one
 account on one computer, so it dangles for everyone else and publishes the
 account name besides. Write paths relative to the repository root, and say
-"this repository" rather than naming where it lives. `.githooks/pre-commit`
+"this repository" rather than naming where it lives. `scripts/hooks/no-local-paths`
 rejects a commit that adds one, but the rule is not to write it at all.
 
 Corollary: a `paths-ignore:` entry for a gitignored path in a CI trigger is
