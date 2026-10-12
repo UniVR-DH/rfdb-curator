@@ -3,7 +3,6 @@
 excel_out/
 validation_reports/
 .tmp/
-.temp/
 
 curator-backend/logs/*
 !curator-backend/logs/.gitkeep
@@ -90,7 +89,6 @@ cython_debug/
 
 # Agent tooling — local, per-tool state only. Agent instructions in this repo are
 # vendor-neutral (AGENTS.md + .agent-defs/); per-tool files hold no rules.
-.claude/
 .cursor/
 .aider*
 .github/copilot-instructions.md
@@ -105,12 +103,6 @@ Thumbs.db
 # Other
 .env.local
 .envrc
-
-# Per-person commit identity; see .gitidentity.example
-.gitidentity
-
-# Local agent configuration and scratch space
-CLAUDE.md
 
 # Environment and secrets
 .env.*
