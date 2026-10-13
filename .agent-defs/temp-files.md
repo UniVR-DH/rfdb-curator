@@ -46,7 +46,7 @@ reasoning in enough detail to stand on its own and cite nothing.
 The same goes for everything else the repository gitignores, such as
 `CLAUDE.md` and `.claude/`. What is forbidden is pointing at a particular
 local file, or depending on one. Naming the local-only locations to say how
-the repository is laid out, as these rules and `.gitignore` do, is not.
+the repository is laid out, as these rules do, is not.
 
 An absolute path on this machine is local-only too: where the repository is
 cloned, anything under the home directory, the session scratchpad. It names one

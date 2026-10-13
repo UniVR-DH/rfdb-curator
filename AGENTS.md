@@ -25,7 +25,7 @@ cannot both be followed, stop and ask which one applies.
 | [00-core.md](.agent-defs/00-core.md) | The binding rules in short form. Read first. |
 | [git-workflow.md](.agent-defs/git-workflow.md) | Permission, staging, commit format, commit identity, GitHub handoffs |
 | [temp-files.md](.agent-defs/temp-files.md) | `.temp/` scratch space, and never citing a local-only path |
-| [security.md](.agent-defs/security.md) | Secrets, credentials, deployment values |
+| [security.md](.agent-defs/security.md) | Secrets, credentials, network access |
 | [working-style.md](.agent-defs/working-style.md) | Scope, when to ask, verifying, reporting |
 | [code-style.md](.agent-defs/code-style.md) | Conventions, dependencies, version bumps |
 | [language.md](.agent-defs/language.md) | How to write prose in this repository |
